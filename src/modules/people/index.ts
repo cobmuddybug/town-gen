@@ -124,7 +124,7 @@ export function relationshipRows(town: Town, address: string): PanelRow[] {
     else if (f.as) about = ` — as ${f.as}`;
     else if (f.office) about = ` — ${f.office}`;
     const secret = e.knownBy !== "public" ? " (not common knowledge)" : "";
-    rows.push({ label: edgeText(town, e, address), value: [link, about + secret].filter(Boolean) as (string | PanelLink)[] });
+    rows.push({ label: edgeText(town, e, address), value: [link, about + secret].filter(Boolean) as (string | PanelLink)[], fact: `edge:${e.id}` });
   }
   if (!rows.length) rows.push({ label: "—", value: "nobody of note, yet" });
   return rows;

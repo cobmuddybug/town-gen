@@ -8,6 +8,8 @@ import { defaultModules, generate } from "../town-gen";
 import { renderMap, renderPeople } from "./map";
 import { BLOCKS, addDays, describeDate, parseDate, type Block } from "../core/calendar";
 import { occupancy } from "../modules/routines";
+import { describeHour } from "../modules/gossip";
+import { almanac, dayOf, LENSES, lensView, LISTS, placeName, search, whoKnows, type Fact, type Lens } from "./discover";
 
 const modules = defaultModules;
 const STORE = "town-gen:last";
@@ -22,6 +24,16 @@ let selected: Address | undefined;
 let view: [number, number, number, number] | undefined;
 let showPeople = false;
 try { showPeople = localStorage.getItem("town-gen:people") === "1"; } catch { /* ignore */ }
+
+// What the inspector shows: an entity, the finder, the almanac, or who knows a fact.
+type Page = "inspect" | "find" | "almanac" | "knows";
+let page: Page = "inspect";
+let fact: Fact | undefined;
+let query = "";
+let listId: string | undefined;
+let follow: Address | undefined;
+let lens: Lens = "none";
+try { lens = (localStorage.getItem("town-gen:lens") as Lens) || "none"; } catch { /* ignore */ }
 
 const esc = (s: unknown) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -65,6 +77,7 @@ function setClock(date: string, block: string) {
   try { localStorage.setItem(STORE, serialize(town)); } catch { /* ignore */ }
   syncClock();
   drawPeople();
+  drawFollow();
   drawInspector();
 }
 
@@ -119,7 +132,9 @@ function syncManor() {
 
 function select(a: Address | undefined) {
   selected = a;
+  page = "inspect";
   markMap();
+  if (lens === "thread") drawLens();
   drawInspector();
   insp.scrollTop = 0;
 }
@@ -137,6 +152,7 @@ function buildingOf(a: Address): Address | undefined {
 
 function drawMap() {
   mapEl.innerHTML = renderMap(town) +
+    `<div class="lens"><select id="lens-select" title="Colour the map by...">${LENSES.filter((l) => !l.streetOnly || town.settlement().get<MapData>("map").kind === "town").map((l) => `<option value="${l.id}"${l.id === lens ? " selected" : ""}>${esc(l.label)}</option>`).join("")}</select><div class="legend"></div></div>` +
     `<div class="zoom"><button data-zoom="in" title="Zoom in">+</button><button data-zoom="out" title="Zoom out">−</button><button data-zoom="fit" title="Fit to the settlement">◎</button></div>`;
   const svg = mapEl.querySelector("svg")!;
   if (!view) view = fitVillage();
@@ -144,6 +160,48 @@ function drawMap() {
   markMap();
   syncClock();
   drawPeople();
+  drawLens();
+  drawFollow();
+  mapEl.querySelector<HTMLSelectElement>("#lens-select")!.addEventListener("change", (ev) => {
+    lens = (ev.target as HTMLSelectElement).value as Lens;
+    try { localStorage.setItem("town-gen:lens", lens); } catch { /* ignore */ }
+    drawLens();
+  });
+}
+
+// ---- lenses and following -------------------------------------------------
+
+const f1 = (n: number) => n.toFixed(1);
+
+function drawLens() {
+  const svg = mapEl.querySelector("svg");
+  if (!svg) return;
+  svg.querySelector(".m-lens")?.remove();
+  const lv = lensView(town, lens, selected);
+  svg.querySelectorAll<SVGGElement>("g[data-address]").forEach((g) => {
+    const fill = lv.fills.get(g.dataset.address!);
+    g.querySelectorAll<SVGElement>(".m-bld").forEach((p) => { p.style.fill = lens === "none" ? "" : fill ?? "var(--map-dim,#e6e0cc)"; });
+  });
+  if (lv.lines.length) {
+    const g = lv.lines.map((l) => `<line x1="${f1(l.from[0])}" y1="${f1(l.from[1])}" x2="${f1(l.to[0])}" y2="${f1(l.to[1])}" stroke="${l.colour}" class="m-thread"><title>${esc(l.title)}</title></line>`).join("");
+    const people = svg.querySelector(".m-people");
+    const html = `<g class="m-lens">${g}</g>`;
+    if (people) people.insertAdjacentHTML("beforebegin", html); else svg.insertAdjacentHTML("beforeend", html);
+  }
+  const legend = mapEl.querySelector(".legend")!;
+  legend.innerHTML = lens === "none" ? "" : (lv.note ? `<p>${esc(lv.note)}</p>` : "") + lv.legend.slice(0, 18).map((x) => `<div><span style="background:${x.colour}"></span>${esc(x.label.replace(/_/g, " "))}</div>`).join("") + (lv.legend.length > 18 ? `<div>and ${lv.legend.length - 18} more</div>` : "");
+}
+
+function drawFollow() {
+  const svg = mapEl.querySelector("svg");
+  if (!svg) return;
+  svg.querySelector(".m-follow")?.remove();
+  if (!follow || !town.find(follow)) return;
+  const stops = dayOf(town, follow, town.clock.date);
+  const pts = stops.filter((x) => x.at);
+  const path = pts.map((x) => `${f1(x.at![0])},${f1(x.at![1])}`).join(" ");
+  const marks = stops.map((x, i) => x.at ? `<g class="m-stop${x.block === town.clock.block ? " now" : ""}"><title>${esc(`${x.block.replace("_", " ")}: ${x.w.label} — ${x.w.doing}`)}</title><circle cx="${f1(x.at[0] + i * 1.2)}" cy="${f1(x.at[1])}" r="4.2"/><text x="${f1(x.at[0] + i * 1.2)}" y="${f1(x.at[1] + 1.6)}">${i + 1}</text></g>` : "").join("");
+  svg.insertAdjacentHTML("beforeend", `<g class="m-follow"><polyline points="${path}"/>${marks}</g>`);
 }
 
 function fitVillage(): [number, number, number, number] {
@@ -252,7 +310,7 @@ function rowHtml(e: Address, r: PanelRow): string {
   const tools = r.key
     ? `<span class="tools">${editable ? `<button data-edit="${esc(r.key)}" title="Edit">✎</button>` : ""}${r.rerollable ? `<button data-reroll="${esc(r.key)}" title="Reroll">↻</button>` : ""}${edited ? `<button data-reset="${esc(r.key)}" title="Back to generated">×</button>` : ""}</span>`
     : "";
-  const hint = r.hint ? `<span class="hint">${esc(r.hint)}</span>` : "";
+  const hint = (r.fact ? ` <button class="knows" data-fact="${esc(r.fact)}" title="Who knows this, and where to find them">who knows?</button>` : "") + (r.hint ? `<span class="hint">${esc(r.hint)}</span>` : "");
   const opts = r.options ? ` data-options="${esc(r.options.join("|"))}"` : "";
   const hi = r.highlight?.length ? ` data-involves="${esc(r.highlight.join(" "))}"` : "";
   return `<dt>${esc(r.label)}</dt><dd class="${edited ? "edited" : ""}" data-key="${esc(r.key ?? "")}"${opts}${hi}><span class="val">${valueHtml(r.value)}${hint}</span>${tools}</dd>`;
@@ -274,14 +332,98 @@ function crumbs(e: Address): string {
   return `<nav class="crumbs">${parts.map((a, i) => (i === parts.length - 1 ? esc(town.label(a)) : link(a))).join('<span class="sep">›</span>')}</nav>`;
 }
 
+function tabsHtml(): string {
+  const t = (id: Page, label: string) => `<button data-page="${id}" class="${page === id || (id === "inspect" && page === "knows") ? "on" : ""}">${label}</button>`;
+  const following = follow && town.find(follow) ? `<span class="following">following ${link(follow)} <button data-follow="" title="Stop following">×</button></span>` : "";
+  return `<nav class="tabs">${t("inspect", "Inspect")}${t("find", "Find")}${t("almanac", "Almanac")}${following}</nav>`;
+}
+
+function rowsHtml(rows: PanelRow[]): string {
+  return `<dl class="rows">${rows.map((r) => rowHtml(town.root, { ...r, key: undefined })).join("")}</dl>`;
+}
+
+function findHtml(): string {
+  const h: string[] = [`<h2>Find</h2>`, `<input id="find-q" class="find" placeholder="a name, a trade, a building, a ward…" value="${esc(query)}" autocomplete="off" />`, `<div id="find-results">${findResultsHtml()}</div>`];
+  h.push(`<details class="panel" open><summary>Lists</summary><p class="lists">${LISTS.map((l) => `<button data-list="${l.id}" class="${listId === l.id ? "on" : ""}">${esc(l.title)}</button>`).join(" ")}</p>`);
+  const l = LISTS.find((x) => x.id === listId);
+  if (l) h.push(rowsHtml(l.rows(town, town.clock.date, town.clock.block as Block)));
+  h.push("</details>");
+  return h.join("");
+}
+
+function findResultsHtml(): string {
+  if (!query.trim()) return `<p class="sub">Type to search everyone and everything. Try a surname, a trade, "alehouse" or a ward.</p>`;
+  const { results, total } = search(town, query);
+  if (!total) return `<p class="sub">Nothing matches.</p>`;
+  return `<ul class="links">${results.map((x) => `<li>${link(x.address, x.label)} <span class="sub">— ${esc(x.detail)}</span></li>`).join("")}</ul>${total > results.length ? `<p class="sub">and ${total - results.length} more; add a word to narrow it</p>` : ""}`;
+}
+
+function almanacHtml(): string {
+  const from = town.clock.date;
+  const items = almanac(town, from, 60);
+  const h: string[] = [`<h2>Almanac</h2>`, `<p class="sub">The next sixty days from ${esc(describeDate(from))}. Click a date to go there.</p>`];
+  let day = "";
+  for (const it of items) {
+    if (it.date !== day) {
+      if (day) h.push("</dl>");
+      day = it.date;
+      h.push(`<h3 class="day"><a href="#" data-date="${esc(it.date)}">${esc(describeDate(it.date, from))}</a></h3><dl class="rows">`);
+    }
+    h.push(rowHtml(town.root, { label: it.kind === "secret" ? "comes out" : it.kind, value: it.text, fact: it.fact }));
+  }
+  if (day) h.push("</dl>");
+  return h.join("");
+}
+
+function knowsHtml(): string {
+  const k = fact && whoKnows(town, fact, town.clock.date, town.clock.block as Block);
+  if (!k) return `<p class="sub">That has gone.</p>`;
+  const all = k.knowers.map((x) => x.person);
+  const h: string[] = [`<h2>Who knows</h2>`, `<p class="fact" data-involves="${esc(all.join(" "))}">${valueHtml(k.title)}</p>`, `<p class="sub">${esc(k.note)}. ${k.total === Infinity ? "" : `${k.total} ${k.total === 1 ? "person knows" : "people know"}${k.total > k.knowers.length ? `; the first ${k.knowers.length} shown` : ""}.`} Hover here to see their houses on the map.</p>`];
+  const TELL = ["", " (heard it grown in the telling)", " (heard it with the wrong name in it)"];
+  for (const x of k.knowers) {
+    const later = x.later.map((l) => `${l.date === town.clock.date ? l.block.replace("_", " ") : "tomorrow " + l.block}: ${l.w.where.startsWith("place:") ? esc(l.w.label) : link(l.w.where)}`).join("; ");
+    const how = x.how === "heard" ? `heard ${esc(x.since !== undefined ? describeHourShort(x.since) : "")}${TELL[x.telling ?? 0]}` : x.how === "in it" ? "in it" : "kept it to themselves";
+    h.push(`<div class="knower" data-involves="${esc(x.person)}"><h3>${link(x.person)} <span class="sub">— ${how}</span></h3><p>Now: ${x.now.where.startsWith("place:") ? esc(x.now.label) : link(x.now.where)}, ${esc(x.now.doing)}</p><p class="sub">Later: ${later}</p></div>`);
+  }
+  return h.join("");
+}
+
+function describeHourShort(h: number): string {
+  return describeHour(h).slice(5);
+}
+
+function followHtml(p: Address): string {
+  const stops = dayOf(town, p, town.clock.date);
+  const rows = stops.map((x, i) => {
+    const where = x.w.where.startsWith("place:") ? esc(placeName(town, x.w.where)) : link(x.w.where);
+    const company = x.others.length ? ` <span class="sub">with ${x.others.map((a) => link(a)).join(", ")}${x.othersTotal > x.others.length ? ` and ${x.othersTotal - x.others.length} more` : ""}</span>` : "";
+    return `<dt>${i + 1}. ${esc(x.block.replace("_", " "))}</dt><dd><span class="val">${where}: ${esc(x.w.doing)}${company}</span></dd>`;
+  });
+  return `<details class="panel" open><summary>Their day, on the map</summary><dl class="rows">${rows.join("")}</dl></details>`;
+}
+
 function drawInspector() {
+  if (page !== "inspect") {
+    insp.innerHTML = tabsHtml() + (page === "find" ? findHtml() : page === "almanac" ? almanacHtml() : knowsHtml());
+    if (page === "find") {
+      const q = insp.querySelector<HTMLInputElement>("#find-q")!;
+      q.addEventListener("input", () => { query = q.value; insp.querySelector("#find-results")!.innerHTML = findResultsHtml(); });
+      if (!listId) q.focus();
+    }
+    return;
+  }
   const e = selected ?? town.root;
   const ent = town.get(e);
-  const h: string[] = [];
+  const h: string[] = [tabsHtml()];
   if (e !== town.root) h.push(crumbs(e));
   if (ent.type === "person" || ent.type === "household") {
     const on = !!town.pinned[e];
     h.push(`<button class="pin${on ? " on" : ""}" data-pin="${on ? "off" : "on"}" title="Pinned entities keep their details through generator upgrades">${on ? "Pinned" : "Pin"}</button>`);
+  }
+  if (ent.type === "person") {
+    const on = follow === e;
+    h.push(`<button class="pin${on ? " on" : ""}" data-follow="${on ? "" : esc(e)}" title="Draw their day on the map">${on ? "Following" : "Follow"}</button>`);
   }
   h.push(`<h2>${esc(town.label(e))}</h2>`);
 
@@ -296,6 +438,7 @@ function drawInspector() {
     h.push(`<p class="sub">of ${link(hh)}, at ${link(town.parentOf(hh)!)}</p>`);
   }
 
+  if (ent.type === "person" && follow === e) h.push(followHtml(e));
   for (const p of panelsFor(e)) h.push(panelHtml(e, p));
 
   if (ent.type === "building") {
@@ -321,6 +464,16 @@ insp.addEventListener("click", (ev) => {
   const t = ev.target as HTMLElement;
   const go = t.closest<HTMLElement>("[data-go]");
   if (go) { ev.preventDefault(); select(go.dataset.go === town.root ? undefined : go.dataset.go); return; }
+  const pg = t.closest<HTMLElement>("[data-page]");
+  if (pg) { page = pg.dataset.page as Page; drawInspector(); insp.scrollTop = 0; return; }
+  const fk = t.closest<HTMLElement>("[data-fact]");
+  if (fk) { fact = fk.dataset.fact as Fact; page = "knows"; drawInspector(); insp.scrollTop = 0; return; }
+  const ls = t.closest<HTMLElement>("[data-list]");
+  if (ls) { listId = listId === ls.dataset.list ? undefined : ls.dataset.list; drawInspector(); return; }
+  const dt = t.closest<HTMLElement>("[data-date]");
+  if (dt) { ev.preventDefault(); setClock(dt.dataset.date!, "forenoon"); return; }
+  const fo = t.closest<HTMLElement>("[data-follow]");
+  if (fo) { follow = fo.dataset.follow || undefined; drawFollow(); drawInspector(); return; }
   const e = selected ?? town.root;
   const pin = t.closest<HTMLElement>("[data-pin]");
   if (pin) { setTown(withPin(town, modules, e, pin.dataset.pin === "on"), true); return; }

@@ -97,6 +97,8 @@ export interface PanelRow {
   hint?: string;
   /** buildings (or things in them) to light up on the map when the row is hovered */
   highlight?: Address[];
+  /** a fact the row is about ("edge:<id>" or "rumour:<id>"): the UI offers "who knows?" */
+  fact?: string;
 }
 
 export interface PanelSpec {

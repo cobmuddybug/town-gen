@@ -586,6 +586,8 @@ Loading means regenerating from the seed with the pinned module versions, then a
 
 ---
 
+**Ways in (added after M8).** Besides clicking buildings, the inspector has Find (search and lists) and an Almanac, any relationship or rumour can be asked "who knows?", the map has lenses (wealth, class, parishes, ward value, guilds, threads), and a person can be followed through their day. All of it is computed in `src/ui/discover.ts` as pure functions of the town and the clock.
+
 ## 11a. Implementation notes (added while building M1-M3)
 
 - **Addresses are hierarchical and canonical for now.** A person is `town:x/building:b017/household:0/person:2`. Resolving any address resolves its ancestors, which create it. The flat `person:p00412` form (so people can move house) becomes an alias table when moving house exists.

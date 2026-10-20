@@ -15,6 +15,7 @@ npm test
 - **Pin** the people your players know, so generator upgrades leave them alone.
 - **Hamlets to cities.** Up to about 700 people you get a hamlet with its fields; beyond that a street plan: a village with its Ends, or a walled town with wards, guilds, the watch, the courts and a dozen parish churches, up to 30,000 people.
 - **Gossip.** Secrets come out and spread house by house, a block an hour, faster through the taverns, growing in the telling. Move the clock and watch it travel.
+- **Ways in.** Ask *who knows* about any debt, affair, feud or rumour, and see where each of them is now and later today. Colour the map by wealth, class, parish, ward value or guild, or draw the threads from one person to everyone they're tied to. Search everyone and everything, browse ready-made lists, read the almanac of what's coming, and follow one person through their day.
 - **Hooks** are found by pattern-matching the social graph, not rolled from a table.
 
 See `docs/DESIGN.md` for the design and roadmap.

@@ -272,8 +272,22 @@ export function whereabouts(town: Town, person: Address, date: string, block: Bl
   return { where, label, doing: fill(slot.doing, month) };
 }
 
-/** Everyone's whereabouts for one block: key -> people there. */
+const occMemo = new WeakMap<Town, Map<string, Map<string, Address[]>>>();
+
+/** Everyone's whereabouts for one block: key -> people there. Memoised: it is a pure function. */
 export function occupancy(town: Town, date: string, block: Block): Map<string, Address[]> {
+  let memo = occMemo.get(town);
+  if (!memo) occMemo.set(town, (memo = new Map()));
+  const k = `${date}|${block}`;
+  const hit = memo.get(k);
+  if (hit) return hit;
+  const out = computeOccupancy(town, date, block);
+  memo.set(k, out);
+  if (memo.size > 24) memo.delete(memo.keys().next().value!);
+  return out;
+}
+
+function computeOccupancy(town: Town, date: string, block: Block): Map<string, Address[]> {
   const out = new Map<string, Address[]>();
   town.resolveAll();
   for (const e of town.allEntities()) {

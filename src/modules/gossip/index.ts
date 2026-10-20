@@ -130,7 +130,7 @@ export function rumoursIn(town: Town, year: number): Rumour[] {
 const secretMemo = new WeakMap<Town, Rumour[]>();
 
 /** All the secrets that will ever come out, each at its own moment. */
-function allSecrets(town: Town): Rumour[] {
+export function allSecrets(town: Town): Rumour[] {
   const hit = secretMemo.get(town);
   if (hit) return hit;
   const out: Rumour[] = [];
@@ -416,7 +416,7 @@ export const gossip: Module = {
             label: r.kind === "official" ? "Proclaimed" : r.topic.startsWith("chatter:") ? "Talk" : r.kind === "news" ? "News" : "Rumour",
             value: linked(town, r, 0, ` — heard in ${pct(heard, total)}% of households`),
             hint: `since ${describeHour(r.start)}${r.how ? `; ${r.how}` : ""}. Hover to see where it has got to.`,
-            highlight: buildings,
+            highlight: buildings, fact: `rumour:${r.id}`,
           };
         });
       },
@@ -433,7 +433,7 @@ export const gossip: Module = {
         for (const r of talkAt(town, now)) {
           const s = spread(town, r).get(b.address);
           if (!s || s.at > now) continue;
-          rows.push({ label: r.kind === "secret" ? ["they say", "they say", "some say"][s.telling] : "news", value: tellingAt(town, r, b.address, now), hint: s.telling === 2 ? "this telling has the wrong person in it" : s.telling === 1 ? "grown in the telling" : undefined });
+          rows.push({ label: r.kind === "secret" ? ["they say", "they say", "some say"][s.telling] : "news", value: tellingAt(town, r, b.address, now), fact: `rumour:${r.id}`, hint: s.telling === 2 ? "this telling has the wrong person in it" : s.telling === 1 ? "grown in the telling" : undefined });
         }
         return rows.length ? rows : [{ label: "Talk", value: "nothing new: the weather, the price of bread, who drank too much last night" }];
       },
@@ -453,7 +453,7 @@ export const gossip: Module = {
           const got = mine.filter((b) => sp.get(b)!.at <= now);
           if (!got.length) continue;
           const t = Math.max(...got.map((b) => sp.get(b)!.telling)) as 0 | 1 | 2;
-          rows.push({ label: `${pct(got.length, mine.length)}% have heard`, value: linked(town, r, t), hint: t === 2 ? "the telling here has the wrong person in it" : undefined, highlight: got });
+          rows.push({ label: `${pct(got.length, mine.length)}% have heard`, value: linked(town, r, t), fact: `rumour:${r.id}`, hint: t === 2 ? "the telling here has the wrong person in it" : undefined, highlight: got });
         }
         return rows;
       },
@@ -474,7 +474,7 @@ export const gossip: Module = {
           const about = mine ? " (it's about them)" : "";
           // Those who were in it, or knew all along, know the true story whatever the street says.
           const value = mine || h === -Infinity ? linked(town, r, 0, about) : tellingAt(town, r, home, now, about);
-          rows.push({ label: h === -Infinity ? "knew all along" : `since ${describeHour(h).replace(/^\d+-/, "")}`, value });
+          rows.push({ label: h === -Infinity ? "knew all along" : `since ${describeHour(h).replace(/^\d+-/, "")}`, value, fact: `rumour:${r.id}` });
         }
         // Secrets they keep, that haven't come out.
         for (const e of town.edges({ touching: p.address })) {
@@ -482,7 +482,7 @@ export const gossip: Module = {
           const r = allSecrets(town).find((x) => x.edge === e.id);
           if (r && r.start <= now) continue;
           const other = e.from === p.address ? e.to : e.from;
-          rows.push({ label: "keeps quiet about", value: [{ text: town.label(other), address: other }, `: ${e.kind.replace(/_/g, " ")}`], hint: r ? `it will come out ${describeHour(r.start)}` : "it may never come out" });
+          rows.push({ label: "keeps quiet about", value: [{ text: town.label(other), address: other }, `: ${e.kind.replace(/_/g, " ")}`], fact: `edge:${e.id}`, hint: r ? `it will come out ${describeHour(r.start)}` : "it may never come out" });
         }
         return rows;
       },

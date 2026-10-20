@@ -4,6 +4,8 @@ Module versions go into RNG seeds: a major bump means existing seeds regenerate 
 
 ## Unreleased
 
+- UI: ways into the town (`src/ui/discover.ts`). "Who knows?" on every relationship and rumour: those in it, those who kept it, and everyone who has heard, earliest first, each with where they are now and later. Map lenses: wealth, class, parishes, ward value, guilds, and threads from the selected person to everyone they are tied to. Find: search by name, trade, building or ward, and lists (richest, debts, secrets and when they come out, feuds, offices, the oldest, trades). The almanac: feasts, quarter-days, visitors and secrets coming out over the next sixty days. Follow a person: their day drawn on the map, with who else is at each stop. `occupancy()` is memoised.
+
 - Layout: copies of the same use spread out across the town instead of filling neighbouring plots (drinking houses and food shops count as one family); butchers, fishmongers, poulterers, mercers, drapers, goldsmiths and money changers keep together instead (`cluster` in urban.yaml). Civic: watch sergeants are appointed first, so nobody holds two offices. Town snapshot updated.
 
 - Milestone 8: gossip 1.0.0 (secrets come out, news and chatter, spread at a block an hour through taverns, three tellings, the people it's about hear last, `knownByAt`; three sifters). Panel rows can light up buildings on the map. Content expanded across the existing tables (temperaments, looks, histories, names, debts, rivalries, disputes, decrees, living conditions, town matters, misdeeds, guild rules). Golden and town snapshots updated (pre-release).
