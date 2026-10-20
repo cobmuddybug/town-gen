@@ -254,7 +254,8 @@ function rowHtml(e: Address, r: PanelRow): string {
     : "";
   const hint = r.hint ? `<span class="hint">${esc(r.hint)}</span>` : "";
   const opts = r.options ? ` data-options="${esc(r.options.join("|"))}"` : "";
-  return `<dt>${esc(r.label)}</dt><dd class="${edited ? "edited" : ""}" data-key="${esc(r.key ?? "")}"${opts}><span class="val">${valueHtml(r.value)}${hint}</span>${tools}</dd>`;
+  const hi = r.highlight?.length ? ` data-involves="${esc(r.highlight.join(" "))}"` : "";
+  return `<dt>${esc(r.label)}</dt><dd class="${edited ? "edited" : ""}" data-key="${esc(r.key ?? "")}"${opts}${hi}><span class="val">${valueHtml(r.value)}${hint}</span>${tools}</dd>`;
 }
 
 function panelsFor(e: Address): PanelSpec[] {

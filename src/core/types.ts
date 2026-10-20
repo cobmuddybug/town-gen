@@ -95,6 +95,8 @@ export interface PanelRow {
   /** Has a key (so it can be rerolled or reset) but isn't hand-editable. */
   noEdit?: boolean;
   hint?: string;
+  /** buildings (or things in them) to light up on the map when the row is hovered */
+  highlight?: Address[];
 }
 
 export interface PanelSpec {

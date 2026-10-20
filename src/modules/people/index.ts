@@ -17,7 +17,7 @@ export interface HistoryLine extends Row {
 }
 
 export interface Trait extends Row { label: string; weight: number; old?: number }
-export interface Feature extends Row { label: string; weight: number; minAge?: number }
+export interface Feature extends Row { label: string; weight: number; minAge?: number; maxAge?: number }
 
 export const people: Module = {
   id: "people",
@@ -43,7 +43,7 @@ export const people: Module = {
         }
         return out;
       });
-      const feats = ctx.registry<Feature>("features").list().filter((f) => !f.minAge || age >= f.minAge);
+      const feats = ctx.registry<Feature>("features").list().filter((f) => (!f.minAge || age >= f.minAge) && (f.maxAge === undefined || age <= f.maxAge));
       ctx.gen(p, "feature", (r) => r.weighted(feats, (f) => f.weight).id);
 
       const town = ctx.town;

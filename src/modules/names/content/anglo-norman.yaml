@@ -29,6 +29,24 @@ male:
   Jordan: 1
   Baldwin: 1
   Ivo: 1
+  Ranulf: 1
+  Warin: 1
+  Hamo: 1
+  Fulk: 1
+  Bartholomew: 1
+  Benedict: 1
+  Matthew: 2
+  Edmund: 1
+  Lambert: 1
+  Herbert: 1
+  Humphrey: 1
+  Andrew: 1
+  James: 1
+  Michael: 1
+  Osmund: 1
+  Wymond: 1
+  Aylward: 1
+  Edwin: 1
 female:
   Agnes: 8
   Alice: 9
@@ -54,6 +72,20 @@ female:
   Eleanor: 1
   Gunnild: 1
   Denise: 1
+  Ela: 1
+  Avelina: 1
+  Isolde: 1
+  Felicia: 1
+  Constance: 1
+  Emmeline: 1
+  Aldith: 1
+  Clemence: 1
+  Lucy: 1
+  Katherine: 2
+  Basilia: 1
+  Idonea: 1
+  Annora: 1
+  Wymarc: 1
 called:
   Walter: [Wat, Watkin]
   Robert: [Hob, Robin, Dobbe]
@@ -80,24 +112,34 @@ called:
   Beatrice: [Betun]
   Christina: [Kit]
   Emma: [Em]
+  Bartholomew: [Bat, Tolly]
+  Matthew: [Mayhew]
+  Lambert: [Lambkin]
+  Andrew: [Dandy]
+  Katherine: [Kate]
+  Constance: [Custance]
+  Isolde: [Ysolt]
+  Felicia: [Fel]
+  Benedict: [Bennet]
+  Humphrey: [Humph]
 nickname:
   [Brown, White, Black, Read, Long, Short, Small, Young, Good, Swift, Fox, Wolf, Lamb, Bird, Crow,
    Sparrow, Gentle, Proud, Sweet, Merriman, Goodfellow, Hardy, Bull, Doe, Pennyfather, Hogg, Stout,
-   Strong, Grey, Gold, Cripps, Starling, Wren, Pease, Lightfoot, Makepeace, Truelove]
+   Strong, Grey, Gold, Cripps, Starling, Wren, Pease, Lightfoot, Makepeace, Truelove, Merry, Wise, Keen, Blunt, Crook, Hare, Hawk, Finch, Bunce, Puddifoot, Scattergood, Drinkwater, Fairweather, Littlejohn, Bellamy, Wildbore, Godsalve, Whitehead, Redhead, Kidd, Bean, Pretty]
 locative:
   [Atwood, Atwell, Bywater, Underhill, Brook, Green, Hill, Lane, Townsend, Field, Ford, Marsh,
    Moor, Heath, Grove, Holt, Bridge, Cross, Nash, Noakes, Rye, Bythesea, Atterbury, Stile, Hatch,
-   Westcott, Eastwood, Northey, Southam]
+   Westcott, Eastwood, Northey, Southam, Wood, Mill, Dale, Hurst, Combe, Shaw, Lea, Wells, Pool, Fenn, Underwood, Overton, Thorne, Weston, Easton, Norton, Sutton, Bradley, Churchyard, Gates]
 trades:
   [Smith, Baker, Carter, Thatcher, Webb, Tanner, Cooper, Fletcher, Taylor, Fuller, Turner, Shepherd,
    Hayward, Reeve, Wright, Mason, Sawyer, Walker, Fisher, Hunter, Cook, Mercer, Chapman, Barker,
    Tucker, Dyer, Glover, Skinner, Thresher, Plowman, Coward, Miller, Brewer, Butcher, Spencer,
-   Cheeseman, Gardener, Parker, Forester, Woodward, Saddler, Shearer]
+   Cheeseman, Gardener, Parker, Forester, Woodward, Saddler, Shearer, Bowyer, Chandler, Lister, Webster, Sumner, Collier, Draper, Kemp, Falconer, Archer, Marshall, Steward, Hooper, Jenner, Lorimer, Pinder, Waller, Tyler, Slater, Potter, Carver, Baxter]
 patronym_suffix: [son, s, kin, cock]
 place:
   first: [Ash, Thorn, Brad, Ox, Brom, Stan, Wick, Ald, Elm, Hen, Swin, Har, Kirk, Mil, Bur, Lang,
           Whit, Red, Chal, Sel, Bark, Cot, Ditch, Fen, Gold, Hay, Kings, Lid, Mor, Nor, Pid, Rad,
-          Sut, Wal, Wes, Wolver, Ac, Aud, Buck, Chil, Dun, Ever, Grim, Hal, Ick, Lam, Ock, Ship]
+          Sut, Wal, Wes, Wolver, Ac, Aud, Buck, Chil, Dun, Ever, Grim, Hal, Ick, Lam, Ock, Ship, Ab, Bal, Bec, Cal, Dor, Ed, Fair, Gat, Hep, Ken, Lin, Mar, Nut, Pen, Sand, Tad, War, Yar, Ock, Wen]
   last: [by, ton, ham, ley, ford, worth, thorpe, field, stead, well, bury, wick, den, hurst,
-         combe, cote, holme, ing, stow, more, dale, hope, ridge]
-  prefix: [Little, Nether, Upper, Long, Great, Kings, Abbots, Monks, Steeple, Castle]
+         combe, cote, holme, ing, stow, more, dale, hope, ridge, hall, mere, bridge, gate, ness, low, wood, marsh, burn, croft]
+  prefix: [Little, Nether, Upper, Long, Great, Kings, Abbots, Monks, Steeple, Castle, Old, North, South, East, West, Bishops, Market, Chipping]

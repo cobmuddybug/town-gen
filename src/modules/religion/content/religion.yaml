@@ -11,7 +11,7 @@ saints: ["St Mary", "St Peter", "All Saints", "Holy Trinity", "St Michael", "St 
   "St Lawrence", "St Martin", "St Helen", "St James", "St Edmund", "St Clement", "St Leonard", "St Botolph", "St Mary Magdalene",
   "St Thomas", "St Stephen", "St Benet", "St Olave", "St Dunstan", "St Cuthbert", "St Alban", "St Swithun", "St Oswald",
   "St Werburgh", "St Ethelbert", "St Bride", "St Anne", "St Catherine", "St Faith", "St Giles", "St Bartholomew", "St Augustine",
-  "St Wilfrid", "St Chad", "St Mildred", "St Wite"]
+  "St Wilfrid", "St Chad", "St Mildred", "St Wite", "St Hilda", "St Aidan", "St Wilfred", "St Agatha", "St Agnes", "St Denis", "St George", "St Hugh", "St Petroc", "St Gregory"]
 friars: ["the Grey Friars", "the Black Friars", "the White Friars", "the Austin Friars", "the Friars of the Sack"]
 hospital: ["St John", "St Bartholomew", "St Leonard", "St Mary"]
 lazar: ["St Giles", "St Mary Magdalene", "St Lazarus", "St Leonard"]
@@ -24,7 +24,14 @@ misdeeds:
   - "forged a will for a fee"
   - "beat an apprentice half to death for a cheek"
   - "lends at interest, which is usury, through a merchant's name"
+  - "sold indulgences that were never his to sell"
+  - "pawned the chalice to a moneylender"
+  - "is drunk at mass more often than not"
+  - "took a bribe to marry a pair who were too near kin"
+  - "stole the offerings from the saint's box"
 grudges:
   - "the minster's cut, while his own parish goes without"
   - "being made to pay for the minster's new roof"
   - "a tithe of the Easter offerings he can't spare"
+  - "being passed over for a richer parish"
+  - "the minster's men taking the best of the tithe corn"

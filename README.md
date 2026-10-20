@@ -14,6 +14,7 @@ npm test
 - **Edit or reroll any field.** Downstream details follow your edit. Names and unrelated details don't move.
 - **Pin** the people your players know, so generator upgrades leave them alone.
 - **Hamlets to cities.** Up to about 700 people you get a hamlet with its fields; beyond that a street plan: a village with its Ends, or a walled town with wards, guilds, the watch, the courts and a dozen parish churches, up to 30,000 people.
+- **Gossip.** Secrets come out and spread house by house, a block an hour, faster through the taverns, growing in the telling. Move the clock and watch it travel.
 - **Hooks** are found by pattern-matching the social graph, not rolled from a table.
 
 See `docs/DESIGN.md` for the design and roadmap.

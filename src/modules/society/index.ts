@@ -31,8 +31,8 @@ interface Hh {
 
 const CRAFTS = new Set(["smith", "carpenter", "baker", "cooper", "weaver", "thatcher", "chandler", "miller"]);
 const WORKERS = new Set(["labourer", "ploughman"]);
-const SOCIABLE = ["drinker", "pious", "gossip", "cheerful", "kindly", "hardworking"];
-const PRICKLY = ["envious", "proud", "quarrelsome", "grasping", "sharp_tongued"];
+const SOCIABLE = ["drinker", "pious", "gossip", "cheerful", "kindly", "hardworking", "musical", "storyteller", "loyal"];
+const PRICKLY = ["envious", "proud", "quarrelsome", "grasping", "sharp_tongued", "hot_tempered", "grudging", "litigious", "stubborn"];
 
 function gather(town: Town): Hh[] {
   const tiers = town.registry<Tier>("tiers");

@@ -56,3 +56,36 @@
 - { id: t_shutters, setting: town, text: "sweeps out the shop and minds the shutters", minAge: 7, maxAge: 14, weight: 3 }
 - { id: t_gutters, setting: town, text: "plays in the gutters with half the street", minAge: 5, maxAge: 11, weight: 3 }
 - { id: t_carry, setting: town, text: "carries water up from the well, many times a day", minAge: 7, maxAge: 14, weight: 3 }
+# More lives, either setting
+- { id: twins, text: "is a twin; the other died at birth", minAge: 5, weight: 1 }
+- { id: wolf, text: "says {they} saw a wolf in the woods the winter of the great snow", minAge: 25, weight: 1 }
+- { id: wedding_brawl, text: "started a brawl at {their} own wedding and has never lived it down", minAge: 25, roles: [head, spouse], weight: 1 }
+- { id: dream, text: "had a dream of a treasure under a thorn tree, and dug for it", minAge: 20, weight: 1 }
+- { id: plague_child, text: "lost a brother and a sister in one bad winter", minAge: 15, weight: 2 }
+- { id: soldier_uncle, text: "has an uncle who went for a soldier and came back with a foreign wife", minAge: 15, weight: 1 }
+- { id: miracle, text: "was cured of a fever, {they} say, by a saint's relic carried to {their} bed", minAge: 12, weight: 1 }
+- { id: second_marriage, text: "married again within the year after {their} first spouse died, and people talked", minAge: 35, roles: [head, spouse], weight: 2 }
+- { id: debt_father, text: "is still paying off {their} father's debts", minAge: 22, roles: [head], maxRank: 6, weight: 2 }
+- { id: foundling, text: "was left as a baby at the church door", minAge: 10, weight: 1 }
+- { id: lost_child, text: "has a son who went away and has not sent word in {n} years", minAge: 45, roles: [head, spouse, parent], weight: 2 }
+- { id: thrown, text: "was thrown by a horse and has walked oddly since", minAge: 18, weight: 1 }
+- { id: lightning, text: "was in the barn when lightning struck it, and walked out", minAge: 12, weight: 1 }
+- { id: gift, text: "can charm warts, people say, and is asked to", minAge: 30, weight: 1 }
+- { id: drunk_oath, text: "swore off ale on {their} mother's grave and has broken the oath twice", minAge: 22, weight: 1 }
+- { id: betrothal_broken, text: "was betrothed once before; the other family broke it off", minAge: 20, weight: 2 }
+- { id: learned_trade, text: "learned {their} trade from a stranger who stayed one winter", minAge: 20, roles: [head], weight: 1 }
+- { id: saved_child, text: "pulled a neighbour's child out of the water, and the neighbour has never forgotten it", minAge: 18, weight: 1 }
+# Country lives
+- { id: c_flood, setting: country, text: "lost the crop to the flood {n} years ago and borrowed to eat", minAge: 25, roles: [head], weight: 2 }
+- { id: c_ox, setting: country, text: "lost an ox to the murrain and still blames a neighbour's beast", minAge: 25, roles: [head], weight: 2 }
+- { id: c_hayward, setting: country, text: "served a year as hayward and made enemies doing it", minAge: 30, sex: m, weight: 1 }
+- { id: c_harvest_queen, setting: country, text: "was harvest queen one year, and was courted all that winter", minAge: 18, sex: f, weight: 1 }
+- { id: c_poach, setting: country, text: "snares rabbits on the lord's warren and has never been caught", minAge: 14, sex: m, maxRank: 5, weight: 2 }
+- { id: c_strays, setting: country, text: "minds the pound for strays, and keeps the fines", minAge: 30, sex: m, weight: 1 }
+# More town lives
+- { id: t_apprentice_ran, setting: town, text: "ran from {their} first master at fourteen and was brought back by the beadle", minAge: 18, sex: m, weight: 2 }
+- { id: t_fair_cheat, setting: town, text: "was cheated by a coin-clipper at the fair and has bitten every penny since", minAge: 20, weight: 2 }
+- { id: t_riot, setting: town, text: "was in the crowd the day the apprentices rioted against the foreign merchants", minAge: 22, weight: 1 }
+- { id: t_procession, setting: town, text: "carried a banner in the guild procession on the saint's day", minAge: 18, minRank: 5, weight: 2 }
+- { id: t_street_born, setting: town, text: "was born in the street {they} still live in, and knows every family in it", minAge: 20, weight: 3 }
+- { id: t_lent_house, setting: town, text: "has taken in a lodger every Lent for {n} years", minAge: 30, roles: [head], weight: 1 }

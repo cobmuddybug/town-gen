@@ -1,13 +1,35 @@
 - { id: pockmarked, label: "pockmarked", weight: 3 }
 - { id: lame, label: "walks with a limp", weight: 2 }
 - { id: teeth, label: "missing front teeth", weight: 3, minAge: 30 }
-- { id: tall, label: "taller than anyone in the hamlet", weight: 1 }
+- { id: tall, label: "taller than anyone they know", weight: 1 }
 - { id: ruddy, label: "ruddy-faced", weight: 3 }
 - { id: scar, label: "an old scar across one hand", weight: 2, minAge: 16 }
 - { id: squint, label: "a squint", weight: 1 }
 - { id: freckled, label: "freckled", weight: 2 }
 - { id: hands, label: "huge, cracked hands", weight: 2, minAge: 16 }
-- { id: voice, label: "a voice that carries across the green", weight: 2 }
+- { id: voice, label: "a voice that carries across a market", weight: 2 }
 - { id: deaf, label: "hard of hearing", weight: 1, minAge: 55 }
 - { id: bent, label: "bent from years of field work", weight: 2, minAge: 50 }
 - { id: plain, label: "nothing anyone remembers", weight: 6 }
+- { id: nose, label: "a broken nose, badly set", weight: 2, minAge: 14 }
+- { id: red_hair, label: "red hair", weight: 2 }
+- { id: white_hair, label: "a fine head of white hair", weight: 2, minAge: 55 }
+- { id: fingers, label: "two fingers missing from one hand", weight: 1, minAge: 16 }
+- { id: harelip, label: "a harelip", weight: 1 }
+- { id: fat, label: "very stout", weight: 2, minAge: 25 }
+- { id: thin, label: "thin as a rake", weight: 3 }
+- { id: burn, label: "a burn scar down one cheek", weight: 1 }
+- { id: sickly, label: "pale and sickly", weight: 2 }
+- { id: birthmark, label: "a wine-coloured birthmark on the neck", weight: 1 }
+- { id: clouded, label: "one eye clouded over", weight: 1, minAge: 40 }
+- { id: smoke, label: "always smells of woodsmoke", weight: 2 }
+- { id: wiry, label: "sun-browned and wiry", weight: 3, minAge: 14 }
+- { id: handsome, label: "handsome, and knows it", weight: 2, minAge: 15, maxAge: 40 }
+- { id: cough, label: "a cough that never quite goes", weight: 2, minAge: 30 }
+- { id: ears, label: "ears like jug handles", weight: 1 }
+- { id: warts, label: "warts on both hands", weight: 1 }
+- { id: dimples, label: "dimples when they smile, which is often", weight: 2 }
+- { id: bald, label: "bald as an egg", weight: 2, minAge: 35 }
+- { id: tattered, label: "always untidy, whatever they wear", weight: 2 }
+- { id: neat, label: "neat as a pin", weight: 2 }
+- { id: limp_arm, label: "a stiff arm from an old break", weight: 1, minAge: 20 }

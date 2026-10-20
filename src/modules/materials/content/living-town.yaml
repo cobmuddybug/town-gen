@@ -43,7 +43,7 @@
   heat: ["a chimneyed fireplace in the hall and the best chamber"]
   cooking: ["a kitchen in the yard, with a cook"]
   water: ["its own well in the yard", "a water carrier who comes every morning"]
-  diet: ["white bread from the baker, fresh meat most days, fish on fast days, spices from the spicer"]
+  diet: ["white bread from the baker, fresh meat most days, fish on fast days, spices from the spicer", "the best the market has, and dried fruit from the spicer all winter"]
   drink: ["wine for the table, good ale for the household"]
   dress: ["fine dyed wool, a furred gown; modish, to be seen in"]
   arms: ["a sword, worn in the street, which the law allows", "a sword and a buckler"]
@@ -51,11 +51,11 @@
   display: ["a painted chamber that cost more than the house", "glass in the hall windows, which everyone remarks on", null]
 - id: "town:middle_middle"
   source: "LF Tables 2:8-2:9"
-  dwelling: ["its own house: the shop on the street, hall and chambers above, a yard behind; six to ten rooms", "a house of two storeys over the workshop, with a jettied front"]
+  dwelling: ["its own house: the shop on the street, hall and chambers above, a yard behind; six to ten rooms", "a house of two storeys over the workshop, with a jettied front", "a corner house on two streets, the shop on one side and a gate to the yard on the other"]
   light: ["tallow candles, and a wax candle on holy days"]
   heat: ["a hearth with a chimney in the hall", "an open hearth and a brazier in the chamber"]
   cooking: ["its own hearth, with a maid to tend it"]
-  water: ["the well at the street corner, carried by the maid", "a water carrier, twice a week"]
+  water: ["the well at the street corner, carried by the maid", "a water carrier, twice a week", "a well shared with two neighbours in the back yard"]
   diet: ["wheat bread, pottage, meat a few times a week, a pie from the cookshop on market days"]
   drink: ["bought ale, and wine at feasts"]
   dress: ["good dyed wool, one modish gown for the guild feast"]
@@ -69,15 +69,15 @@
   heat: ["an open hearth, smoke out through a louvre"]
   cooking: ["its own hearth, and the common bakehouse for bread", "a small hearth; the big dishes go to the cookshop"]
   water: ["the well at the street corner", "a water carrier, a penny a bucket"]
-  diet: ["bought bread, pottage, cheese, salt fish, meat on Sundays"]
+  diet: ["bought bread, pottage, cheese, salt fish, meat on Sundays", "bought bread, a pie on market days, salt herring in Lent"]
   drink: ["ale from the alehouse"]
-  dress: ["sound wool, a hood dyed for Sundays; traditional"]
+  dress: ["sound wool, a hood dyed for Sundays; traditional", "a sound gown and a guild hood for feast days"]
   arms: ["a long knife; a sword only if nobody is looking"]
   bedding: ["a flock mattress on a bedstead"]
   display: ["a pewter dish on the shelf where the street can see it", null, null]
 - id: "town:upper_lower"
   source: "LF Tables 2:10-2:11"
-  dwelling: ["two rented rooms: a front chamber and a loft", "rented quarters at the back of a tenement"]
+  dwelling: ["two rented rooms: a front chamber and a loft", "rented quarters at the back of a tenement", "a garret under the roof of a merchant's house"]
   light: ["rushlights", "the fire, and a rushlight"]
   heat: ["a small hearth shared with the next room", "a brazier"]
   cooking: ["no hearth fit for cooking: the pot goes to the cookshop, the dough to the bakehouse"]
@@ -89,7 +89,7 @@
   bedding: ["a straw mattress on the floor, two blankets"]
 - id: "town:middle_lower"
   source: "LF Tables 2:11-2:12"
-  dwelling: ["a rented room and a share of the loft", "one room over a stable"]
+  dwelling: ["a rented room and a share of the loft", "one room over a stable", "a cellar room that floods when the river is up"]
   light: ["the fire, mostly"]
   heat: ["a brazier, when there's charcoal"]
   cooking: ["none: food comes from the cookshop or not at all"]
@@ -101,7 +101,7 @@
   bedding: ["a straw tick shared with others"]
 - id: "town:lower_lower"
   source: "LF Tables 2:12-2:13"
-  dwelling: ["one room in a tenement, shared with another family", "a corner of a crowded room by the river"]
+  dwelling: ["one room in a tenement, shared with another family", "a corner of a crowded room by the river", "a bed shared in shifts in a crowded lodging"]
   light: ["none to speak of"]
   heat: ["other people's warmth"]
   cooking: ["none; bread and the cookshop's cheapest"]
@@ -118,7 +118,7 @@
   heat: ["none"]
   cooking: ["none"]
   water: ["the river"]
-  diet: ["what is given at the church door and the back of the cookshop"]
+  diet: ["what is given at the church door and the back of the cookshop", "the leavings at the back of the cookshop, and the bread dole on saints' days"]
   drink: ["water"]
   dress: ["rags"]
   arms: ["nothing anyone would call a weapon"]

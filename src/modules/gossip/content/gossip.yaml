@@ -1,0 +1,90 @@
+# How talk travels (LF pp.76, 93), in our words. Each topic has three
+# tellings: the truth, the truth grown in the telling, and the truth with the
+# wrong person in it. {a} and {b} are the people in it, {c} is a neighbour of
+# {a} who had nothing to do with it, {amount} a sum, {about} the reason.
+
+# How likely a secret is to come out at all in the ten years from 1203, by edge kind.
+leak:
+  lover: 0.85
+  debtor_of: 0.45
+  grievance: 0.55
+  courting: 0.9
+  skims: 0.6
+  default: 0.35
+# How many hours a thing stays the talk of the place.
+fade: { secret: 300, news: 80, official: 120 }
+# How it got out.
+how:
+  - "a servant talked"
+  - "someone saw, and told one person in confidence"
+  - "it came out in a quarrel, shouted in the street"
+  - "a child repeated something at the well"
+  - "it was let slip over a third cup of ale"
+  - "a neighbour heard through the wall"
+  - "a letter was read by the wrong person"
+  - "the one who knew couldn't keep it in"
+  - "the priest's housekeeper heard it at confession's door"
+  - "it was seen from an upper window"
+  - "a pedlar carried it from the next village and back again"
+  - "a drunk said it out loud at the wrong moment"
+topics:
+  lover:
+    - "{a} and {b} have been meeting in secret"
+    - "{a} and {b} have been lovers for a year or more, and everyone but their own families knew"
+    - "{c} and {b} have been meeting in secret"
+  debtor_of:
+    - "{a} owes {b} {amount} and can't pay it"
+    - "{a} owes {b} twice what anybody thought, and is selling things off"
+    - "{c} owes {b} money and can't pay it"
+  grievance:
+    - "{a} has it in for {b}, over {about}"
+    - "{a} has sworn to see {b} ruined, over {about}"
+    - "{c} has it in for {b}"
+  courting:
+    - "{a} is courting {b}"
+    - "{a} and {b} are as good as married already"
+    - "{c} is courting {b}"
+  skims:
+    - "{a} is skimming from the lord, and {b} looks the other way"
+    - "{a} has been robbing the lord for years, and {b} takes a share"
+    - "{c} is skimming from the lord"
+  misdeed:
+    - "{a} {about}"
+    - "{a} {about}, and worse besides"
+    - "{c} {about}"
+  default:
+    - "something between {a} and {b} that they'd rather nobody knew"
+    - "something ugly between {a} and {b}"
+    - "something between {c} and {b}"
+# News that comes with visitors. {who} and {note} come from the visit.
+news:
+  tax: "the sheriff's man is here: {note}"
+  herald: "a herald in the market, proclaiming {note}"
+  players: "players have come: {who}, {note}"
+  mountebank: "a mountebank's train is in: {who}, with {note}"
+  band: "{who} are here, {note}"
+  tinkers: "{who} are about, {note}"
+  thefts: "thieves in the night: {note}"
+  friar: "{who} is here to say mass"
+  fair: "everyone is talking about {who}"
+  assize: "the assizes: {who} is come, and the gaol will be emptied one way or another"
+  bailiff: "the bailiff is in: {note}"
+  manor_court: "the manor court sits: {note}"
+  default: "{who}: {note}"
+# Ballads: a story big enough gets a song in the town's taverns, names changed.
+ballads:
+  - "a ballad singer has a song about it in the taverns, with the names changed and nobody fooled"
+  - "the apprentices have a rhyme about it"
+  - "there's a song going round about it, sung to an old tune"
+  - "the children have a skipping rhyme about it"
+  - "the players at the inn worked it into their play, to roars"
+# Chatter: what everyone already knows, brought up again. One or two things
+# every few days, by edge kind.
+chatter:
+  rival: "{a} and {b} are at it again, over {about}"
+  dispute: "the quarrel between {a} and {b}, over {about}, is no nearer settled"
+  betrothed: "{a} and {b} are to be married; the banns are read on Sunday"
+  debtor_of: "{a} still owes {b} {amount}, and {b} has started saying so in public"
+  grievance: "{a} is still complaining about {b}: {about}"
+  apprentice_of: "{a} has been beaten again by {b}, his master, they say"
+  friend: "{a} and {b} are thick as thieves these days, and nobody can think why"

@@ -10,6 +10,14 @@ debts:
   - { id: dowry, text: "a daughter's dowry", weight: 1 }
   - { id: roof, text: "rethatching after the storm", weight: 2 }
   - { id: bread, text: "bread and meal through the hungry gap", weight: 3 }
+  - { id: horse, text: "a horse that went lame within the month", weight: 1 }
+  - { id: fine_town, text: "a fine for a brawl, paid on their behalf", weight: 2 }
+  - { id: wedding, text: "the cost of a wedding feast", weight: 2 }
+  - { id: tools, text: "new tools, after the old ones were stolen", weight: 2 }
+  - { id: physic, text: "a physician for a sick child", weight: 1 }
+  - { id: dice, text: "losses at dice", weight: 1 }
+  - { id: cloth, text: "cloth bought on credit for a new gown", weight: 1 }
+  - { id: tax, text: "the tax when the sheriff's man came", weight: 2 }
 rivalries:
   - "a straying pig"
   - "the better pew in the chapel"
@@ -21,3 +29,13 @@ rivalries:
   - "the water from the stream in a dry summer"
   - "a will that left one of them out"
   - "being passed over for reeve"
+  - "a game of dice that ended badly"
+  - "whose turn it was at the well"
+  - "a borrowed tool never returned"
+  - "who sings louder in church"
+  - "a cart left across a gate"
+  - "a dowry that was promised and never paid"
+  - "smoke from a bonfire over drying washing"
+  - "a song someone made up about the other"
+  - "a dog that bit a child"
+  - "the best stall on market day"

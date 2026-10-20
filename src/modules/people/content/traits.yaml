@@ -21,3 +21,23 @@
 - { id: sullen, label: sullen, weight: 2 }
 - { id: forgetful, label: forgetful, weight: 1, old: 3 }
 - { id: devout_cunning, label: "trusts the cunning woman over the priest", weight: 1 }
+- { id: stern, label: stern, weight: 2, old: 2 }
+- { id: quiet, label: "quiet; keeps their own counsel", weight: 3 }
+- { id: bold, label: bold, weight: 2 }
+- { id: roving_eye, label: "a roving eye", weight: 1 }
+- { id: melancholy, label: melancholy, weight: 2 }
+- { id: boastful, label: boastful, weight: 2 }
+- { id: suspicious, label: "suspicious of strangers", weight: 3 }
+- { id: loyal, label: "loyal to a fault", weight: 2 }
+- { id: curious, label: "curious about everything", weight: 2 }
+- { id: stubborn, label: stubborn, weight: 3, old: 2 }
+- { id: ambitious, label: ambitious, weight: 2 }
+- { id: gentle, label: gentle, weight: 3 }
+- { id: sly, label: sly, weight: 2 }
+- { id: cautious, label: cautious, weight: 3, old: 2 }
+- { id: hot_tempered, label: "quick to anger", weight: 2 }
+- { id: secretive, label: secretive, weight: 2 }
+- { id: litigious, label: "always at law over something", weight: 1, old: 2 }
+- { id: musical, label: "sings at every chance", weight: 2 }
+- { id: storyteller, label: "full of the old stories", weight: 1, old: 4 }
+- { id: grudging, label: "never forgets a slight", weight: 2 }

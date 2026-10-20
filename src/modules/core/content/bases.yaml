@@ -20,7 +20,7 @@
   richest: [miller]
   grievance: "short measure at the mill"
   dispute: "fence lines and boundary marks"
-  disputes: ["a boundary stone moved between two strips", "a furrow ploughed into a neighbour's strip", "a hedge grubbed out in the night"]
+  disputes: ["a boundary stone moved between two strips", "a furrow ploughed into a neighbour's strip", "a hedge grubbed out in the night", "a ditch blocked so the water floods a neighbour's strip", "sheaves taken from the wrong stook at harvest"]
   source: "LF pp.72-73"
 - id: fishing
   label: fishing
@@ -35,7 +35,7 @@
   richest: [boatwright]
   grievance: "what the boatwright charges for a new strake"
   dispute: "tangled nets and fishing spots"
-  disputes: ["nets cut loose in the night", "a mark on the fishing ground claimed by two boats", "a share of a catch landed short"]
+  disputes: ["nets cut loose in the night", "a mark on the fishing ground claimed by two boats", "a share of a catch landed short", "a boat taken out without its owner's leave", "driftwood claimed by two households"]
   source: "LF p.73"
 - id: herding
   label: herding
@@ -50,7 +50,7 @@
   richest: [carter, tanner]
   grievance: "the price of carting the wool clip"
   dispute: "grazing rights and strayed animals"
-  disputes: ["sheep found in the wrong fold with the marks scraped", "more beasts on the common than their right allows", "a ram that got in among a neighbour's ewes"]
+  disputes: ["sheep found in the wrong fold with the marks scraped", "more beasts on the common than their right allows", "a ram that got in among a neighbour's ewes", "a dog that worries sheep and whose owner won't tie it", "peat cut on another's turbary"]
   source: "LF pp.73-74"
 - id: mining
   label: mining
@@ -65,7 +65,7 @@
   richest: [assayer, freighter]
   grievance: "a light assay that cheats the miners of their share"
   dispute: "digging rights and the division of ore shares"
-  disputes: ["a new working driven into a neighbour's ground", "ore from the common heap carried off", "a share of the dressing floor's take"]
+  disputes: ["a new working driven into a neighbour's ground", "ore from the common heap carried off", "a share of the dressing floor's take", "water let into a lower working", "a pick and lamp gone from the face"]
   source: "LF p.74"
 - id: woodcutting
   label: woodcutting
@@ -80,5 +80,5 @@
   richest: [sawyer, freighter]
   grievance: "short measure on sawn timber"
   dispute: "felling rights and the division of timber shares"
-  disputes: ["an oak felled that was marked for another", "a stack of cordwood gone from the ride", "a share of the timber money"]
+  disputes: ["an oak felled that was marked for another", "a stack of cordwood gone from the ride", "a share of the timber money", "a charcoal clamp left to burn into the wood", "a cart track driven through a coppice"]
   source: "LF pp.74-75"

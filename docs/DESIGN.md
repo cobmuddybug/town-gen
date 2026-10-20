@@ -607,10 +607,11 @@ Loading means regenerating from the seed with the pinned module versions, then a
 - **The urban plan** (`uses/urban.ts`, above 1,000 people): trades from `per` (one per so many people; villages get half), religious seats from a population budget, civic buildings from thresholds, and housing to the urban composition. People-per-building figures were measured, not guessed, so populations land within about 5% of the target.
 - **Town modules.** `religion` (dedications, parishes, tithes up to the minster and the see, a cleric's misdeed only the bishop's court may try); `civic` (ward and gate names, government, marshal, constables, beadles, the watch and its rota, gate guards, criers, the courts and docket, services); `guilds` (masters, wardens, journeymen and their masters, meeting places, rules, demarcation quarrels); `lodging` (grades, rooms, prices, who is staying tonight as a pure function of the date). All of them do nothing in hamlets, so hamlet output is byte-for-byte unchanged.
 - **Scale.** Society steps that were quadratic use grids, surname indexes and numbered person pairs once a settlement is big; the hamlet paths give identical results. `edges()` keeps an endpoint index. An 8,000-person town builds in about a second, 20,000 in about two.
+- **Gossip is a pure function of the town and the clock** (`gossip` module), like routines: nothing is stored. Secret edges come out at most once, each at its own moment within five years of 1203 (the clock's default year), from the house of someone who knew. Visitors bring news, heralds' decrees are cried, and every four days something everybody already knows comes up again. Talk travels about 90 m (a block) an hour while people are awake (5 to 22), taverns relay it across town faster, and criers carry official news six times faster. Its telling depends on distance from the origin: the truth, the truth grown, and the truth with a neighbour's name in it. The people a story is about hear it three days late. `knownByAt(edge, date, block)` is the "knownBy update" of §4.3: the original knowers, plus everyone the talk has reached, and public once the story is old.
 
 ## 12. Milestones
 
-Status: 1–7 are done (2026-10-20).
+Status: 1–8 are done (2026-10-20). Heraldry (9) and prose (10) are on hold.
 
 1. **Skeleton and determinism.** Address scheme, `rngFor`, module loader, registries, save/load with overlay. Test: generate, save, load and compare byte-for-byte.
 2. **Map.** Our own village layout to building polygons with addresses; click a building to show an empty inspector.

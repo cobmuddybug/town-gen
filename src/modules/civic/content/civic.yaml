@@ -9,8 +9,8 @@ compass:
   SE: South
   SW: South
 # Gate names besides the compass ones; used when a compass name is taken or a feature is near.
-gates: [Newgate, Bargate, Ludgate, Bootham, Micklegate, Monkgate, Aldgate, Cripplegate]
-inner: ["Cheap", "Market", "Shambles", "Mercery", "Drapery", "Poultry"]
+gates: [Newgate, Bargate, Ludgate, Bootham, Micklegate, Monkgate, Aldgate, Cripplegate, Westgate Postern, Kingsgate, Fishgate, Bishopgate, Walmgate, Eastbar]
+inner: ["Cheap", "Market", "Shambles", "Mercery", "Drapery", "Poultry", Fish Street, Bread Street, Wool Market, Cornmarket, Haymarket]
 water:
   early_medieval: "wells in the yards, and the river; water carriers sell it by the bucket"
   high_medieval: "public wells at the street corners and in the market, and the river; water carriers sell it by the bucket"
@@ -35,6 +35,12 @@ petty:
   - "selling ale above the assize price"
   - "a slop bucket emptied from an upper window onto a passer-by"
   - "a shutter left down into the street"
+  - "a dung heap left before a neighbour's door for a week"
+  - "throwing stones at the watch"
+  - "a dog let loose in the shambles"
+  - "selling in the street outside market hours"
+  - "playing at dice in the churchyard"
+  - "a quarrel between two fishwives that came to blows"
 felonies:
   - "a purse cut in the market crowd"
   - "a horse taken from a livery stable"
@@ -42,3 +48,8 @@ felonies:
   - "a man stabbed outside a tavern, not fatally"
   - "a house broken into while the family was at mass"
   - "stolen cloth found in a cellar"
+  - "coin clipped and passed in the market"
+  - "a warehouse fired, and arson suspected"
+  - "a pedlar robbed on the road just outside the gates"
+  - "false weights found in a shop"
+  - "a horse sold that turned out to be stolen in the next county"

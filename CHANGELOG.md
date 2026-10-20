@@ -4,6 +4,8 @@ Module versions go into RNG seeds: a major bump means existing seeds regenerate 
 
 ## Unreleased
 
+- Milestone 8: gossip 1.0.0 (secrets come out, news and chatter, spread at a block an hour through taverns, three tellings, the people it's about hear last, `knownByAt`; three sifters). Panel rows can light up buildings on the map. Content expanded across the existing tables (temperaments, looks, histories, names, debts, rivalries, disputes, decrees, living conditions, town matters, misdeeds, guild rules). Golden and town snapshots updated (pre-release).
+
 - Milestone 7: towns. Street-plan layout for settlements over 700 people (walls, gates, wards with value classes, burgage plots, churchyards, castle, suburbs, river, quay). Urban building plan over 1,000 people. New modules religion 1.0.0, civic 1.0.0, guilds 1.0.0, lodging 1.0.0; town routines, living conditions, histories and visitors (local fair, assizes). Engine: `onWardResolved`, an edge index, `dmath.atan2`. Hamlets unchanged (the golden snapshot didn't move).
 
 - Milestone 6: manor 1.0.0 (manorial villages: the lord, steward, regarder, bailiff and reeve; villein, cottar, free and commuted households; week-work and boon-work; the socman; runaways; bailiff visits and manor courts; four sifters). Visitors take extra sources through a `visitSources` registry. Free settlements are unchanged (the golden snapshot didn't move).

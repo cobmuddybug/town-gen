@@ -16,5 +16,6 @@ import { religion } from "./religion";
 import { civic } from "./civic";
 import { guilds } from "./guilds";
 import { lodging } from "./lodging";
+import { gossip } from "./gossip";
 
-export const defaultModules: Module[] = [core, uses, layout, households, materials, names, people, council, society, visitors, manor, religion, civic, guilds, lodging, routines, sifters];
+export const defaultModules: Module[] = [core, uses, layout, households, materials, names, people, council, society, visitors, manor, religion, civic, guilds, lodging, routines, gossip, sifters];

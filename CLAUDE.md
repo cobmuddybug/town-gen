@@ -50,12 +50,13 @@ src/modules/    one folder per module: index.ts + content/*.yaml
   civic         street plans: ward and gate names, government, watch, police, criers, courts, services
   guilds        towns: merchant and craft guilds, wardens, journeymen, demarcation quarrels
   lodging       inns, taverns, rooming houses, hostels: grades, prices, guests tonight
+  gossip        rumours as a pure function of the clock: leaks, news, chatter, spread, tellings, knownByAt
   visitors      the visitors calendar: visitsIn(year), visitorsOn(date); pure functions
   routines      six-block daily routines, whereabouts(), occupancy(); clock panels
   sifters       plot-hook sifters over the graph (capped at 2 each)
 src/ui/         map.ts (pure SVG renderer), main.ts (app), style.css
 tests/          core (determinism, isolation, stubs, overlay, saves, golden), people (calendar, society, routines),
-                bases (all five economies, terrain, visitors), manor, town (street plans and town institutions)
+                bases (all five economies, terrain, visitors), manor, town (street plans and town institutions), gossip
                 SAMPLE=1 / PERF=1 enable sample.test.ts / perf.test.ts
 ```
 
