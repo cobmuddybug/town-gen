@@ -31,7 +31,10 @@ export const layout: Module = {
       const footprints = plan.map((u) => {
         const row = useReg.find(u);
         if (!street) return { size: row?.size ?? "cottage", site: row?.site };
-        return { size: row?.size ?? "cottage", site: row?.site, ...(row?.plots ? { plots: row.plots } : {}), ...(row?.value ? { value: row.value } : {}) };
+        return {
+          size: row?.size ?? "cottage", site: row?.site, kind: u,
+          ...(row?.plots ? { plots: row.plots } : {}), ...(row?.value ? { value: row.value } : {}), ...(row?.cluster ? { cluster: true } : {}),
+        };
       });
       // Layout is a pure function of its stream key and the plan, and it is the
       // slow part, so edits that rebuild the town reuse it.

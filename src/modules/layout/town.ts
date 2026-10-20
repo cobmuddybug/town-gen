@@ -757,20 +757,50 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   const room = (v: number, fronts: FrontKind[]) => fronts.reduce((a, fr) => a + (buckets.get(`${fr}:${v}`)?.left ?? 0), 0);
   for (const bk of buckets.values()) bk.ids.sort((a, b) => plots[a].order - plots[b].order || a - b);
 
+  // Where each use has gone so far, so the next copy can keep away (or close).
+  const placedAt = new Map<string, Pt[]>();
+  let placing: Footprint | undefined;
+  // Uses that compete for the same custom keep apart from each other too.
+  const FAMILY: Record<string, string> = { tavern: "drink", town_alehouse: "drink", alehouse: "drink", inn: "drink", cookshop: "food", bakehouse: "food" };
+  const familyOf = (k: string) => FAMILY[k] ?? k;
+  const runOf = (id: number, n: number): number[] | undefined => {
+    if (n === 1) return [id];
+    const run = runIx.get(plots[id].run)!;
+    const at = run.indexOf(id);
+    const seq = run.slice(at, at + n);
+    return seq.length === n && seq.every(free) ? seq : undefined;
+  };
   const take = (front: FrontKind, v: number, n: number): number[] | undefined => {
     const bk = buckets.get(`${front}:${v}`);
     if (!bk) return undefined;
     while (bk.ptr < bk.ids.length && !free(bk.ids[bk.ptr])) bk.ptr++;
-    for (let j = bk.ptr; j < Math.min(bk.ids.length, bk.ptr + 400); j++) {
+    const prior = placing?.kind ? placedAt.get(familyOf(placing.kind)) : undefined;
+    if (!prior?.length) {
+      for (let j = bk.ptr; j < Math.min(bk.ids.length, bk.ptr + 400); j++) {
+        const id = bk.ids[j];
+        if (!free(id)) continue;
+        const seq = runOf(id, n);
+        if (seq) return seq;
+      }
+      return undefined;
+    }
+    // Look at candidates across the whole queue, not just the next few, and
+    // take the one furthest from the copies already placed (or nearest, for
+    // trades that keep together).
+    const stride = Math.max(1, Math.floor((bk.ids.length - bk.ptr) / 80));
+    let best: number[] | undefined, bestScore = -Infinity;
+    for (let j = bk.ptr; j < bk.ids.length; j += stride) {
       const id = bk.ids[j];
       if (!free(id)) continue;
-      if (n === 1) return [id];
-      const run = runIx.get(plots[id].run)!;
-      const at = run.indexOf(id);
-      const seq = run.slice(at, at + n);
-      if (seq.length === n && seq.every(free)) return seq;
+      const seq = runOf(id, n);
+      if (!seq) continue;
+      const c = centroid(plots[id].poly);
+      let near = Infinity;
+      for (const q2 of prior) near = Math.min(near, dist(c, q2));
+      const score = placing!.cluster ? -near : Math.min(near, 500) - plots[id].order * 0.5;
+      if (score > bestScore) { bestScore = score; best = seq; }
     }
-    return undefined;
+    return best;
   };
   const peek = (front: FrontKind, v: number): number | undefined => {
     const bk = buckets.get(`${front}:${v}`);
@@ -825,6 +855,8 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   const spillQueue: number[] = [];
   for (const i of order) {
     const p = plan[i];
+    // Ordinary housing fills in order; everything else spreads out (or keeps together).
+    placing = p.site || p.kind && !["tenement", "poor_row", "journeyman_house", "townhouse", "cottage", "farmhouse", "empty"].includes(p.kind) ? p : undefined;
     if (p.site === "gate" && gateQueue.length) {
       const { g, gi } = gateQueue.shift()!;
       const { body, towers: [tA, tB] } = gateParts(g);
@@ -884,6 +916,7 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
     }
     if (!got) { spillQueue.push(i); continue; }
     for (const id of got) use(id);
+    if (p.kind) { const k = familyOf(p.kind); const l = placedAt.get(k) ?? []; l.push(centroid(plots[got[0]].poly)); placedAt.set(k, l); }
     result[i] = building(r, i, p, got.map((id) => plots[id]), urban);
   }
 

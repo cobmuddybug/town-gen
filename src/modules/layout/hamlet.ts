@@ -23,6 +23,10 @@ export interface Footprint {
   plots?: number;
   /** street-plan layouts: the ward value classes it suits (0 slum .. 8 prestige commercial) */
   value?: [number, number];
+  /** street-plan layouts: which use this is, so copies can be spread out or kept together */
+  kind?: string;
+  /** keep copies together (a shambles of butchers, a row of goldsmiths) instead of spread out */
+  cluster?: boolean;
 }
 
 export interface PlacedBuilding {

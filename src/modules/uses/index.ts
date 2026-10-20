@@ -25,6 +25,8 @@ export interface BuildingUse extends Row {
   plots?: number;
   value?: [number, number];
   look?: string;
+  /** street plans: copies keep together (a shambles) rather than spreading out */
+  cluster?: boolean;
 }
 
 export interface StaffSpec { occupation: string; n: [number, number]; role: string; sex?: "m" | "f" }

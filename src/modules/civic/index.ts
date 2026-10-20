@@ -187,6 +187,8 @@ export const civic: Module = {
       qNames.forEach((n, q) => { if (qNames.indexOf(n) !== q) qNames[q] = `${n} (${q + 1})`; });
       ctx.set(town.get(W), "quarterNames", qNames);
       const male = (lo: number, hi: number) => (x: Head) => x.male && x.age >= lo && x.age <= hi;
+      // The sergeants of the watch hold their post by trade; nobody else may take them.
+      for (const x of all) if (x.occ === "watch_sergeant") office(x, W, "sergeant of the watch", { quarter: x.quarter });
 
       // Government (LF p.86): a mayor and aldermen in a chartered town; the lord's bailiff otherwise.
       const byWealth = (x: Head) => x.wealth;
@@ -243,7 +245,6 @@ export const civic: Module = {
 
       // The watch (LF p.86): sergeants at the watch houses, about six paid
       // officers a quarter, and every able man in turn.
-      for (const x of all) if (x.occ === "watch_sergeant") office(x, W, "sergeant of the watch", { quarter: x.quarter });
       for (let q = 0; q < quarters; q++) for (let k = 0; k < 6; k++) {
         const o = choose(all, (x) => (x.quarter === q && male(20, 50)(x) && x.rank >= 3 && x.rank <= 5 ? tough(x) : 0));
         if (o) office(o, W, "officer of the watch", { quarter: q });
