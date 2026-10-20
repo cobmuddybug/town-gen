@@ -1,0 +1,59 @@
+# Guilds (LF p.85), in our words. `names` are the guilds' own names for the
+# guild ids used by occupations; `rights` are the demarcation quarrels.
+names:
+  merchants: "the Merchant Guild"
+  mercers: "the Mercers' Company"
+  drapers: "the Drapers' Company"
+  grocers: "the Grocers' Company"
+  vintners: "the Vintners' Company"
+  goldsmiths: "the Goldsmiths' Company"
+  butchers: "the Butchers' Guild"
+  fishmongers: "the Fishmongers' Guild"
+  brewers: "the Brewers' Guild"
+  fullers: "the Fullers' Guild"
+  dyers: "the Dyers' Guild"
+  tailors: "the Tailors' Guild"
+  cappers: "the Cappers' Guild"
+  glovers: "the Glovers' Guild"
+  skinners: "the Skinners' Guild"
+  cordwainers: "the Cordwainers' Guild"
+  cutlers: "the Cutlers' Guild"
+  armourers: "the Armourers' Guild"
+  smiths: "the Smiths' Guild"
+  pewterers: "the Pewterers' Guild"
+  bowyers: "the Bowyers' and Fletchers' Guild"
+  carpenters: "the Carpenters' Guild"
+  tilers: "the Tilers' and Plasterers' Guild"
+  glaziers: "the Glaziers' Guild"
+  saddlers: "the Saddlers' Guild"
+  leathersellers: "the Leathersellers' Guild"
+  scriveners: "the Scriveners' Guild"
+  barbers: "the Barbers' Guild"
+  painters: "the Painters' and Stainers' Guild"
+  weavers: "the Weavers' Guild"
+  bakers: "the Bakers' Guild"
+  masons: "the Masons' Guild"
+  coopers: "the Coopers' Guild"
+  chandlers: "the Chandlers' Guild"
+# Occupations from the country tables that join a guild in town.
+extra_members: { weaver: weavers, baker: bakers, mason: masons, cooper: coopers, chandler: chandlers, carpenter: carpenters, smith: smiths, tanner: leathersellers }
+rules:
+  - "no work by candlelight, when bad work can be hidden"
+  - "no master to keep more than two apprentices"
+  - "no outsider to sell in the town but on market days"
+  - "every piece to bear its maker's mark"
+  - "a fixed price for common work, which nobody may undercut"
+  - "no master to entice away another's servant or journeyman"
+  - "seven years' apprenticeship before a man may be a journeyman"
+charity:
+  - "pays for members' funerals, and keeps their widows from the street"
+  - "keeps a box for members fallen sick, and a candle burning before its saint"
+  - "pays a priest to sing for dead members, and feeds the poor on its feast day"
+rights:
+  - { a: cordwainers, b: cobbler, text: "the cobblers are making new shoes, which is the cordwainers' right" }
+  - { a: tailors, b: fripperer, text: "the old-clothes men are cutting new cloth, which is the tailors' right" }
+  - { a: drapers, b: tailors, text: "the tailors are selling cloth by the yard, which is the drapers' right" }
+  - { a: smiths, b: cutlers, text: "the smiths are forging blades, which the cutlers say is theirs alone" }
+  - { a: carpenters, b: coopers, text: "the carpenters are making barrels, and the coopers have noticed" }
+  - { a: grocers, b: spicer, text: "the apothecaries are selling spices by the pound, which the grocers say is theirs" }
+  - { a: mercers, b: drapers, text: "the drapers have started selling silk" }

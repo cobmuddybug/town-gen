@@ -1,0 +1,23 @@
+# Mundane temperaments. `old` raises the weight for people over 50.
+- { id: pious, label: pious, weight: 4 }
+- { id: grasping, label: grasping, weight: 3 }
+- { id: gossip, label: "a gossip", weight: 4 }
+- { id: quarrelsome, label: quarrelsome, weight: 3 }
+- { id: kindly, label: kindly, weight: 4 }
+- { id: idle, label: idle, weight: 2 }
+- { id: sharp_tongued, label: sharp-tongued, weight: 3 }
+- { id: honest, label: "honest to a fault", weight: 2 }
+- { id: drinker, label: "fond of the alehouse", weight: 3 }
+- { id: shrewd, label: shrewd, weight: 3, old: 2 }
+- { id: wise, label: "wise, and asked for advice", weight: 1, old: 4 }
+- { id: proud, label: proud, weight: 3 }
+- { id: timid, label: timid, weight: 2 }
+- { id: hardworking, label: "hard-working", weight: 4 }
+- { id: superstitious, label: superstitious, weight: 4 }
+- { id: thrifty, label: "close with money", weight: 3 }
+- { id: generous, label: generous, weight: 2 }
+- { id: envious, label: envious, weight: 2 }
+- { id: cheerful, label: cheerful, weight: 3 }
+- { id: sullen, label: sullen, weight: 2 }
+- { id: forgetful, label: forgetful, weight: 1, old: 3 }
+- { id: devout_cunning, label: "trusts the cunning woman over the priest", weight: 1 }

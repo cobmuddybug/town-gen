@@ -1,0 +1,30 @@
+# Who comes to a hamlet, and how often (LF pp.76-77), in our words.
+decrees:
+  - "a new tax of a fifteenth on movable goods"
+  - "that every man between fifteen and sixty keep arms according to his means"
+  - "the king's peace, and a reward for the taking of a named outlaw"
+  - "that no grain be carried out of the county until Michaelmas"
+  - "a muster of archers at the hundred court"
+  - "new weights and measures, to be checked at the next court"
+  - "the death of a great lord, and prayers to be said for him"
+  - "that no one shelter strangers for more than a night without telling the constable"
+band_kinds:
+  - "horse-traders"
+  - "tinsmiths and horse-copers"
+  - "basket-makers and fortune-tellers"
+  - "players and tumblers"
+  - "knife-grinders and pedlars"
+troupe_kinds:
+  - "players, with a cart that turns into a stage"
+  - "tumblers and a man with a bear"
+  - "mummers with masks of beasts"
+  - "a company playing the Flood and Noah's wife"
+mountebank_wares:
+  - "an elixir that cures the stone and the flux"
+  - "teeth drawn without pain, he says"
+  - "a powder against worms in children"
+  - "relics of a saint nobody has heard of"
+tinker_wares:
+  - "mending pots and selling pins"
+  - "sharpening knives and shears"
+  - "patching kettles, trading in rabbit skins"

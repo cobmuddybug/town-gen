@@ -1,0 +1,15 @@
+# Class tiers, highest first. `rank` drives sway() and comparisons.
+# `income` is an abstract yearly value in pennies. Only the ratios matter:
+# they climb roughly geometrically, after the shape of LF Table 2:21.
+# The absolute figures are ours and are meant to be tuned.
+- { id: upper_upper,   label: "upper upper",   class: upper,  rank: 11, income: 600000, source: "LF pp.44-48" }
+- { id: middle_upper,  label: "middle upper",  class: upper,  rank: 10, income: 150000, source: "LF pp.48-52" }
+- { id: lower_upper,   label: "lower upper",   class: upper,  rank: 9,  income: 30000,  source: "LF pp.52-55" }
+- { id: upper_middle,  label: "upper middle",  class: middle, rank: 8,  income: 7200,   source: "LF pp.56-58" }
+- { id: middle_middle, label: "middle middle", class: middle, rank: 7,  income: 2400,   source: "LF pp.58-60" }
+- { id: lower_middle,  label: "lower middle",  class: middle, rank: 6,  income: 1100,   source: "LF pp.60-61" }
+- { id: upper_lower,   label: "upper lower",   class: lower,  rank: 5,  income: 620,    source: "LF pp.61-62" }
+- { id: middle_lower,  label: "middle lower",  class: lower,  rank: 4,  income: 400,    source: "LF pp.62-63" }
+- { id: lower_lower,   label: "lower lower",   class: lower,  rank: 3,  income: 260,    source: "LF pp.63-64" }
+- { id: underclass,    label: "underclass",    class: under,  rank: 2,  income: 90,     source: "LF pp.64-65" }
+- { id: criminal,      label: "criminal underclass", class: under, rank: 1, income: 150, source: "LF p.65" }

@@ -1,0 +1,13 @@
+- { id: pockmarked, label: "pockmarked", weight: 3 }
+- { id: lame, label: "walks with a limp", weight: 2 }
+- { id: teeth, label: "missing front teeth", weight: 3, minAge: 30 }
+- { id: tall, label: "taller than anyone in the hamlet", weight: 1 }
+- { id: ruddy, label: "ruddy-faced", weight: 3 }
+- { id: scar, label: "an old scar across one hand", weight: 2, minAge: 16 }
+- { id: squint, label: "a squint", weight: 1 }
+- { id: freckled, label: "freckled", weight: 2 }
+- { id: hands, label: "huge, cracked hands", weight: 2, minAge: 16 }
+- { id: voice, label: "a voice that carries across the green", weight: 2 }
+- { id: deaf, label: "hard of hearing", weight: 1, minAge: 55 }
+- { id: bent, label: "bent from years of field work", weight: 2, minAge: 50 }
+- { id: plain, label: "nothing anyone remembers", weight: 6 }

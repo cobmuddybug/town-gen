@@ -1,0 +1,96 @@
+# Building uses. `size` is the footprint class the layout gives the building.
+# `site` asks the layout for a particular spot. `households` is how many
+# households live under the roof. `occupations` are weighted choices for the
+# head of each household (the first household is the business's master).
+# Categories follow LF pp.10-11.
+- id: farmhouse
+  label: farmhouse
+  avgSize: 5.5
+  category: small_rural
+  size: farm
+  households: 1
+  occupations: { large_tenant_farmer: 2, tenant_farmer: 5, small_farmer: 3 }
+  source: "LF pp.72-73"
+- id: cottage
+  label: cottage
+  avgSize: 3.6
+  category: small_rural
+  size: cottage
+  households: 1
+  occupations: { labourer: 6, herdsman: 2, ploughman: 2, widow_spinster: 2, carter: 1 }
+  source: "LF pp.72-73"
+- id: chapel
+  label: chapel
+  category: smaller_urban
+  size: chapel
+  site: green
+  households: 1
+  occupations: { chaplain: 1 }
+  congregation: 150
+  source: "LF p.85"
+- id: shrine
+  label: shrine
+  category: small_rural
+  size: shrine
+  site: green
+  households: 1
+  occupations: { shrine_keeper: 1 }
+  congregation: 50
+  source: "LF p.85"
+- id: mill
+  label: watermill
+  category: other_large
+  size: mill
+  site: stream
+  households: 1
+  occupations: { miller: 1 }
+  source: "LF p.73"
+- id: trader
+  label: general trader
+  category: smaller_urban
+  size: shop
+  site: main_road
+  households: 1
+  occupations: { general_trader: 1 }
+  source: "LF p.73"
+- id: alehouse
+  label: alehouse
+  category: smaller_urban
+  size: inn
+  site: junction
+  households: 1
+  occupations: { alewife: 2, alehouse_keeper: 3 }
+  lets_rooms: 2
+  source: "LF pp.73, 94"
+- { id: bakehouse, label: bakehouse,  category: smaller_urban, size: workshop, households: 1, occupations: { baker: 1 }, source: "LF p.73" }
+- { id: smithy,    label: smithy,     category: smaller_urban, size: workshop, site: main_road, households: 1, occupations: { smith: 1 }, source: "LF p.73" }
+- { id: carpenter, label: "carpenter's shop", category: smaller_urban, size: workshop, households: 1, occupations: { carpenter: 1 }, source: "LF p.73" }
+- { id: carter,    label: "carter's yard", category: small_rural, size: farm, households: 1, occupations: { carter: 1 }, source: "LF p.73" }
+- { id: thatcher,  label: "thatcher's cottage", category: small_rural, size: cottage, households: 1, occupations: { thatcher: 1 }, source: "LF p.73" }
+- { id: weaver,    label: "weaver's cottage", category: small_rural, size: cottage, households: 1, occupations: { weaver: 1 }, source: "LF p.73" }
+- { id: cooperage, label: cooperage,  category: smaller_urban, size: workshop, households: 1, occupations: { cooper: 1 }, source: "LF p.11" }
+- { id: chandlery, label: chandlery,  category: smaller_urban, size: workshop, households: 1, occupations: { chandler: 1 }, source: "LF p.11" }
+# Fishing (LF p.73)
+- { id: fisher_house, label: "fisher's house", category: small_rural, size: cottage, avgSize: 4.6, households: 1, occupations: { fisherman: 1 }, source: "LF p.73" }
+- { id: boatwright, label: "boatwright's yard", category: smaller_urban, size: yard, site: shore, households: 1, occupations: { boatwright: 1 }, source: "LF p.73" }
+- { id: ropewalk, label: ropewalk, category: other_large, size: ropewalk, households: 1, occupations: { ropemaker: 1 }, source: "LF p.73" }
+- { id: mason, label: "mason's yard", category: smaller_urban, size: workshop, households: 1, occupations: { mason: 1 }, source: "LF p.73" }
+- { id: slater, label: "slater's cottage", category: small_rural, size: cottage, households: 1, occupations: { slater: 1 }, source: "LF p.73" }
+- { id: netmaker, label: "net loft", category: smaller_urban, size: workshop, households: 1, occupations: { netmaker: 1 }, source: "LF p.73" }
+# Herding (LF pp.73-74)
+- { id: herder_house, label: "herder's house", category: small_rural, size: farm, avgSize: 5, households: 1, occupations: { shepherd: 3, cowherd: 1 }, source: "LF p.73" }
+- { id: wool_factor, label: "wool house", category: other_large, size: shop, site: main_road, households: 1, occupations: { wool_factor: 1 }, source: "LF p.73" }
+- { id: carder, label: "carder's cottage", category: small_rural, size: cottage, households: 1, occupations: { carder: 1 }, source: "LF p.74" }
+- { id: tannery, label: tannery, category: large_suburban, size: workshop, site: downstream, households: 1, occupations: { tanner: 1 }, source: "LF pp.11, 74" }
+# Mining (LF p.74)
+- { id: miner_house, label: "miner's house", category: small_rural, size: cottage, avgSize: 4.4, households: 1, occupations: { miner: 1 }, source: "LF p.74" }
+- { id: sawpit, label: "sawpit and yard", category: smaller_urban, size: yard, site: edge, households: 1, occupations: { sawyer: 1 }, source: "LF p.74" }
+- { id: assay_house, label: "assay house", category: smaller_urban, size: shop, site: main_road, households: 1, occupations: { assayer: 1 }, source: "LF p.74" }
+- { id: freighter, label: "freighter's yard", category: small_rural, size: farm, households: 1, occupations: { freighter: 1 }, source: "LF p.74" }
+# Woodcutting (LF pp.74-75)
+- { id: logger_house, label: "woodcutter's house", category: small_rural, size: cottage, avgSize: 4.5, households: 1, occupations: { woodcutter: 1 }, source: "LF p.74" }
+- { id: charcoal_burner, label: "collier's hut", category: small_rural, size: cottage, site: edge, households: 1, occupations: { charcoal_burner: 1 }, source: "LF p.75" }
+- { id: empty,     label: "empty house", category: small_rural, size: cottage, households: 0, occupations: {} }
+# Manorial villages (LF pp.77-78)
+- { id: manor_house, label: "manor house", category: other_large, size: manor, households: 1, occupations: { hall_keeper: 1 }, source: "LF p.77" }
+- { id: socman_house, label: "socman's house", category: small_rural, size: farm, households: 1, occupations: { socman: 1 }, source: "LF p.78" }

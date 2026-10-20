@@ -1,0 +1,44 @@
+# Town government, policing, justice and services (LF pp.85-104), in our words.
+compass:
+  N: North
+  S: South
+  E: East
+  W: West
+  NE: North
+  NW: North
+  SE: South
+  SW: South
+# Gate names besides the compass ones; used when a compass name is taken or a feature is near.
+gates: [Newgate, Bargate, Ludgate, Bootham, Micklegate, Monkgate, Aldgate, Cripplegate]
+inner: ["Cheap", "Market", "Shambles", "Mercery", "Drapery", "Poultry"]
+water:
+  early_medieval: "wells in the yards, and the river; water carriers sell it by the bucket"
+  high_medieval: "public wells at the street corners and in the market, and the river; water carriers sell it by the bucket"
+  late_medieval: "public wells, a conduit house in the market fed by pipes from springs outside the walls, and water carriers"
+  early_modern: "a conduit from springs outside the walls to cisterns at the corners, some pipes to great houses, and water carriers"
+fire:
+  early_medieval: "every house keeps a bucket; the bell rings for curfew, when hearths must be covered"
+  high_medieval: "hooks, ladders and leather buckets kept at the churches; curfew on hearths at the evening bell"
+  late_medieval: "hooks, ladders and buckets at the churches and the guildhall; thatch is forbidden on new houses; curfew on hearths"
+  early_modern: "a fire station with an engine and paid crews; buckets at the churches; curfew on hearths"
+literacy:
+  early_medieval: [2, 5]
+  high_medieval: [5, 15]
+  late_medieval: [12, 22]
+  early_modern: [20, 30]
+petty:
+  - "a brawl outside {tavern}"
+  - "a midden left in the street before {house}"
+  - "bread sold short weight"
+  - "a pig loose in the street, again"
+  - "night-walking after the curfew bell"
+  - "selling ale above the assize price"
+  - "a slop bucket emptied from an upper window onto a passer-by"
+  - "a shutter left down into the street"
+felonies:
+  - "a purse cut in the market crowd"
+  - "a horse taken from a livery stable"
+  - "goods stolen from a warehouse at night"
+  - "a man stabbed outside a tavern, not fatally"
+  - "a house broken into while the family was at mass"
+  - "stolen cloth found in a cellar"

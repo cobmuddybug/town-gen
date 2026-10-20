@@ -1,0 +1,57 @@
+# Occupations. `tier` is where the trade usually sits (LF pp.56-65).
+# `byname` is the surname this trade gives rise to. `land` is a range of acres
+# farmed (a yardland was about 30). `servants` is how many live-in servants
+# such a household keeps, as a range.
+- { id: large_tenant_farmer, label: "farmer (a full yardland)", tier: lower_middle, byname: Franklin, land: [28, 40], servants: [1, 3], source: "LF p.61" }
+- { id: tenant_farmer,  label: "tenant farmer",  tier: upper_lower, byname: Bond, land: [12, 20], servants: [0, 1], source: "LF p.61" }
+- { id: small_farmer,   label: "smallholder",    tier: upper_lower, land: [5, 10], servants: [0, 0], source: "LF p.61" }
+- { id: labourer,       label: "labourer",       tier: lower_lower, land: [0, 2], source: "LF p.64" }
+- { id: herdsman,       label: "herdsman",       tier: middle_lower, byname: Herd, land: [0, 2], source: "LF p.63" }
+- { id: ploughman,      label: "ploughman",      tier: lower_lower, byname: Plowman, land: [0, 2], source: "LF p.64" }
+- { id: widow_spinster, label: "spinner",        tier: lower_lower, female: true, land: [0, 1], source: "LF p.64" }
+- { id: carter,         label: "carter",         tier: upper_lower, byname: Carter, land: [1, 4], servants: [0, 1], source: "LF p.61" }
+- { id: chaplain,       label: "chaplain",       tier: lower_middle, celibate: true, land: [2, 6], servants: [1, 1], source: "LF p.85" }
+- { id: shrine_keeper,  label: "keeper of the shrine", tier: upper_lower, celibate: true, land: [0, 2], source: "LF p.85" }
+- { id: miller,         label: "miller",         tier: middle_middle, byname: Miller, land: [4, 10], servants: [1, 2], source: "LF pp.59, 73" }
+- { id: general_trader, label: "general trader", tier: lower_middle, byname: Chapman, land: [0, 3], servants: [0, 1], source: "LF pp.61, 73" }
+- { id: alehouse_keeper, label: "alehouse keeper", tier: upper_lower, byname: Brewer, land: [0, 3], servants: [0, 1], source: "LF pp.61, 73" }
+- { id: alewife,        label: "alewife",        tier: upper_lower, female: true, byname: Brewster, land: [0, 3], servants: [0, 1], source: "LF pp.61, 73" }
+- { id: baker,          label: "baker",          tier: lower_middle, byname: Baker, land: [0, 2], servants: [0, 1], source: "LF p.73" }
+- { id: smith,          label: "smith",          tier: lower_middle, byname: Smith, land: [0, 3], servants: [0, 1], source: "LF p.73" }
+- { id: carpenter,      label: "carpenter",      tier: lower_middle, byname: Wright, land: [0, 2], servants: [0, 1], source: "LF p.73" }
+- { id: thatcher,       label: "thatcher",       tier: upper_lower, byname: Thatcher, land: [0, 2], source: "LF p.73" }
+- { id: weaver,         label: "weaver",         tier: upper_lower, byname: Webb, land: [0, 2], source: "LF p.73" }
+- { id: cooper,         label: "cooper",         tier: lower_middle, byname: Cooper, land: [0, 2], servants: [0, 1], source: "LF p.11" }
+- { id: chandler,       label: "chandler",       tier: lower_middle, byname: Chandler, land: [0, 2], servants: [0, 1], source: "LF p.11" }
+# Fishing
+- { id: fisherman,  label: "fisherman",  tier: upper_lower, byname: Fisher, stake: [0, 2], source: "LF p.62" }
+- { id: boatwright, label: "boatwright", tier: lower_middle, byname: Shipwright, stake: [2, 3], servants: [1, 2], source: "LF p.73" }
+- { id: ropemaker,  label: "ropemaker",  tier: upper_lower, byname: Roper, source: "LF p.73" }
+- { id: mason,      label: "mason",      tier: lower_middle, byname: Mason, servants: [0, 1], source: "LF p.73" }
+- { id: slater,     label: "slater",     tier: upper_lower, byname: Slater, source: "LF p.73" }
+- { id: netmaker,   label: "netmaker",   tier: upper_lower, byname: Netter, source: "LF p.73" }
+# Herding
+- { id: shepherd,   label: "shepherd",   tier: upper_lower, byname: Shepherd, land: [1, 4], stake: [15, 140], servants: [0, 1], source: "LF p.73" }
+- { id: cowherd,    label: "cowherd",    tier: middle_lower, byname: Coward, land: [1, 3], stake: [0, 20], source: "LF p.73" }
+- { id: wool_factor, label: "wool factor", tier: lower_middle, byname: Woolman, stake: [0, 60], servants: [0, 1], source: "LF p.73" }
+- { id: carder,     label: "carder",     tier: middle_lower, byname: Carder, source: "LF p.74" }
+- { id: tanner,     label: "tanner",     tier: lower_middle, byname: Tanner, servants: [0, 1], source: "LF p.74" }
+# Mining
+- { id: miner,      label: "miner",      tier: middle_lower, byname: Collier, stake: [0, 2], source: "LF p.74" }
+- { id: sawyer,     label: "sawyer",     tier: lower_middle, byname: Sawyer, servants: [0, 1], source: "LF p.74" }
+- { id: assayer,    label: "assayer",    tier: middle_middle, byname: Assayer, servants: [0, 1], source: "LF p.74" }
+- { id: freighter,  label: "freighter",  tier: lower_middle, byname: Carter, servants: [0, 2], source: "LF p.74" }
+# Woodcutting
+- { id: woodcutter, label: "woodcutter", tier: middle_lower, byname: Woodward, stake: [0, 2], source: "LF p.74" }
+- { id: charcoal_burner, label: "charcoal burner", tier: lower_lower, byname: Collier, source: "LF p.75" }
+# The manor (LF pp.77-78)
+- { id: hall_keeper, label: "keeper of the lord's hall", tier: upper_lower, land: [0, 2], servants: [0, 1], source: "LF p.77" }
+- { id: socman,     label: "socman",     tier: middle_middle, byname: Franklin, land: [40, 90], servants: [1, 3], source: "LF p.78" }
+- { id: steward,    label: "steward of the lord's manors", tier: upper_middle, source: "LF p.77" }
+- { id: regarder,   label: "regarder", tier: middle_middle, source: "LF p.77" }
+- { id: bailiff,    label: "bailiff", tier: lower_middle, source: "LF p.77" }
+- { id: lord,       label: "lord of the manor", tier: lower_upper, source: "LF p.77" }
+- { id: farm_servant,   label: "farm servant",   tier: middle_lower, source: "LF p.63" }
+- { id: housekeeper,    label: "housekeeper",    tier: upper_lower, source: "LF p.62" }
+- { id: mill_hand,      label: "mill hand",      tier: middle_lower, source: "LF p.63" }
+- { id: servant,        label: "servant",        tier: middle_lower, source: "LF p.63" }

@@ -1,0 +1,20 @@
+import type { Module } from "../core/types";
+import { core } from "./core";
+import { uses } from "./uses";
+import { layout } from "./layout";
+import { households } from "./households";
+import { materials } from "./materials";
+import { names } from "./names";
+import { people } from "./people";
+import { council } from "./council";
+import { sifters } from "./sifters";
+import { society } from "./society";
+import { routines } from "./routines";
+import { visitors } from "./visitors";
+import { manor } from "./manor";
+import { religion } from "./religion";
+import { civic } from "./civic";
+import { guilds } from "./guilds";
+import { lodging } from "./lodging";
+
+export const defaultModules: Module[] = [core, uses, layout, households, materials, names, people, council, society, visitors, manor, religion, civic, guilds, lodging, routines, sifters];

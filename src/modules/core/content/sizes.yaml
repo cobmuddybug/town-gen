@@ -1,0 +1,6 @@
+# Settlement size classes (LF p.72). Bounds are population.
+- { id: hamlet,  label: hamlet,  min: 0,     max: 260,   source: "LF p.72" }
+- { id: thorp,   label: thorp,   min: 261,   max: 1000,  source: "LF p.72" }
+- { id: village, label: village, min: 1001,  max: 6000,  source: "LF p.72" }
+- { id: town,    label: town,    min: 6001,  max: 25000, source: "LF p.72" }
+- { id: city,    label: city,    min: 25001, max: 9999999, source: "LF p.72" }

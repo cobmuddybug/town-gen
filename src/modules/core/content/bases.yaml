@@ -1,0 +1,84 @@
+# Economic bases for hamlets, thorps and villages (LF pp.72-75), in our words.
+# `core`: buildings every settlement of this base has (one each).
+# `fill`: the ordinary houses, as shares; most people live in these.
+# `extras`: appear at roughly one per 100 people above 250, in list order.
+# `terrain` tells the layout what country this is.
+# `stake` is what the "biggest local holder" holds the most of (LF p.75).
+# `richest`: trades that are usually richest; one is chosen per settlement.
+# `grievance`: what people say the richest does to them.
+# `disputes`: the base's own quarrels, heard by the council.
+- id: agricultural
+  label: agricultural
+  terrain: farmland
+  core: [place_of_worship, mill, trader, alehouse]
+  fill: { farmhouse: 0.45, cottage: 0.55 }
+  extras: [bakehouse, smithy, carpenter, carter, thatcher, weaver]
+  walls: [wattle_and_daub, wattle_and_daub, timber_and_board, sod]
+  roofs: [thatch, thatch, thatch, plank]
+  fuel: "wood, charcoal and dried dung"
+  stake: acres
+  richest: [miller]
+  grievance: "short measure at the mill"
+  dispute: "fence lines and boundary marks"
+  disputes: ["a boundary stone moved between two strips", "a furrow ploughed into a neighbour's strip", "a hedge grubbed out in the night"]
+  source: "LF pp.72-73"
+- id: fishing
+  label: fishing
+  terrain: coast
+  core: [place_of_worship, boatwright, trader, alehouse]
+  fill: { fisher_house: 0.8, cottage: 0.2 }
+  extras: [smithy, ropewalk, mason, carter, slater, netmaker]
+  walls: [timber_and_board, fieldstone]
+  roofs: [plank, slate]
+  fuel: driftwood
+  stake: boats
+  richest: [boatwright]
+  grievance: "what the boatwright charges for a new strake"
+  dispute: "tangled nets and fishing spots"
+  disputes: ["nets cut loose in the night", "a mark on the fishing ground claimed by two boats", "a share of a catch landed short"]
+  source: "LF p.73"
+- id: herding
+  label: herding
+  terrain: moor
+  core: [place_of_worship, wool_factor, carter, trader, alehouse]
+  fill: { herder_house: 0.7, cottage: 0.3 }
+  extras: [carder, carpenter, tannery, thatcher, weaver, smithy]
+  walls: [wattle_and_daub, sod, timber_and_board, fieldstone]
+  roofs: [thatch, turf, plank]
+  fuel: "peat and dung"
+  stake: sheep
+  richest: [carter, tanner]
+  grievance: "the price of carting the wool clip"
+  dispute: "grazing rights and strayed animals"
+  disputes: ["sheep found in the wrong fold with the marks scraped", "more beasts on the common than their right allows", "a ram that got in among a neighbour's ewes"]
+  source: "LF pp.73-74"
+- id: mining
+  label: mining
+  terrain: hills
+  core: [place_of_worship, sawpit, assay_house, trader, alehouse]
+  fill: { miner_house: 0.8, cottage: 0.2 }
+  extras: [freighter, smithy, carpenter, slater]
+  walls: [stone]
+  roofs: [slate, plank]
+  fuel: "coal and charcoal"
+  stake: ore shares
+  richest: [assayer, freighter]
+  grievance: "a light assay that cheats the miners of their share"
+  dispute: "digging rights and the division of ore shares"
+  disputes: ["a new working driven into a neighbour's ground", "ore from the common heap carried off", "a share of the dressing floor's take"]
+  source: "LF p.74"
+- id: woodcutting
+  label: woodcutting
+  terrain: forest
+  core: [place_of_worship, sawpit, trader, alehouse]
+  fill: { logger_house: 0.8, cottage: 0.2 }
+  extras: [freighter, smithy, carpenter, charcoal_burner]
+  walls: [timber_and_board]
+  roofs: [plank, shingle]
+  fuel: "wood and charcoal"
+  stake: felling rights
+  richest: [sawyer, freighter]
+  grievance: "short measure on sawn timber"
+  dispute: "felling rights and the division of timber shares"
+  disputes: ["an oak felled that was marked for another", "a stack of cordwood gone from the ride", "a share of the timber money"]
+  source: "LF pp.74-75"

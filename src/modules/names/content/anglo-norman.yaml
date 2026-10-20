@@ -1,0 +1,103 @@
+# English names of the 12th-13th centuries. Weights are rough popularity.
+# `called` gives the everyday short forms people were actually known by.
+male:
+  John: 10
+  William: 10
+  Robert: 8
+  Richard: 7
+  Walter: 6
+  Thomas: 5
+  Hugh: 5
+  Roger: 5
+  Henry: 4
+  Geoffrey: 4
+  Ralph: 4
+  Simon: 3
+  Adam: 3
+  Gilbert: 3
+  Nicholas: 3
+  Peter: 2
+  Alan: 2
+  Reginald: 2
+  Stephen: 2
+  Osbert: 1
+  Godwin: 1
+  Elias: 1
+  Laurence: 1
+  Philip: 2
+  Martin: 1
+  Jordan: 1
+  Baldwin: 1
+  Ivo: 1
+female:
+  Agnes: 8
+  Alice: 9
+  Matilda: 7
+  Joan: 6
+  Emma: 6
+  Isabel: 5
+  Margery: 4
+  Cecily: 4
+  Edith: 3
+  Avice: 3
+  Juliana: 3
+  Beatrice: 3
+  Christina: 3
+  Sybil: 2
+  Mabel: 2
+  Lettice: 2
+  Petronilla: 1
+  Amice: 2
+  Hawise: 2
+  Rose: 2
+  Margaret: 4
+  Eleanor: 1
+  Gunnild: 1
+  Denise: 1
+called:
+  Walter: [Wat, Watkin]
+  Robert: [Hob, Robin, Dobbe]
+  Richard: [Dick, Hick, Dickon]
+  Roger: [Hodge]
+  Gilbert: [Gib]
+  William: [Will, Wilkin]
+  Henry: [Hal]
+  Hugh: [Hew, Huchon]
+  Geoffrey: [Jeff]
+  Nicholas: [Colin, Nick]
+  Simon: [Sim]
+  Thomas: [Tom, Tomkin]
+  John: [Jack, Jankin]
+  Adam: [Adkin]
+  Matilda: [Maud, Tilly]
+  Isabel: [Ibbot, Bel]
+  Margaret: [Magot, Meg]
+  Margery: [Madge]
+  Agnes: [Annis, Nan]
+  Cecily: [Cis]
+  Juliana: [Gillian, Jill]
+  Petronilla: [Parnel]
+  Beatrice: [Betun]
+  Christina: [Kit]
+  Emma: [Em]
+nickname:
+  [Brown, White, Black, Read, Long, Short, Small, Young, Good, Swift, Fox, Wolf, Lamb, Bird, Crow,
+   Sparrow, Gentle, Proud, Sweet, Merriman, Goodfellow, Hardy, Bull, Doe, Pennyfather, Hogg, Stout,
+   Strong, Grey, Gold, Cripps, Starling, Wren, Pease, Lightfoot, Makepeace, Truelove]
+locative:
+  [Atwood, Atwell, Bywater, Underhill, Brook, Green, Hill, Lane, Townsend, Field, Ford, Marsh,
+   Moor, Heath, Grove, Holt, Bridge, Cross, Nash, Noakes, Rye, Bythesea, Atterbury, Stile, Hatch,
+   Westcott, Eastwood, Northey, Southam]
+trades:
+  [Smith, Baker, Carter, Thatcher, Webb, Tanner, Cooper, Fletcher, Taylor, Fuller, Turner, Shepherd,
+   Hayward, Reeve, Wright, Mason, Sawyer, Walker, Fisher, Hunter, Cook, Mercer, Chapman, Barker,
+   Tucker, Dyer, Glover, Skinner, Thresher, Plowman, Coward, Miller, Brewer, Butcher, Spencer,
+   Cheeseman, Gardener, Parker, Forester, Woodward, Saddler, Shearer]
+patronym_suffix: [son, s, kin, cock]
+place:
+  first: [Ash, Thorn, Brad, Ox, Brom, Stan, Wick, Ald, Elm, Hen, Swin, Har, Kirk, Mil, Bur, Lang,
+          Whit, Red, Chal, Sel, Bark, Cot, Ditch, Fen, Gold, Hay, Kings, Lid, Mor, Nor, Pid, Rad,
+          Sut, Wal, Wes, Wolver, Ac, Aud, Buck, Chil, Dun, Ever, Grim, Hal, Ick, Lam, Ock, Ship]
+  last: [by, ton, ham, ley, ford, worth, thorpe, field, stead, well, bury, wick, den, hurst,
+         combe, cote, holme, ing, stow, more, dale, hope, ridge]
+  prefix: [Little, Nether, Upper, Long, Great, Kings, Abbots, Monks, Steeple, Castle]

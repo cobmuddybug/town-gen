@@ -1,0 +1,33 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`street plans > the layout is stable for a seed 1`] = `
+{
+  "buildings": 1232,
+  "gates": [
+    "Westgate",
+    "Northgate",
+    "Aldgate",
+    "Southgate",
+    "Bargate",
+  ],
+  "geometry": "ea042290",
+  "wallPoints": 180,
+  "wards": [
+    "North Mercery",
+    "St Andrew's Ward",
+    "North Cheap",
+    "Northgate Ward",
+    "East Poultry",
+    "Castle Ward",
+    "South Mercery",
+    "Southgate Ward",
+    "South Cheap",
+    "Westgate Ward",
+    "Without Westgate",
+    "Without Northgate",
+    "Without Aldgate",
+    "Without Southgate",
+    "Without Bargate",
+  ],
+}
+`;

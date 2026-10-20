@@ -1,0 +1,30 @@
+# The religious hierarchy (LF p.85), in our words. Dedications are saints'
+# names common in medieval England; the setting may rename them.
+seats:
+  - { id: grand_temple, label: "cathedral", clergy: "a bishop and six canons", supports: "1,000 or more", tithes: "nobody; it receives from every church in the diocese", source: "LF p.85" }
+  - { id: temple, label: "minster", clergy: "a provost and four or more clerks", supports: "600 or more", tithes: "the cathedral", source: "LF p.85" }
+  - { id: fane, label: "parish church", clergy: "a priest and a clerk or two", supports: "about 300", tithes: "the minster", source: "LF p.85" }
+  - { id: chapel, label: "chapel", clergy: "a chaplain and a clerk", supports: "about 150", tithes: "the minster", source: "LF p.85" }
+  - { id: chantry, label: "chantry chapel", clergy: "one priest, singing for the dead, helped by friars or monks", supports: "about 100", tithes: "its religious house", source: "LF p.85" }
+  - { id: shrine, label: "shrine", clergy: "one minor cleric", supports: "about 50", tithes: "the minster or the friars", source: "LF p.85" }
+saints: ["St Mary", "St Peter", "All Saints", "Holy Trinity", "St Michael", "St Nicholas", "St Andrew", "St John", "St Margaret",
+  "St Lawrence", "St Martin", "St Helen", "St James", "St Edmund", "St Clement", "St Leonard", "St Botolph", "St Mary Magdalene",
+  "St Thomas", "St Stephen", "St Benet", "St Olave", "St Dunstan", "St Cuthbert", "St Alban", "St Swithun", "St Oswald",
+  "St Werburgh", "St Ethelbert", "St Bride", "St Anne", "St Catherine", "St Faith", "St Giles", "St Bartholomew", "St Augustine",
+  "St Wilfrid", "St Chad", "St Mildred", "St Wite"]
+friars: ["the Grey Friars", "the Black Friars", "the White Friars", "the Austin Friars", "the Friars of the Sack"]
+hospital: ["St John", "St Bartholomew", "St Leonard", "St Mary"]
+lazar: ["St Giles", "St Mary Magdalene", "St Lazarus", "St Leonard"]
+misdeeds:
+  - "struck a carter in the street and broke his jaw"
+  - "got a servant girl with child and turned her out"
+  - "sold the parish's silver candlesticks and said they were stolen"
+  - "took money to bury a suicide in hallowed ground"
+  - "keeps a woman in a house by the river"
+  - "forged a will for a fee"
+  - "beat an apprentice half to death for a cheek"
+  - "lends at interest, which is usury, through a merchant's name"
+grudges:
+  - "the minster's cut, while his own parish goes without"
+  - "being made to pay for the minster's new roof"
+  - "a tithe of the Easter offerings he can't spare"

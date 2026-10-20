@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Town Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" />
+  <link rel="stylesheet" href="/src/ui/style.css" />
+</head>
+<body>
+  <header class="bar">
+    <h1>Town Generator</h1>
+    <form id="new-town" class="controls">
+      <label>Seed <input name="seed" size="10" autocomplete="off" /></label>
+      <label>People <input name="pop" type="number" min="50" max="30000" step="10" title="Up to about 700: a hamlet. Up to 6,000: a village. Beyond: a town, and from 25,000 a city." /></label>
+      <label>Living by
+        <select name="base">
+          <option value="agricultural">farming</option>
+          <option value="fishing">fishing</option>
+          <option value="herding">herding</option>
+          <option value="mining">mining</option>
+          <option value="woodcutting">woodcutting</option>
+        </select>
+      </label>
+      <label title="A manorial village is owned outright by its lord, and its people are mostly villeins"><input type="checkbox" name="manorial" /> Manor</label>
+      <label>Era
+        <select name="era">
+          <option value="early_medieval">early medieval</option>
+          <option value="high_medieval">high medieval</option>
+          <option value="late_medieval">late medieval</option>
+          <option value="early_modern">early modern</option>
+        </select>
+      </label>
+      <button type="submit">Generate</button>
+      <button type="button" id="random-seed" title="New seed">New seed</button>
+    </form>
+    <div class="controls clock" id="clock">
+      <button type="button" data-step="-1" title="Back one block">◀</button>
+      <input id="clock-date" size="10" title="Date (YYYY-MM-DD)" />
+      <select id="clock-block">
+        <option value="morning">morning 5–8</option>
+        <option value="forenoon">forenoon 9–12</option>
+        <option value="afternoon">afternoon 13–16</option>
+        <option value="evening">evening 17–20</option>
+        <option value="night">night 21–24</option>
+        <option value="late_night">late night 1–4</option>
+      </select>
+      <button type="button" data-step="1" title="Forward one block">▶</button>
+      <label><input type="checkbox" id="show-people" /> People</label>
+    </div>
+    <div class="controls">
+      <button type="button" id="save">Save</button>
+      <label class="button">Load<input type="file" id="load" accept=".json,application/json" hidden /></label>
+    </div>
+  </header>
+  <main>
+    <section id="map" aria-label="Map"></section>
+    <aside id="inspector" aria-label="Inspector"></aside>
+  </main>
+  <script type="module" src="/src/ui/main.ts"></script>
+</body>
+</html>

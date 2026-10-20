@@ -1,0 +1,17 @@
+# Wall and roof materials, cheapest first (LF p.79).
+- { id: wattle_and_daub,   kind: wall, cost: 1, label: "wattle and daub" }
+- { id: sod,               kind: wall, cost: 1, label: "sod" }
+- { id: timber_and_board,  kind: wall, cost: 2, label: "timber and board" }
+- { id: timber_and_plaster, kind: wall, cost: 3, label: "timber and plaster" }
+- { id: fieldstone,        kind: wall, cost: 3, label: "fieldstone" }
+- { id: timber_and_brick,  kind: wall, cost: 4, label: "timber and brick" }
+- { id: timber_and_stone,  kind: wall, cost: 5, label: "timber and stone" }
+- { id: brick,             kind: wall, cost: 6, label: "brick" }
+- { id: stone,             kind: wall, cost: 7, label: "dressed stone" }
+- { id: thatch,  kind: roof, cost: 1, label: "thatch" }
+- { id: turf,    kind: roof, cost: 1, label: "turf" }
+- { id: plank,   kind: roof, cost: 2, label: "plank" }
+- { id: shingle, kind: roof, cost: 3, label: "wooden shingles" }
+- { id: tile,    kind: roof, cost: 4, label: "clay tile" }
+- { id: slate,   kind: roof, cost: 5, label: "slate" }
+- { id: lead,    kind: roof, cost: 6, label: "lead" }

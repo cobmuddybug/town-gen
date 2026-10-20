@@ -1,0 +1,58 @@
+# Small facts of a life. {they}/{their}/{them} are pronouns, {place} is a
+# nearby place, {n} a number of years ago. Conditions: minAge, maxAge, sex,
+# roles, occ (head's trade), maxRank / minRank (class tier rank), setting
+# (country or town; none means either).
+- { id: farm_service, setting: country, text: "served {n} years as a farm servant at {place} before marrying", minAge: 24, maxRank: 6, roles: [head, spouse], weight: 4 }
+- { id: pilgrim, text: "walked on pilgrimage to the shrine at {place} and brought back a lead badge", minAge: 28, weight: 2 }
+- { id: first_spouse, text: "lost {their} first spouse to the bloody flux", minAge: 30, roles: [head, spouse], weight: 2 }
+- { id: assize, setting: country, text: "was fined at the manor court for brewing against the assize of ale", minAge: 25, sex: f, weight: 2 }
+- { id: levy, text: "went with the lord's levy one summer, and doesn't talk about it", minAge: 30, sex: m, weight: 2 }
+- { id: millpond, text: "nearly drowned in the millpond as a child", minAge: 8, weight: 2 }
+- { id: hungry_year, text: "was born in the hungry year", minAge: 10, weight: 2 }
+- { id: buried, text: "has buried three children", minAge: 30, sex: f, roles: [head, spouse, parent], weight: 3 }
+- { id: king, text: "once saw the king's party ride past on the high road", minAge: 20, weight: 1 }
+- { id: uncle, setting: country, text: "took the holding over from an uncle who died without sons", minAge: 25, roles: [head], occ: [large_tenant_farmer, tenant_farmer, small_farmer], weight: 3 }
+- { id: deer, text: "spent a winter in the lord's gaol over a deer", minAge: 20, sex: m, maxRank: 5, weight: 1 }
+- { id: fair, text: "went to the great fair at {place} once and still talks about it", minAge: 16, weight: 2 }
+- { id: letters, text: "can read a little, taught by an old chaplain", minAge: 14, weight: 1 }
+- { id: reaper, setting: country, text: "was the best reaper in the parish, before {their} back went", minAge: 50, weight: 2 }
+- { id: ran_away, text: "ran off to {place} at fifteen and came back a year later", minAge: 17, weight: 2 }
+- { id: never_left, setting: country, text: "has never been further than the next parish", minAge: 20, weight: 3 }
+- { id: fire, text: "was born on the night the old mill burned", minAge: 12, weight: 1 }
+- { id: fever, setting: country, text: "nursed half the hamlet through the fever {n} years ago", minAge: 30, sex: f, weight: 1 }
+- { id: bees, text: "keeps bees, and tells them the news", minAge: 30, weight: 2 }
+- { id: oath, setting: country, text: "swore before the manor court to clear a neighbour, and the neighbour knows it", minAge: 25, weight: 1 }
+- { id: came_from, text: "came here from {place} {n} years ago", minAge: 20, weight: 3 }
+- { id: boundary, setting: country, text: "was beaten at the boundary stones as a boy, so {they} would remember where they lie", minAge: 15, sex: m, weight: 1 }
+- { id: geese, setting: country, text: "minds the geese on the green", minAge: 5, maxAge: 11, weight: 3 }
+- { id: crows, setting: country, text: "scares crows from the corn with a clapper", minAge: 6, maxAge: 12, weight: 3 }
+- { id: water, text: "fetches the water, twice a day", minAge: 6, maxAge: 14, weight: 3 }
+- { id: oxen, setting: country, text: "is learning to plough, walking beside the oxen", minAge: 10, maxAge: 15, sex: m, weight: 2 }
+- { id: spinning, text: "spins whenever {their} hands are empty", minAge: 8, maxAge: 18, sex: f, weight: 3 }
+- { id: infant, text: "is too small to be any use, and loud with it", minAge: 0, maxAge: 4, weight: 5 }
+# Town lives (LF pp.83-104)
+- { id: t_gates, setting: town, text: "came in through the gates {n} years ago with nothing but a bundle", minAge: 20, weight: 4 }
+- { id: t_fire, setting: town, text: "lost a house and everything in it to the fire {n} years ago", minAge: 25, weight: 2 }
+- { id: t_stocks, setting: town, text: "stood a morning in the stocks in the market, and still won't say for what", minAge: 20, maxRank: 6, weight: 2 }
+- { id: t_hanging, setting: town, text: "was in the crowd at the gallows outside the gates when they hanged the Fleming", minAge: 18, weight: 2 }
+- { id: t_carrier, setting: town, text: "rode to {place} on a carrier's wagon to see a cousin, and was sick the whole way", minAge: 16, weight: 2 }
+- { id: t_sweat, setting: town, text: "lived through the sickness that took half the street", minAge: 15, weight: 2 }
+- { id: t_freeman, setting: town, text: "was sworn a freeman of the town, and paid well for it", minAge: 24, minRank: 5, roles: [head], sex: m, weight: 3 }
+- { id: t_page, setting: town, text: "served as a page in a lord's household at {place}", minAge: 20, minRank: 7, weight: 1 }
+- { id: t_loan, setting: town, text: "lent money to the town for the new wall, and has not seen it back", minAge: 35, minRank: 7, roles: [head], weight: 2 }
+- { id: t_salt, setting: town, text: "sits below the salt at the guild feast, and minds it", minAge: 30, minRank: 5, maxRank: 6, roles: [head], weight: 2 }
+- { id: t_robbed, setting: town, text: "was robbed on the road from {place} and still names the wood", minAge: 20, weight: 2 }
+- { id: t_river, setting: town, text: "grew up in a hovel by the river and doesn't mean to go back", minAge: 20, minRank: 5, weight: 2 }
+- { id: t_curfew, setting: town, text: "spent a night in the gaol for walking after the curfew bell", minAge: 16, sex: m, maxRank: 6, weight: 2 }
+- { id: t_widow, setting: town, text: "kept the business on after {their} husband died, and the guild had to let {them}", minAge: 30, sex: f, roles: [head], minRank: 5, weight: 3 }
+- { id: t_lodger, setting: town, text: "lets the loft to a lodger for the rent", minAge: 25, roles: [head], maxRank: 6, weight: 2 }
+- { id: t_walls, setting: town, text: "has never been outside the walls but to the fair", minAge: 20, weight: 2 }
+- { id: t_assize, setting: town, text: "was fined by the justices for selling ale against the assize", minAge: 25, sex: f, weight: 2 }
+- { id: t_preacher, setting: town, text: "follows the friars' preaching at the market cross, every word", minAge: 20, weight: 1 }
+- { id: t_vow, setting: town, text: "took {their} vows at {place} at sixteen, and was sent here", minAge: 20, roles: [cleric], weight: 6 }
+- { id: t_garrison, setting: town, text: "fought for the king at {place}, and has the scar to show for it", minAge: 22, roles: [retainer], weight: 4 }
+- { id: t_alms, setting: town, text: "came to the hospital when {they} could no longer work", minAge: 40, roles: [inmate], weight: 6 }
+- { id: t_messages, setting: town, text: "runs messages through the streets for a farthing", minAge: 7, maxAge: 14, weight: 3 }
+- { id: t_shutters, setting: town, text: "sweeps out the shop and minds the shutters", minAge: 7, maxAge: 14, weight: 3 }
+- { id: t_gutters, setting: town, text: "plays in the gutters with half the street", minAge: 5, maxAge: 11, weight: 3 }
+- { id: t_carry, setting: town, text: "carries water up from the well, many times a day", minAge: 7, maxAge: 14, weight: 3 }

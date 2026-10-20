@@ -1,0 +1,114 @@
+# Town trades and offices (LF pp.56-65, 83-104). Same fields as
+# occupations.yaml, plus:
+#   guild: the craft or merchant guild a master of this trade belongs to
+#   apprentices: how many apprentices lodge with the master, as a range
+#   staff: others who live in the household, e.g. clergy or a garrison
+#   routine: the daily-routine template for the head
+# Food and drink
+- { id: butcher, label: butcher, tier: lower_middle, byname: Butcher, guild: butchers, apprentices: [0, 2], servants: [0, 1], routine: shopkeeper, source: "LF p.60" }
+- { id: fishmonger, label: fishmonger, tier: upper_lower, byname: Fishmonger, guild: fishmongers, apprentices: [0, 1], routine: shopkeeper, source: "LF p.62" }
+- { id: poulterer, label: poulterer, tier: upper_lower, byname: Poulter, routine: shopkeeper, source: "LF p.62" }
+- { id: cook, label: "cookshop keeper", tier: upper_lower, byname: Cook, servants: [0, 1], routine: cook, source: "LF p.63" }
+- { id: brewer, label: brewer, tier: lower_middle, byname: Brewer, guild: brewers, servants: [1, 2], routine: craftsman, source: "LF p.60" }
+- { id: vintner, label: vintner, tier: middle_middle, byname: Vintner, guild: vintners, servants: [1, 2], apprentices: [0, 1], routine: shopkeeper, source: "LF p.59" }
+- { id: spicer, label: spicer, tier: middle_middle, byname: Spicer, guild: grocers, servants: [1, 2], apprentices: [0, 1], routine: shopkeeper, source: "LF p.59" }
+# Lodging
+- { id: innkeeper, label: innkeeper, tier: middle_middle, servants: [3, 6], routine: alehouse, source: "LF pp.59, 93" }
+- { id: tavern_keeper, label: "tavern keeper", tier: upper_lower, byname: Taverner, servants: [1, 2], routine: alehouse, source: "LF pp.61, 93" }
+- { id: rooming_keeper, label: "keeper of a rooming house", tier: upper_lower, servants: [0, 1], routine: alehouse, source: "LF p.94" }
+- { id: hostel_keeper, label: "hostel keeper", tier: middle_lower, servants: [0, 1], routine: alehouse, source: "LF p.94" }
+- { id: sleeping_keeper, label: "keeper of a sleeping house", tier: middle_lower, routine: alehouse, source: "LF p.94" }
+# Cloth and clothes
+- { id: fuller, label: fuller, tier: upper_lower, byname: Fuller, guild: fullers, apprentices: [0, 2], routine: craftsman, source: "LF p.62" }
+- { id: dyer, label: dyer, tier: upper_lower, byname: Dyer, guild: dyers, apprentices: [0, 2], routine: craftsman, source: "LF p.62" }
+- { id: tailor, label: tailor, tier: upper_lower, byname: Taylor, guild: tailors, apprentices: [0, 2], routine: craftsman, source: "LF p.62" }
+- { id: draper, label: draper, tier: middle_middle, byname: Draper, guild: drapers, servants: [1, 2], apprentices: [0, 2], routine: shopkeeper, source: "LF p.59" }
+- { id: mercer, label: mercer, tier: middle_middle, byname: Mercer, guild: mercers, servants: [1, 3], apprentices: [1, 2], routine: shopkeeper, source: "LF pp.57-59" }
+- { id: fripperer, label: "old-clothes dealer", tier: middle_lower, byname: Fripp, routine: shopkeeper, source: "LF p.63" }
+- { id: capper, label: capper, tier: upper_lower, byname: Capper, guild: cappers, apprentices: [0, 1], routine: craftsman, source: "LF p.62" }
+- { id: glover, label: glover, tier: upper_lower, byname: Glover, guild: glovers, apprentices: [0, 1], routine: craftsman, source: "LF p.62" }
+- { id: skinner, label: skinner, tier: lower_middle, byname: Skinner, guild: skinners, apprentices: [0, 2], routine: craftsman, source: "LF p.60" }
+- { id: cordwainer, label: cordwainer, tier: upper_lower, byname: Cordwainer, guild: cordwainers, apprentices: [0, 2], routine: craftsman, source: "LF p.62" }
+- { id: cobbler, label: cobbler, tier: middle_lower, byname: Cobbler, routine: craftsman, source: "LF p.63" }
+# Metal
+- { id: cutler, label: cutler, tier: lower_middle, byname: Cutler, guild: cutlers, apprentices: [0, 2], routine: craftsman, source: "LF p.60" }
+- { id: armourer, label: armourer, tier: lower_middle, byname: Armstrong, guild: armourers, apprentices: [1, 2], servants: [0, 1], routine: craftsman, source: "LF p.60" }
+- { id: locksmith, label: locksmith, tier: upper_lower, byname: Lockyer, guild: smiths, apprentices: [0, 1], routine: craftsman, source: "LF p.62" }
+- { id: goldsmith, label: goldsmith, tier: upper_middle, byname: Goldsmith, guild: goldsmiths, servants: [1, 3], apprentices: [1, 2], routine: shopkeeper, source: "LF p.57" }
+- { id: pewterer, label: pewterer, tier: lower_middle, byname: Pewterer, guild: pewterers, apprentices: [0, 2], routine: craftsman, source: "LF p.60" }
+- { id: bowyer, label: "bowyer and fletcher", tier: upper_lower, byname: Bowyer, guild: bowyers, apprentices: [0, 1], routine: craftsman, source: "LF p.62" }
+# Wood, stone and building
+- { id: wheelwright, label: wheelwright, tier: lower_middle, byname: Wheeler, guild: carpenters, apprentices: [0, 2], routine: craftsman, source: "LF p.60" }
+- { id: turner, label: turner, tier: upper_lower, byname: Turner, guild: carpenters, apprentices: [0, 1], routine: craftsman, source: "LF p.62" }
+- { id: tiler, label: tiler, tier: upper_lower, byname: Tyler, guild: tilers, apprentices: [0, 1], routine: craftsman, source: "LF p.62" }
+- { id: plasterer, label: plasterer, tier: upper_lower, byname: Dauber, guild: tilers, apprentices: [0, 1], routine: craftsman, source: "LF p.62" }
+- { id: glazier, label: glazier, tier: lower_middle, byname: Glasier, guild: glaziers, apprentices: [0, 2], routine: craftsman, source: "LF p.60" }
+- { id: timber_merchant, label: "timber merchant", tier: lower_middle, byname: Woodman, servants: [1, 3], routine: shopkeeper, source: "LF p.60" }
+- { id: brickmaker, label: brickmaker, tier: upper_lower, byname: Brickman, servants: [1, 3], routine: craftsman, source: "LF p.62" }
+# Leather, parchment
+- { id: saddler, label: saddler, tier: lower_middle, byname: Sadler, guild: saddlers, apprentices: [0, 2], routine: craftsman, source: "LF p.60" }
+- { id: pursemaker, label: pursemaker, tier: upper_lower, byname: Purser, guild: leathersellers, apprentices: [0, 1], routine: craftsman, source: "LF p.62" }
+- { id: parchmenter, label: "parchment maker", tier: upper_lower, byname: Parmenter, apprentices: [0, 1], routine: craftsman, source: "LF p.62" }
+# Learning, physic and the arts
+- { id: scrivener, label: scrivener, tier: lower_middle, byname: Scrivener, guild: scriveners, apprentices: [0, 1], routine: clerk, source: "LF p.60" }
+- { id: stationer, label: stationer, tier: lower_middle, guild: scriveners, apprentices: [0, 1], routine: shopkeeper, source: "LF p.60" }
+- { id: notary, label: notary, tier: middle_middle, servants: [1, 2], routine: clerk, source: "LF p.59" }
+- { id: lawyer, label: "man of law", tier: upper_middle, servants: [2, 4], routine: clerk, source: "LF p.57" }
+- { id: physician, label: physician, tier: upper_middle, byname: Leech, servants: [2, 3], routine: clerk, source: "LF p.57" }
+- { id: barber, label: "barber-surgeon", tier: upper_lower, byname: Barber, guild: barbers, apprentices: [0, 1], routine: shopkeeper, source: "LF p.62" }
+- { id: apothecary, label: apothecary, tier: middle_middle, guild: grocers, servants: [0, 1], apprentices: [0, 1], routine: shopkeeper, source: "LF p.59" }
+- { id: bath_keeper, label: "keeper of the bathhouse", tier: upper_lower, servants: [1, 3], routine: alehouse, source: "LF p.62" }
+- { id: painter, label: "painter and stainer", tier: upper_lower, byname: Painter, guild: painters, apprentices: [0, 1], routine: craftsman, source: "LF p.61" }
+- { id: carver, label: carver, tier: upper_lower, byname: Carver, guild: carpenters, apprentices: [0, 1], routine: craftsman, source: "LF p.61" }
+- { id: schoolmaster, label: schoolmaster, tier: lower_middle, routine: clerk, source: "LF p.87" }
+# Merchants and dealing
+- { id: merchant, label: merchant, tier: upper_middle, byname: Marchant, guild: merchants, servants: [2, 5], apprentices: [0, 1], routine: merchant, source: "LF pp.57, 83" }
+- { id: factor, label: "merchant's factor", tier: middle_middle, guild: merchants, servants: [0, 1], routine: merchant, source: "LF p.59" }
+- { id: money_changer, label: "money changer", tier: upper_middle, byname: Cambio, guild: goldsmiths, servants: [1, 2], routine: shopkeeper, source: "LF p.57" }
+- { id: foreign_merchant, label: "foreign merchant, head of the house", tier: upper_middle, servants: [3, 6], staff: [{ occupation: factor, n: [2, 4], role: retainer }], routine: merchant, source: "LF p.85" }
+- { id: warehouseman, label: "warehouse keeper", tier: middle_lower, routine: labourer, source: "LF p.63" }
+- { id: ostler, label: "livery stable keeper", tier: upper_lower, byname: Stabler, servants: [1, 2], routine: carter, source: "LF p.62" }
+- { id: hay_merchant, label: "hay merchant", tier: upper_lower, byname: Haywood, routine: carter, source: "LF p.62" }
+- { id: woodmonger, label: woodmonger, tier: middle_lower, byname: Woodmonger, routine: carter, source: "LF p.63" }
+- { id: drover, label: "drover and beast dealer", tier: upper_lower, male: true, byname: Drover, servants: [1, 2], routine: carter, source: "LF p.62" }
+# Workers and the poor (LF pp.63-65, 83-84)
+- { id: porter, label: porter, tier: lower_lower, male: true, byname: Porter, routine: labourer, source: "LF p.64" }
+- { id: laundress, label: laundress, tier: lower_lower, female: true, routine: laundress, source: "LF p.64" }
+- { id: water_carrier, label: "water carrier", tier: middle_lower, byname: Waterman, routine: labourer, source: "LF p.63" }
+- { id: sweeper, label: "street sweeper", tier: lower_lower, routine: labourer, source: "LF p.64" }
+- { id: nightsoil_man, label: "nightsoil man", tier: lower_lower, male: true, routine: nightsoil, source: "LF pp.64, 86" }
+- { id: journeyman, label: journeyman, tier: lower_middle, male: true, routine: craftsman, source: "LF pp.60, 85" }
+- { id: clerk, label: "clerk in minor orders", tier: upper_lower, byname: Clerk, routine: clerk, source: "LF p.62" }
+- { id: beggar, label: "licensed beggar", tier: lower_lower, routine: beggar, source: "LF p.64" }
+- { id: pauper, label: pauper, tier: underclass, routine: beggar, source: "LF p.65" }
+- { id: rag_picker, label: "rag-and-bone man", tier: underclass, routine: labourer, source: "LF p.65" }
+- { id: vagrant, label: "vagrant, not on any roll", tier: criminal, routine: beggar, source: "LF p.65" }
+- { id: cutpurse, label: "cutpurse (lives by it)", tier: criminal, routine: thief, source: "LF p.65" }
+# The town's servants and offices
+- { id: hall_beadle, label: "beadle of the hall", tier: upper_lower, routine: labourer, source: "LF p.86" }
+- { id: gaoler, label: gaoler, tier: upper_lower, male: true, servants: [0, 1], routine: gaoler, source: "LF pp.86, 151" }
+- { id: court_usher, label: "usher of the court", tier: upper_lower, routine: clerk, source: "LF p.86" }
+- { id: watch_sergeant, label: "sergeant of the watch", tier: upper_lower, male: true, routine: watch, source: "LF p.86" }
+- { id: gatekeeper, label: "keeper of the gate", tier: upper_lower, male: true, routine: gate, source: "LF p.86" }
+- { id: castellan, label: "constable of the castle", tier: lower_upper, male: true, servants: [3, 6], staff: [{ occupation: soldier, n: [8, 18], role: retainer }], routine: castellan, source: "LF pp.54, 98" }
+- { id: soldier, label: "soldier of the garrison", tier: lower_lower, male: true, routine: soldier, source: "LF p.64" }
+- { id: nobleman, label: "lord, with a house in town", tier: lower_upper, servants: [6, 14], routine: noble, source: "LF p.54" }
+# Religion (LF p.85). Clergy keep no wives; their staff are clerks, canons or brothers.
+- { id: bishop, label: bishop, tier: lower_upper, celibate: true, servants: [4, 8], staff: [{ occupation: canon, n: [6, 6], role: cleric }], routine: priest, source: "LF p.85" }
+- { id: canon, label: "canon of the cathedral", tier: middle_middle, celibate: true, routine: priest, source: "LF p.85" }
+- { id: provost, label: "provost of the minster", tier: upper_middle, celibate: true, servants: [2, 4], staff: [{ occupation: clerk_in_orders, n: [4, 6], role: cleric }], routine: priest, source: "LF p.85" }
+- { id: parish_priest, label: "parish priest", tier: lower_middle, celibate: true, servants: [1, 1], staff: [{ occupation: clerk_in_orders, n: [1, 2], role: cleric }], routine: priest, source: "LF p.85" }
+- { id: clerk_in_orders, label: "parish clerk", tier: upper_lower, celibate: true, routine: priest, source: "LF p.85" }
+- { id: chantry_priest, label: "chantry priest", tier: upper_lower, celibate: true, routine: priest, source: "LF p.85" }
+- { id: friar_warden, label: "warden of the friars", tier: lower_middle, celibate: true, staff: [{ occupation: friar, n: [6, 16], role: cleric }], routine: priest, source: "LF p.85" }
+- { id: friar, label: friar, tier: upper_lower, celibate: true, routine: friar, source: "LF p.62" }
+- { id: prior, label: prior, tier: upper_middle, celibate: true, servants: [2, 5], staff: [{ occupation: monk, n: [8, 20], role: cleric }], routine: priest, source: "LF p.85" }
+- { id: monk, label: monk, tier: upper_lower, celibate: true, routine: priest, source: "LF p.62" }
+- { id: prioress, label: prioress, tier: upper_middle, celibate: true, female: true, servants: [2, 4], staff: [{ occupation: nun, n: [6, 15], role: cleric, sex: f }], routine: priest, source: "LF p.85" }
+- { id: nun, label: nun, tier: upper_lower, celibate: true, female: true, routine: priest, source: "LF p.62" }
+- { id: hospital_master, label: "master of the hospital", tier: lower_middle, celibate: true, staff: [{ occupation: almsman, n: [6, 14], role: inmate }, { occupation: hospital_sister, n: [2, 4], role: cleric, sex: f }], routine: priest, source: "LF p.94" }
+- { id: hospital_sister, label: "sister of the hospital", tier: middle_lower, celibate: true, female: true, routine: priest, source: "LF p.94" }
+- { id: almsman, label: "bedesman of the hospital", tier: underclass, routine: old, source: "LF p.94" }
+- { id: lazar_keeper, label: "keeper of the lazar house", tier: middle_lower, staff: [{ occupation: leper, n: [3, 9], role: inmate }], routine: labourer, source: "LF p.10" }
+- { id: leper, label: leper, tier: underclass, routine: leper, source: "LF p.10" }
+- { id: apprentice, label: apprentice, tier: middle_lower, routine: apprentice, source: "LF p.85" }

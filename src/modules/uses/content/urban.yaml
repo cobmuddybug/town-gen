@@ -1,0 +1,123 @@
+# Building uses for big villages, towns and cities (LF pp.10-11, 83-104).
+#
+# `per`: about one per this many inhabitants (our own figures, cross-checked
+#   against the shape of S. John Ross's Medieval Demographics Made Easy, not
+#   copied from it). Villages get half as many. `min_pop`: none below this.
+# `value`: the ward value classes the use suits, 0 slum .. 8 prestige
+#   commercial (LF Table 2:20). `site`: the street front it wants (market,
+#   main_road, street, lane, quay, suburb, edge) or a special place (church,
+#   precinct, castle, gate, stream, downstream, river, market_place).
+# `plots`: frontage it takes, in plots. `households` may be a range.
+# `look`: how the map colours it.
+
+# ---- food and drink -------------------------------------------------------
+- { id: butcher_shop, label: "butcher's shop", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 900, households: 1, occupations: { butcher: 1 }, look: trade, source: "LF p.11" }
+- { id: fishmonger, label: "fishmonger's stall-house", category: smaller_urban, size: shop, site: market, value: [2, 5], per: 1400, households: 1, occupations: { fishmonger: 1 }, look: trade, source: "LF p.11" }
+- { id: poulterer, label: "poulterer's", category: smaller_urban, size: shop, site: street, value: [2, 5], per: 1600, households: 1, occupations: { poulterer: 1 }, look: trade, source: "LF p.11" }
+- { id: cookshop, label: cookshop, category: smaller_urban, size: shop, site: street, value: [0, 4], per: 900, households: 1, occupations: { cook: 1 }, look: ale, source: "LF pp.11, 63" }
+- { id: brewhouse, label: brewhouse, category: other_large, size: yard, site: lane, value: [0, 4], per: 1500, households: 1, occupations: { brewer: 1 }, look: ale, source: "LF p.10" }
+- { id: wine_merchant, label: "wine merchant's", category: smaller_urban, size: shop, site: market, value: [4, 8], per: 2000, min_pop: 2500, households: 1, occupations: { vintner: 1 }, look: trade, source: "LF p.11" }
+- { id: spicer, label: "spicer's shop", category: smaller_urban, size: shop, site: market, value: [4, 8], per: 2600, min_pop: 2500, households: 1, occupations: { spicer: 1 }, look: trade, source: "LF p.11" }
+
+# ---- lodging (LF pp.93-94) ------------------------------------------------
+- { id: inn, label: inn, category: other_large, size: inn, site: main_road, value: [3, 7], per: 2000, min_pop: 1500, households: 1, occupations: { innkeeper: 1 }, lets_rooms: 12, look: ale, source: "LF p.93" }
+- { id: tavern, label: tavern, category: smaller_urban, size: shop, site: street, value: [1, 6], per: 450, households: 1, occupations: { tavern_keeper: 1 }, lets_rooms: 4, look: ale, source: "LF p.93" }
+- { id: town_alehouse, label: alehouse, category: smaller_urban, size: shop, site: lane, value: [0, 3], per: 400, households: 1, occupations: { alewife: 2, alehouse_keeper: 3 }, lets_rooms: 1, look: ale, source: "LF p.94" }
+- { id: rooming_house, label: "rooming house", category: smaller_urban, size: shop, site: street, value: [1, 4], per: 1800, min_pop: 3000, households: 1, occupations: { rooming_keeper: 1 }, lets_rooms: 8, look: ale, source: "LF p.94" }
+- { id: hostel, label: hostel, category: smaller_urban, size: yard, site: lane, value: [0, 2], per: 5000, min_pop: 5000, households: 1, occupations: { hostel_keeper: 1 }, lets_rooms: 20, look: ale, source: "LF p.94" }
+- { id: sleeping_house, label: "sleeping house", category: smaller_urban, size: shop, site: lane, value: [0, 1], per: 6000, min_pop: 6000, households: 1, occupations: { sleeping_keeper: 1 }, lets_rooms: 14, look: ale, source: "LF p.94" }
+
+# ---- cloth and clothes ------------------------------------------------------
+- { id: town_weaver, label: "weaver's shop", category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 550, households: 1, occupations: { weaver: 1 }, look: craft, source: "LF p.11" }
+- { id: fulling_mill, label: "fulling mill", category: large_suburban, size: mill, site: stream, per: 3500, min_pop: 2500, households: 1, occupations: { fuller: 1 }, look: mill, source: "LF p.11" }
+- { id: dyehouse, label: dyehouse, category: large_suburban, size: workshop, site: river, per: 3000, min_pop: 2500, households: 1, occupations: { dyer: 1 }, look: craft, source: "LF p.11" }
+- { id: tailor, label: "tailor's shop", category: smaller_urban, size: shop, site: street, value: [1, 5], per: 350, households: 1, occupations: { tailor: 1 }, look: trade, source: "LF p.11" }
+- { id: draper, label: "draper's", category: smaller_urban, size: shop, site: market, value: [4, 7], per: 1500, min_pop: 2000, households: 1, occupations: { draper: 1 }, look: trade, source: "LF p.11" }
+- { id: mercer, label: "mercer's", category: smaller_urban, size: shop, site: market, value: [4, 8], per: 1300, min_pop: 2500, households: 1, occupations: { mercer: 1 }, look: trade, source: "LF p.11" }
+- { id: fripperer, label: "old-clothes shop", category: smaller_urban, size: shop, site: lane, value: [0, 3], per: 700, households: 1, occupations: { fripperer: 1 }, look: trade, source: "LF p.11" }
+- { id: capper, label: "capper's shop", category: smaller_urban, size: shop, site: street, value: [2, 5], per: 1600, households: 1, occupations: { capper: 1 }, look: trade, source: "LF p.11" }
+- { id: glover, label: "glover's", category: smaller_urban, size: shop, site: street, value: [2, 5], per: 2200, households: 1, occupations: { glover: 1 }, look: trade, source: "LF p.11" }
+- { id: skinner, label: "skinner's shop", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 1000, households: 1, occupations: { skinner: 1 }, look: craft, source: "LF p.11" }
+- { id: cordwainer, label: "cordwainer's shop", category: smaller_urban, size: shop, site: street, value: [1, 5], per: 260, households: 1, occupations: { cordwainer: 1 }, look: trade, source: "LF p.11" }
+- { id: cobbler, label: "cobbler's", category: smaller_urban, size: shop, site: lane, value: [0, 3], per: 650, households: 1, occupations: { cobbler: 1 }, look: craft, source: "LF p.11" }
+
+# ---- metal ---------------------------------------------------------------------
+- { id: town_smithy, label: smithy, category: smaller_urban, size: workshop, site: main_road, value: [0, 4], per: 1500, households: 1, occupations: { smith: 1 }, look: craft, source: "LF p.11" }
+- { id: cutler, label: "cutler's", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 2200, households: 1, occupations: { cutler: 1 }, look: craft, source: "LF p.11" }
+- { id: armourer, label: "armourer's", category: smaller_urban, size: workshop, site: street, value: [2, 6], per: 4000, min_pop: 3000, households: 1, occupations: { armourer: 1 }, look: craft, source: "LF p.11" }
+- { id: locksmith, label: "locksmith's", category: smaller_urban, size: shop, site: street, value: [1, 4], per: 2500, households: 1, occupations: { locksmith: 1 }, look: craft, source: "LF p.11" }
+- { id: goldsmith, label: "goldsmith's", category: smaller_urban, size: shop, site: market, value: [6, 8], per: 3000, min_pop: 3000, households: 1, occupations: { goldsmith: 1 }, look: trade, source: "LF pp.11, 57" }
+- { id: pewterer, label: "pewterer's", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 3000, min_pop: 2500, households: 1, occupations: { pewterer: 1 }, look: craft, source: "LF p.11" }
+- { id: bowyer, label: "bowyer and fletcher", category: smaller_urban, size: shop, site: street, value: [1, 5], per: 3000, households: 1, occupations: { bowyer: 1 }, look: craft, source: "LF p.11" }
+
+# ---- wood, stone and building ------------------------------------------------------
+- { id: town_carpenter, label: "carpenter's shop", category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 650, households: 1, occupations: { carpenter: 1 }, look: craft, source: "LF p.11" }
+- { id: town_cooper, label: cooperage, category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 900, households: 1, occupations: { cooper: 1 }, look: craft, source: "LF p.11" }
+- { id: town_mason, label: "mason's yard", category: smaller_urban, size: yard, site: lane, value: [0, 4], per: 700, households: 1, occupations: { mason: 1 }, look: craft, source: "LF p.11" }
+- { id: wheelwright, label: "wheelwright's", category: small_rural, size: yard, site: suburb, per: 2200, households: 1, occupations: { wheelwright: 1 }, look: craft, source: "LF p.11" }
+- { id: turner, label: "turner's shop", category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 3000, households: 1, occupations: { turner: 1 }, look: craft, source: "LF p.11" }
+- { id: tiler, label: "tiler's", category: smaller_urban, size: workshop, site: lane, value: [0, 3], per: 1800, households: 1, occupations: { tiler: 1 }, look: craft, source: "LF p.11" }
+- { id: plasterer, label: "plasterer's", category: smaller_urban, size: workshop, site: lane, value: [0, 3], per: 1500, households: 1, occupations: { plasterer: 1 }, look: craft, source: "LF p.11" }
+- { id: glazier, label: "glazier's", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 4500, min_pop: 4000, households: 1, occupations: { glazier: 1 }, look: craft, source: "LF p.11" }
+- { id: timber_yard, label: "timber yard", category: large_suburban, size: yard, site: suburb, per: 3500, min_pop: 2500, households: 1, occupations: { timber_merchant: 1 }, look: craft, source: "LF p.11" }
+- { id: brick_kiln, label: "brick kiln", category: large_suburban, size: yard, site: edge, per: 6000, min_pop: 4000, era: [late_medieval, early_modern], households: 1, occupations: { brickmaker: 1 }, look: craft, source: "LF p.11" }
+
+# ---- leather and the rest -------------------------------------------------
+- { id: town_tannery, label: tannery, category: large_suburban, size: workshop, site: downstream, per: 2500, households: 1, occupations: { tanner: 1 }, look: craft, source: "LF p.11" }
+- { id: saddler, label: "saddler's", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 1300, households: 1, occupations: { saddler: 1 }, look: craft, source: "LF p.11" }
+- { id: pursemaker, label: "pursemaker's", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 1600, households: 1, occupations: { pursemaker: 1 }, look: trade, source: "LF p.11" }
+- { id: town_chandlery, label: chandlery, category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 900, households: 1, occupations: { chandler: 1 }, look: craft, source: "LF p.11" }
+- { id: tallow_works, label: "tallow works", category: large_suburban, size: yard, site: edge, per: 7000, min_pop: 6000, households: 1, occupations: { chandler: 1 }, look: craft, source: "LF p.11" }
+- { id: parchmenter, label: "parchment-maker's", category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 4000, min_pop: 3000, households: 1, occupations: { parchmenter: 1 }, look: craft, source: "LF p.11" }
+
+# ---- learning, physic and the arts -----------------------------------------
+- { id: scrivener, label: "scrivener's", category: smaller_urban, size: shop, site: street, value: [3, 7], per: 2200, min_pop: 2000, households: 1, occupations: { scrivener: 1 }, look: trade, source: "LF p.11" }
+- { id: stationer, label: "stationer's", category: smaller_urban, size: shop, site: street, value: [3, 7], per: 7000, min_pop: 7000, era: [late_medieval, early_modern], households: 1, occupations: { stationer: 1 }, look: trade, source: "LF p.11" }
+- { id: notary, label: "notary's house", category: smaller_urban, size: shop, site: street, value: [4, 7], per: 2800, min_pop: 3000, households: 1, occupations: { notary: 1 }, look: dwelling, source: "LF p.59" }
+- { id: lawyer, label: "lawyer's house", category: smaller_urban, size: shop, site: street, value: [5, 8], per: 3500, min_pop: 5000, households: 1, occupations: { lawyer: 1 }, look: dwelling, source: "LF p.57" }
+- { id: physician, label: "physician's house", category: smaller_urban, size: shop, site: street, value: [5, 8], per: 3000, min_pop: 3000, households: 1, occupations: { physician: 1 }, look: dwelling, source: "LF p.57" }
+- { id: barber, label: "barber's", category: smaller_urban, size: shop, site: street, value: [1, 5], per: 550, households: 1, occupations: { barber: 1 }, look: trade, source: "LF p.11" }
+- { id: apothecary, label: "apothecary's", category: smaller_urban, size: shop, site: street, value: [3, 7], per: 2800, min_pop: 2500, households: 1, occupations: { apothecary: 1 }, look: trade, source: "LF p.11" }
+- { id: bathhouse, label: bathhouse, category: major_public, size: yard, site: lane, value: [1, 4], per: 3000, min_pop: 3000, era: [high_medieval, late_medieval, early_modern], households: 1, occupations: { bath_keeper: 1 }, look: civic, source: "LF p.10" }
+- { id: painter, label: "painter and stainer's", category: smaller_urban, size: shop, site: street, value: [1, 5], per: 2200, households: 1, occupations: { painter: 1 }, look: craft, source: "LF p.11" }
+- { id: carver, label: "carver's shop", category: smaller_urban, size: shop, site: lane, value: [1, 5], per: 3000, households: 1, occupations: { carver: 1 }, look: craft, source: "LF p.11" }
+
+# ---- merchants and dealing ------------------------------------------------------
+- { id: merchant_house, label: "merchant's house", category: other_large, size: merchant, site: street, value: [5, 8], per: 230, min_pop: 2500, households: 1, occupations: { merchant: 4, factor: 1 }, look: trade, source: "LF pp.83-84" }
+- { id: warehouse, label: warehouse, category: other_large, size: warehouse, site: quay, value: [2, 6], per: 700, min_pop: 2500, households: 1, occupations: { warehouseman: 1 }, look: trade, source: "LF p.10" }
+- { id: money_changer, label: "money changer's", category: smaller_urban, size: shop, site: market, value: [6, 8], per: 4500, min_pop: 4500, households: 1, occupations: { money_changer: 1 }, look: trade, source: "LF p.11" }
+- { id: foreign_compound, label: "foreign merchants' house", category: other_large, size: hall, site: quay, value: [4, 8], plots: 3, per: 12000, min_pop: 8000, households: 1, occupations: { foreign_merchant: 1 }, look: trade, source: "LF p.85" }
+- { id: livery_stable, label: "livery stable", category: smaller_urban, size: yard, site: main_road, value: [1, 5], per: 2200, min_pop: 2000, households: 1, occupations: { ostler: 1 }, look: craft, source: "LF p.11" }
+- { id: town_carter, label: "carter's yard", category: small_rural, size: yard, site: suburb, per: 1500, households: 1, occupations: { carter: 1 }, look: craft, source: "LF p.11" }
+- { id: hay_merchant, label: "hay merchant's yard", category: small_rural, size: yard, site: suburb, per: 3500, min_pop: 3000, households: 1, occupations: { hay_merchant: 1 }, look: trade, source: "LF p.11" }
+- { id: woodmonger, label: "woodmonger's yard", category: small_rural, size: yard, site: suburb, per: 2500, households: 1, occupations: { woodmonger: 1 }, look: trade, source: "LF p.11" }
+- { id: stockyard, label: "beast market and pens", category: large_suburban, size: yard, site: edge, plots: 3, per: 15000, min_pop: 6000, households: 1, occupations: { drover: 1 }, look: craft, source: "LF p.11" }
+
+# ---- where most people live -------------------------------------------------
+- { id: tenement, label: tenement, category: smaller_urban, size: cottage, value: [0, 3], households: [2, 4], avgSize: 11.3, occupations: { labourer: 6, porter: 3, laundress: 2, water_carrier: 1, sweeper: 1, widow_spinster: 2, carter: 1, journeyman: 1 }, look: dwelling, source: "LF pp.63-64, 83" }
+- { id: poor_row, label: "row of hovels", category: smaller_urban, size: cottage, site: lane, value: [0, 1], households: [3, 5], avgSize: 15.3, occupations: { labourer: 4, pauper: 3, beggar: 2, rag_picker: 1, nightsoil_man: 1, vagrant: 1, cutpurse: 1 }, look: dwelling, source: "LF pp.64-65, 84" }
+- { id: journeyman_house, label: "journeymen's lodging", category: smaller_urban, size: cottage, site: lane, value: [1, 4], households: [1, 2], avgSize: 5.4, occupations: { journeyman: 1 }, look: dwelling, source: "LF p.85" }
+- { id: townhouse, label: "town house", category: smaller_urban, size: shop, site: street, value: [3, 6], households: 1, avgSize: 3.7, occupations: { clerk: 2, journeyman: 1, factor: 1, widow_spinster: 1 }, look: dwelling, source: "LF p.60" }
+- { id: noble_town_house, label: "a lord's town house", category: other_large, size: hall, site: street, value: [6, 8], plots: 3, households: 1, occupations: { nobleman: 1 }, look: noble, source: "LF p.56" }
+
+# ---- the town's own buildings ------------------------------------------------
+- { id: market_hall, label: "market hall", category: major_public, size: hall, site: market_place, households: 0, occupations: {}, look: civic, source: "LF p.10" }
+- { id: guildhall, label: guildhall, category: major_public, size: hall, site: market, value: [3, 8], plots: 3, households: 1, occupations: { hall_beadle: 1 }, look: civic, source: "LF pp.10, 85" }
+- { id: craft_hall, label: "craft guild hall", category: other_large, size: hall, site: street, value: [2, 6], plots: 2, households: 1, occupations: { hall_beadle: 1 }, look: civic, source: "LF pp.10, 85" }
+- { id: gaol, label: gaol, category: major_public, size: workshop, site: main_road, value: [1, 6], households: 1, occupations: { gaoler: 1 }, look: civic, source: "LF pp.10, 151" }
+- { id: courthouse, label: "court house", category: major_public, size: hall, site: market, value: [3, 8], plots: 2, households: 1, occupations: { court_usher: 1 }, look: civic, source: "LF pp.10, 86" }
+- { id: watch_house, label: "watch house", category: smaller_urban, size: workshop, site: street, value: [0, 6], households: 1, occupations: { watch_sergeant: 1 }, look: civic, source: "LF p.86" }
+- { id: gatehouse, label: gatehouse, category: small_rural, size: gate, site: gate, households: 1, occupations: { gatekeeper: 1 }, look: civic, source: "LF pp.11, 86" }
+- { id: castle, label: castle, category: major_public, size: castle, site: castle, households: 1, occupations: { castellan: 1 }, look: military, source: "LF p.10" }
+- { id: school, label: "grammar school", category: smaller_urban, size: shop, site: street, value: [2, 7], households: 1, occupations: { schoolmaster: 1 }, look: civic, source: "LF p.87" }
+
+# ---- religion (LF p.85): budgeted by population, not by `per` --------------
+- { id: grand_temple, label: cathedral, category: major_public, size: grand_temple, site: church, households: 1, occupations: { bishop: 1 }, congregation: 1500, look: worship, source: "LF p.85" }
+- { id: temple, label: "minster church", category: other_large, size: temple, site: church, households: 1, occupations: { provost: 1 }, congregation: 800, look: worship, source: "LF p.85" }
+- { id: fane, label: "parish church", category: other_large, size: fane, site: church, households: 1, occupations: { parish_priest: 1 }, congregation: 300, look: worship, source: "LF p.85" }
+- { id: chantry, label: "chantry chapel", category: smaller_urban, size: chantry, site: church, households: 1, occupations: { chantry_priest: 1 }, congregation: 100, look: worship, source: "LF p.85" }
+- { id: friary, label: friary, category: other_large, size: precinct, site: precinct, households: 1, occupations: { friar_warden: 1 }, look: worship, source: "LF p.85" }
+- { id: priory, label: priory, category: other_large, size: precinct, site: precinct, households: 1, occupations: { prior: 1 }, look: worship, source: "LF p.85" }
+- { id: nunnery, label: nunnery, category: other_large, size: precinct, site: precinct, households: 1, occupations: { prioress: 1 }, look: worship, source: "LF p.85" }
+- { id: hospital, label: "hospital of the poor", category: other_large, size: hall, site: suburb, plots: 3, households: 1, occupations: { hospital_master: 1 }, look: worship, source: "LF pp.10, 94" }
+- { id: lazar_house, label: "lazar house", category: small_rural, size: yard, site: edge, households: 1, occupations: { lazar_keeper: 1 }, look: worship, source: "LF p.10" }
