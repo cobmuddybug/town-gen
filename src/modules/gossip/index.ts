@@ -1,7 +1,7 @@
 import { BLOCKS, fromJdn, formatDate, jdn, parseDate, type Block } from "../../core/calendar";
 import { data } from "../../core/content";
 import type { Address } from "../../core/address";
-import type { Edge, Module, PanelRow, Sifter } from "../../core/types";
+import type { Edge, Module, PanelLink, PanelRow, Sifter } from "../../core/types";
 import type { Town } from "../../core/town";
 import { lsd } from "../households";
 import { buildingsOfUse, isStreetPlan, type MapData } from "../layout";
@@ -37,8 +37,11 @@ export interface Rumour {
   /** hour index: day number * 24 + hour */
   start: number;
   origin: Address;
-  /** the three tellings: truth, grown, wrong person */
+  /** the three tellings: truth, grown, wrong person (plain text) */
   texts: [string, string, string];
+  /** the same, with {a} {b} {c} left in for links */
+  tpl?: [string, string, string];
+  who?: Partial<Record<"a" | "b" | "c", Address>>;
   about: Address[];
   /** the edge it lets out, for secrets */
   edge?: string;
@@ -193,13 +196,13 @@ function chatterIn(town: Town, year: number): Rumour[] {
     for (let k = 0, n = r.int(1, 2); k < n; k++) {
       const e = r.pick(known);
       const amount = typeof e.facts?.amount === "number" ? lsd(e.facts.amount as number) : "money";
-      const text = content.chatter[e.kind].replace(/\{a\}/g, name(e.from)).replace(/\{b\}/g, name(e.to))
-        .replace(/\{about\}/g, String(e.facts?.about ?? "the old business")).replace(/\{amount\}/g, amount);
+      const tpl = content.chatter[e.kind].replace(/\{about\}/g, String(e.facts?.about ?? "the old business")).replace(/\{amount\}/g, amount);
+      const text = tpl.replace(/\{a\}/g, name(e.from)).replace(/\{b\}/g, name(e.to));
       const hubs = buildingsOfUse(town, DRINK);
       const origin = hubs.length ? hubs[r.int(0, hubs.length - 1)].a : buildingOf(town, e.from) ?? "place:green";
       out.push({
         id: `chatter/${p}/${k}`, kind: "news", topic: `chatter:${e.kind}`, start: (p * CHATTER_DAYS + r.int(0, CHATTER_DAYS - 1)) * 24 + r.int(10, 19),
-        origin, texts: [text, text, text], about: [e.from, e.to], lastToKnow: [],
+        origin, texts: [text, text, text], tpl: [tpl, tpl, tpl], who: { a: e.from, b: e.to }, about: [e.from, e.to], lastToKnow: [],
       });
     }
   }
@@ -214,15 +217,16 @@ function makeRumour(town: Town, r: import("../../core/rng").Rng, o: {
   const name = (a: Address | undefined) => (a ? town.label(a) : "someone");
   const amount = typeof o.edgeRow.facts?.amount === "number" ? lsd(o.edgeRow.facts.amount as number) : "money";
   const about = String(o.edgeRow.facts?.about ?? o.edgeRow.facts?.how ?? "an old quarrel");
-  const fill = (t: string) => t.replace(/\{a\}/g, name(o.a)).replace(/\{b\}/g, name(o.b)).replace(/\{c\}/g, name(wrong))
-    .replace(/\{amount\}/g, amount).replace(/\{about\}/g, about);
+  const facts = (t: string) => t.replace(/\{amount\}/g, amount).replace(/\{about\}/g, about);
+  const fill = (t: string) => facts(t).replace(/\{a\}/g, name(o.a)).replace(/\{b\}/g, name(o.b)).replace(/\{c\}/g, name(wrong));
   // The ones it's about hear last: for lovers, their own husbands and wives.
   const last: Address[] = [];
   if (o.topic === "lover") for (const p of [o.a, o.b]) for (const s of town.edges({ touching: p, kind: "spouse" })) last.push(s.from === p ? s.to : s.from);
   else last.push(o.a, o.b);
   return {
     id: o.id, kind: o.kind, topic: o.topic, start: o.start, origin: o.origin, edge: o.edge, how: o.how,
-    texts: [fill(t0), fill(t1), fill(t2)], about: [o.a, o.b], lastToKnow: last, wrong,
+    texts: [fill(t0), fill(t1), fill(t2)], tpl: [facts(t0), facts(t1), facts(t2)], who: { a: o.a, b: o.b, ...(wrong ? { c: wrong } : {}) },
+    about: [o.a, o.b], lastToKnow: last, wrong,
   };
 }
 
@@ -353,14 +357,29 @@ export function knownByAt(town: Town, edge: Edge, date: string, block: Block): A
   return [...out];
 }
 
-function tellingAt(town: Town, r: Rumour, b: Address | undefined, now: number): string {
+/** A telling as text with the people in it as links. */
+export function linked(town: Town, r: Rumour, telling: 0 | 1 | 2, suffix = ""): (string | PanelLink)[] {
+  if (!r.tpl || !r.who) return [cap(r.texts[telling]) + suffix];
+  const out: (string | PanelLink)[] = [];
+  for (const part of r.tpl[telling].split(/(\{[abc]\})/)) {
+    if (!part) continue;
+    const m = /^\{([abc])\}$/.exec(part);
+    const a = m ? r.who[m[1] as "a" | "b" | "c"] : undefined;
+    if (m) out.push(a ? { text: town.label(a), address: a } : "someone");
+    else out.push(out.length ? part : cap(part));
+  }
+  if (suffix) out.push(suffix);
+  return out;
+}
+
+function tellingAt(town: Town, r: Rumour, b: Address | undefined, now: number, suffix = ""): (string | PanelLink)[] {
   const s = b ? spread(town, r).get(b) : undefined;
-  let text = r.texts[s?.telling ?? 0];
+  let tail = "";
   // A big enough story gets a song in a town's taverns after a few days.
   if (r.kind === "secret" && isStreetPlan(town) && now - r.start > 120 && b && DRINK.includes(town.get(b).get("use"))) {
-    text += `; ${content.ballads[Math.abs(hash(r.id)) % content.ballads.length]}`;
+    tail = `; ${content.ballads[Math.abs(hash(r.id)) % content.ballads.length]}`;
   }
-  return text;
+  return linked(town, r, s?.telling ?? 0, tail + suffix);
 }
 
 function hash(s: string): number {
@@ -395,7 +414,7 @@ export const gossip: Module = {
           const { heard, total, buildings } = reach(town, r, now);
           return {
             label: r.kind === "official" ? "Proclaimed" : r.topic.startsWith("chatter:") ? "Talk" : r.kind === "news" ? "News" : "Rumour",
-            value: [`${cap(r.texts[0])} — heard in ${pct(heard, total)}% of households`, ...(r.about.length ? [" (", ...r.about.flatMap((a, i) => [...(i ? [", "] : []), { text: town.label(a), address: a }]), ")"] : [])],
+            value: linked(town, r, 0, ` — heard in ${pct(heard, total)}% of households`),
             hint: `since ${describeHour(r.start)}${r.how ? `; ${r.how}` : ""}. Hover to see where it has got to.`,
             highlight: buildings,
           };
@@ -414,7 +433,7 @@ export const gossip: Module = {
         for (const r of talkAt(town, now)) {
           const s = spread(town, r).get(b.address);
           if (!s || s.at > now) continue;
-          rows.push({ label: r.kind === "secret" ? ["they say", "they say", "some say"][s.telling] : "news", value: cap(tellingAt(town, r, b.address, now)), hint: s.telling === 2 ? "this telling has the wrong person in it" : s.telling === 1 ? "grown in the telling" : undefined });
+          rows.push({ label: r.kind === "secret" ? ["they say", "they say", "some say"][s.telling] : "news", value: tellingAt(town, r, b.address, now), hint: s.telling === 2 ? "this telling has the wrong person in it" : s.telling === 1 ? "grown in the telling" : undefined });
         }
         return rows.length ? rows : [{ label: "Talk", value: "nothing new: the weather, the price of bread, who drank too much last night" }];
       },
@@ -434,7 +453,7 @@ export const gossip: Module = {
           const got = mine.filter((b) => sp.get(b)!.at <= now);
           if (!got.length) continue;
           const t = Math.max(...got.map((b) => sp.get(b)!.telling)) as 0 | 1 | 2;
-          rows.push({ label: `${pct(got.length, mine.length)}% have heard`, value: cap(r.texts[t]), hint: t === 2 ? "the telling here has the wrong person in it" : undefined, highlight: got });
+          rows.push({ label: `${pct(got.length, mine.length)}% have heard`, value: linked(town, r, t), hint: t === 2 ? "the telling here has the wrong person in it" : undefined, highlight: got });
         }
         return rows;
       },
@@ -451,8 +470,11 @@ export const gossip: Module = {
         for (const r of talkAt(town, now)) {
           const h = heardAt(town, r, p.address);
           if (h === undefined || h > now) continue;
-          const about = r.about.includes(p.address) ? " (it's about them)" : "";
-          rows.push({ label: h === -Infinity ? "knew all along" : `since ${describeHour(h).replace(/^\d+-/, "")}`, value: cap(tellingAt(town, r, home, now)) + about });
+          const mine = r.about.includes(p.address);
+          const about = mine ? " (it's about them)" : "";
+          // Those who were in it, or knew all along, know the true story whatever the street says.
+          const value = mine || h === -Infinity ? linked(town, r, 0, about) : tellingAt(town, r, home, now, about);
+          rows.push({ label: h === -Infinity ? "knew all along" : `since ${describeHour(h).replace(/^\d+-/, "")}`, value });
         }
         // Secrets they keep, that haven't come out.
         for (const e of town.edges({ touching: p.address })) {

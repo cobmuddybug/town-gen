@@ -87,6 +87,40 @@ describe("gossip", () => {
     expect(stableStringify(a.snapshot())).toBe(before);
   });
 
+  test("the people in a rumour are links in the panels", () => {
+    const g = town.modules.find((m) => m.id === "gossip")!;
+    const panel = (id: string) => g.panels!.find((p) => p.id === id)!;
+    let checked = 0;
+    for (const date of ["1203-09-29", "1204-03-10", "1205-06-20"]) {
+      town.clock = { date, block: "evening" };
+      const now = hourOf(date, "evening");
+      for (const r of talkAt(town, now).filter((x) => x.about.length)) {
+        const who = town.allEntities().find((p) => p.type === "person" && p.address.includes("/building:") && knows(town, r, p.address, now) && heardAt(town, r, p.address) !== -Infinity);
+        if (!who) continue;
+        const rows = panel("has-heard").rows(town, who);
+        const links = rows.flatMap((row) => (Array.isArray(row.value) ? row.value : [row.value])).filter((v) => typeof v === "object");
+        expect(links.length).toBeGreaterThan(0);
+        for (const l of links as { address: string }[]) expect(town.find(l.address)).toBeDefined();
+        checked++;
+      }
+      const talk = panel("talk-of-the-town").rows(town, town.settlement());
+      for (const row of talk) if (row.label === "Rumour" || row.label === "Talk") expect(Array.isArray(row.value) && row.value.some((v) => typeof v === "object")).toBe(true);
+    }
+    expect(checked).toBeGreaterThan(0);
+  }, 60000);
+
+  test("people in a story, and those who knew, hear the true telling", () => {
+    const g = town.modules.find((m) => m.id === "gossip")!.panels!.find((p) => p.id === "has-heard")!;
+    for (const date of ["1203-09-29", "1204-03-10", "1205-06-20"]) {
+      town.clock = { date, block: "evening" };
+      for (const r of talkAt(town, hourOf(date, "evening"))) for (const a of r.about) {
+        const row = g.rows(town, town.get(a)).find((x) => Array.isArray(x.value) && String(x.value[x.value.length - 1]).includes("it's about them"));
+        if (!row || !r.wrong) continue;
+        expect((row.value as { address?: string }[]).some((v) => v.address === r.wrong)).toBe(false);
+      }
+    }
+  }, 60000);
+
   test("gossip hooks turn up", () => {
     const seen = new Set<string>();
     for (const date of ["1203-09-29", "1204-03-10", "1205-06-20"]) {
