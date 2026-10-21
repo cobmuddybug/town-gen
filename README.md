@@ -10,6 +10,8 @@ npm run dev      # then open the printed URL
 npm test
 ```
 
+On Omarchy, `./install.sh` builds the app and installs it as a user service on http://127.0.0.1:31741/ (started at login), a launcher entry and `town-gen-app`, and binds it to SUPER+CTRL+ALT+T. Rerun it after changing the code. `./install.sh --uninstall` removes it all.
+
 - **Seeds are towns.** A save file holds the seed, module versions and your edits, never the whole town.
 - **Edit or reroll any field.** Downstream details follow your edit. Names and unrelated details don't move.
 - **Pin** the people your players know, so generator upgrades leave them alone.

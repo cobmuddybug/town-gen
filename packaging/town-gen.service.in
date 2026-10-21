@@ -1,0 +1,10 @@
+[Unit]
+Description=Town Generator (D&D settlement generator, local web app)
+
+[Service]
+ExecStart=@ROOT@/town-gen-serve --port 31741
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

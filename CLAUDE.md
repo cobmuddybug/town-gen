@@ -4,7 +4,8 @@ Low-fantasy, human-only, mundane medieval settlement generator for D&D. The desi
 
 ## Commands
 
-- `npm run dev`: dev server (use `-- --port 31741` to match the usual port)
+- `npm run dev`: dev server. Port 31741 is taken by the installed `town-gen.service`, so use another port, such as `-- --port 31742`.
+- `./install.sh`: build `dist/` and (re)install the user service (`town-gen-serve`, Python's static server on 127.0.0.1:31741), the launcher `town-gen-app`, the desktop entry and the SUPER+CTRL+ALT+T bind (a marked block in `~/.config/hypr/bindings.lua`). The service serves `dist/`, so rerun it, or `npm run build`, after code changes. `--uninstall` removes it all.
 - `npm test`: all tests (Vitest)
 - `npm run check`: typecheck + tests. Run it before saying anything is done.
 - `npm run build`: static build to `dist/`

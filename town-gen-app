@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Open the Town Generator as an Omarchy web app, starting the server first if needed.
+set -u
+here="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+url="http://127.0.0.1:31741/"
+
+up() { curl -fs -o /dev/null --max-time 1 "$url"; }
+
+if ! up; then
+  systemctl --user reset-failed town-gen.service 2>/dev/null
+  if ! systemctl --user start --no-block town-gen.service 2>/dev/null; then
+    setsid nohup "$here/town-gen-serve" >/dev/null 2>&1 &
+  fi
+  for _ in $(seq 1 40); do up && break; sleep 0.25; done
+  up || { notify-send "Town Generator" "The server did not start. Try: $here/town-gen-serve" 2>/dev/null; exit 1; }
+fi
+exec omarchy-launch-webapp "$url"

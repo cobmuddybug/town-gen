@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Town Generator
+GenericName=Settlement Generator
+Comment=Generate low-fantasy medieval hamlets, villages and towns for D&D
+Exec=@APP@
+Terminal=false
+Categories=Game;RolePlaying;
+Keywords=dnd;town;village;hamlet;settlement;generator;medieval;
+Icon=town-gen
+StartupNotify=false
