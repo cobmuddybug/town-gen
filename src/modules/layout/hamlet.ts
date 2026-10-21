@@ -13,7 +13,7 @@ import { PI, TAU, cos, sin, q } from "../../core/dmath";
 import type { Rng } from "../../core/rng";
 import {
   add, along, len, area, centroid, convexHull, convexOverlap, dot, mul, norm, perp, pointInPoly,
-  polylinePolyDist, project, qp, qpoly, rayExit, rect, sub, type Poly, type Pt,
+  nearLine, project, qp, qpoly, rayExit, rect, sub, type Poly, type Pt,
 } from "./geom";
 
 export interface Footprint {
@@ -229,17 +229,17 @@ export function layoutHamlet(r: Rng, plan: Footprint[], terrain: Terrain = "farm
   const plots: Poly[] = [];
 
   const clearOf = (p: Poly, extra = 0): boolean => {
-    if (coast && (p.some(inSea) || polylinePolyDist(coast, p) < 7 + extra)) return false;
-    for (const rd of [main, side]) if (polylinePolyDist(rd.points, p) < rd.width / 2 + 0.6 + extra) return false;
-    if (polylinePolyDist(stream.points, p) < stream.width / 2 + 1.5 + extra) return false;
+    if (coast && (p.some(inSea) || nearLine(coast, p, 7 + extra))) return false;
+    for (const rd of [main, side]) if (nearLine(rd.points, p, rd.width / 2 + 0.6 + extra)) return false;
+    if (nearLine(stream.points, p, stream.width / 2 + 1.5 + extra)) return false;
     if (convexOverlap(p, green, 0.5)) return false;
     for (const s of solids) if (convexOverlap(p, s, 1)) return false;
     return true;
   };
   const plotOk = (p: Poly): boolean => {
-    if (coast && (p.some(inSea) || polylinePolyDist(coast, p) < 3)) return false;
-    for (const rd of [main, side]) if (polylinePolyDist(rd.points, p) < rd.width / 2 + 0.3) return false;
-    if (polylinePolyDist(stream.points, p) < stream.width / 2 + 0.5) return false;
+    if (coast && (p.some(inSea) || nearLine(coast, p, 3))) return false;
+    for (const rd of [main, side]) if (nearLine(rd.points, p, rd.width / 2 + 0.3)) return false;
+    if (nearLine(stream.points, p, stream.width / 2 + 0.5)) return false;
     if (convexOverlap(p, green, 0)) return false;
     for (const s of solids) if (convexOverlap(p, s, 0.5)) return false;
     for (const s of plots) if (convexOverlap(p, s, -0.3)) return false;
@@ -370,7 +370,7 @@ export function layoutHamlet(r: Rng, plan: Footprint[], terrain: Terrain = "farm
       const w = r.range(11, 14), d = r.range(6, 7);
       const c = add(a.p, mul(n, -(5 + d / 2)));
       const shed = rect(c, a.t, w, d);
-      if (shed.some(inSea) || [main, side].some((rd) => polylinePolyDist(rd.points, shed) < rd.width / 2 + 1) || solids.some((x) => convexOverlap(shed, x, 1))) continue;
+      if (shed.some(inSea) || [main, side].some((rd) => nearLine(rd.points, shed, rd.width / 2 + 1)) || solids.some((x) => convexOverlap(shed, x, 1))) continue;
       const slip = rect(add(a.p, mul(n, 3)), n, 12, 3.5);
       const yard = rect(add(c, mul(n, -2)), a.t, w + 8, d + 8);
       solids.push(shed);
@@ -472,7 +472,7 @@ export function layoutHamlet(r: Rng, plan: Footprint[], terrain: Terrain = "farm
         const rOut = (a: number) => fieldEdge(a) + (ring + 1) * band - 3;
         for (let j = 0; j <= steps; j++) { const a = s0 + ((s1 - s0) * j) / steps; poly.push(add(hc, mul(dir(a), rIn(a)))); }
         for (let j = steps; j >= 0; j--) { const a = s0 + ((s1 - s0) * j) / steps; const ro = rOut(a); outer = Math.max(outer, ro); poly.push(add(hc, mul(dir(a), ro))); }
-        if (area(poly) < 200 || (coast && (poly.some(inSea) || polylinePolyDist(coast, poly) < 6))) continue;
+        if (area(poly) < 200 || (coast && (poly.some(inSea) || nearLine(coast, poly, 6)))) continue;
         const mida = (s0 + s1) / 2;
         const stripes = r.chance(0.5) ? mida : mida + PI / 2;
         // A lord's demesne lay scattered in strips among his tenants'.

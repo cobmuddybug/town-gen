@@ -39,14 +39,21 @@ export const layout: Module = {
       // Layout is a pure function of its stream key and the plan, and it is the
       // slow part, so edits that rebuild the town reuse it.
       const terrain = s.get<Terrain>("terrain") ?? "farmland";
-      const key = `${ctx.town.seed}|${s.address}|${layout.version}|${terrain}|${JSON.stringify(footprints)}`;
+      const { shape, market, suburbs } = ctx.town.settings.design ?? {};
+      const designed = street ? { ...(shape ? { shape } : {}), ...(market ? { market } : {}), ...(suburbs ? { suburbs } : {}) } : {};
+      const key = `${ctx.town.seed}|${s.address}|${layout.version}|${terrain}|${JSON.stringify(designed)}|${JSON.stringify(footprints)}`;
       let map = cache.get(key);
       if (!map && street) {
         const encl = s.get<string>("enclosure");
         const enclosure: Enclosure = /wall/.test(encl) ? "wall" : /palisade/.test(encl) ? "palisade" : /hedge|bank/.test(encl) ? "hedge" : "none";
-        map = layoutTown(ctx.rng(s, "town"), footprints, {
-          scale: s.get<Scale>("sizeClass"), enclosure, roads: s.get<number>("mainRoads"), terrain,
-        });
+        // The room estimate is rough. When it falls short, buildings find no plot and
+        // would be lost, so lay the town out again, roomier, from the same stream.
+        for (let room = 1; ; room += 0.08) {
+          map = layoutTown(ctx.rng(s, "town"), footprints, {
+            scale: s.get<Scale>("sizeClass"), enclosure, roads: s.get<number>("mainRoads"), terrain, ...designed, ...(room > 1 ? { room } : {}),
+          });
+          if (map.buildings.length >= footprints.length || room > 1.5) break;
+        }
         cache.set(key, map);
         if (cache.size > 16) cache.delete(cache.keys().next().value!);
       }

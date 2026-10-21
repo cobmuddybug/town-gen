@@ -6,6 +6,7 @@ import { households } from "./households";
 import { materials } from "./materials";
 import { names } from "./names";
 import { people } from "./people";
+import { character } from "./character";
 import { council } from "./council";
 import { sifters } from "./sifters";
 import { society } from "./society";
@@ -18,4 +19,4 @@ import { guilds } from "./guilds";
 import { lodging } from "./lodging";
 import { gossip } from "./gossip";
 
-export const defaultModules: Module[] = [core, uses, layout, households, materials, names, people, council, society, visitors, manor, religion, civic, guilds, lodging, routines, gossip, sifters];
+export const defaultModules: Module[] = [core, uses, layout, households, materials, names, people, character, council, society, visitors, manor, religion, civic, guilds, lodging, routines, gossip, sifters];

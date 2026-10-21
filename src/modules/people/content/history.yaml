@@ -63,7 +63,7 @@
 - { id: dream, text: "had a dream of a treasure under a thorn tree, and dug for it", minAge: 20, weight: 1 }
 - { id: plague_child, text: "lost a brother and a sister in one bad winter", minAge: 15, weight: 2 }
 - { id: soldier_uncle, text: "has an uncle who went for a soldier and came back with a foreign wife", minAge: 15, weight: 1 }
-- { id: miracle, text: "was cured of a fever, {they} say, by a saint's relic carried to {their} bed", minAge: 12, weight: 1 }
+- { id: miracle, text: "was cured of a fever, people say, by a saint's relic carried to {their} bed", minAge: 12, weight: 1 }
 - { id: second_marriage, text: "married again within the year after {their} first spouse died, and people talked", minAge: 35, roles: [head, spouse], weight: 2 }
 - { id: debt_father, text: "is still paying off {their} father's debts", minAge: 22, roles: [head], maxRank: 6, weight: 2 }
 - { id: foundling, text: "was left as a baby at the church door", minAge: 10, weight: 1 }
@@ -87,5 +87,5 @@
 - { id: t_fair_cheat, setting: town, text: "was cheated by a coin-clipper at the fair and has bitten every penny since", minAge: 20, weight: 2 }
 - { id: t_riot, setting: town, text: "was in the crowd the day the apprentices rioted against the foreign merchants", minAge: 22, weight: 1 }
 - { id: t_procession, setting: town, text: "carried a banner in the guild procession on the saint's day", minAge: 18, minRank: 5, weight: 2 }
-- { id: t_street_born, setting: town, text: "was born in the street {they} still live in, and knows every family in it", minAge: 20, weight: 3 }
+- { id: t_street_born, setting: town, text: "was born in the street {they} still lives in, and knows every family in it", minAge: 20, weight: 3 }
 - { id: t_lent_house, setting: town, text: "has taken in a lodger every Lent for {n} years", minAge: 30, roles: [head], weight: 1 }

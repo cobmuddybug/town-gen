@@ -1,6 +1,6 @@
 // Drive headless Chromium over CDP: run JS steps against the dev server and screenshot.
 // node tools/look.mjs URL OUT.png ['js step' ...]   (each step may return a promise)
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,7 +8,10 @@ import { join } from "node:path";
 const [url, out, ...steps] = process.argv.slice(2);
 const port = 9300 + Math.floor(Math.random() * 500);
 const profile = mkdtempSync(join(tmpdir(), "look-"));
-const chrome = spawn("chromium", ["--headless=new", "--disable-gpu", "--hide-scrollbars", `--remote-debugging-port=${port}`,
+// Distros name it differently (Fedora: chromium-browser); CHROME overrides.
+const which = (b) => { try { execFileSync("which", [b], { stdio: "ignore" }); return true; } catch { return false; } };
+const bin = process.env.CHROME ?? ["chromium", "chromium-browser", "google-chrome-stable", "google-chrome"].find(which) ?? "chromium";
+const chrome = spawn(bin, ["--headless=new", "--disable-gpu", "--hide-scrollbars", `--remote-debugging-port=${port}`,
   `--user-data-dir=${profile}`, "--window-size=1500,950", "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let targets;

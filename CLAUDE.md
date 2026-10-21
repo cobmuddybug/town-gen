@@ -5,7 +5,7 @@ Low-fantasy, human-only, mundane medieval settlement generator for D&D. The desi
 ## Commands
 
 - `npm run dev`: dev server. Port 31741 is taken by the installed `town-gen.service`, so use another port, such as `-- --port 31742`.
-- `./install.sh`: build `dist/` and (re)install the user service (`town-gen-serve`, Python's static server on 127.0.0.1:31741), the launcher `town-gen-app`, the desktop entry and the SUPER+CTRL+ALT+T bind (a marked block in `~/.config/hypr/bindings.lua`). The service serves `dist/`, so rerun it, or `npm run build`, after code changes. `--uninstall` removes it all.
+- `./install.sh`: build `dist/` and (re)install the user service (`town-gen-serve`, `packaging/serve.py` on 127.0.0.1:31741), the launcher `town-gen-app`, the desktop entry and the SUPER+CTRL+ALT+T bind (a marked block in `~/.config/hypr/bindings.lua`). The service serves `dist/`, so rerun it, or `npm run build`, after code changes. `--uninstall` removes it all.
 - `npm test`: all tests (Vitest)
 - `npm run check`: typecheck + tests. Run it before saying anything is done.
 - `npm run build`: static build to `dist/`
@@ -19,6 +19,8 @@ Low-fantasy, human-only, mundane medieval settlement generator for D&D. The desi
 - Gygax's *Living Fantasy* is copyrighted. Use its numbers and structures, write every row in our own words, and cite the page in `source`.
 
 ## Rules for generators
+
+- **DM choices (`settings.design`) override a roll, never replace the draw.** Draw as usual, then use the choice, so a town without a plan is byte-for-byte unchanged.
 
 - **Never call `Math.random()`.** Use `ctx.rng(entity, purpose)` or `ctx.gen(entity, key, rng => …)`. A test enforces this.
 - **Never use `Math.sin/cos/atan2/hypot/pow/exp/log` in `src/core` or `src/modules`.** Use `src/core/dmath.ts`, because engines may round those differently. A test enforces this.
@@ -44,6 +46,7 @@ src/modules/    one folder per module: index.ts + content/*.yaml
   materials     how a household lives, by tier
   names         Anglo-Norman provider: place names, bynames, given names
   people        L4 traits and looks; relationships panel
+  character     wants, fears, speech, habits, knacks, faith, health, letters, tongues, purse; the Secrets panel
   council       hamlet council, elder, docket, grievances
   society       the settlement-wide phase: links between households
   manor         manorial villages: lord, officer chain, reeve, statuses, week-work, socman, runaways
@@ -53,11 +56,12 @@ src/modules/    one folder per module: index.ts + content/*.yaml
   lodging       inns, taverns, rooming houses, hostels: grades, prices, guests tonight
   gossip        rumours as a pure function of the clock: leaks, news, chatter, spread, tellings, knownByAt
   visitors      the visitors calendar: visitsIn(year), visitorsOn(date); pure functions
-  routines      six-block daily routines, whereabouts(), occupancy(); clock panels
+  routines      six-block daily routines, errands to shops, visits to friends; whereabouts(), occupancy(); clock panels
   sifters       plot-hook sifters over the graph (capped at 2 each)
-src/ui/         map.ts (pure SVG renderer), discover.ts (who knows, lenses, search, lists, almanac, a person's day; pure), main.ts (app), style.css
+src/ui/         library.ts (your towns, the URL key), party.ts (nearby report, encounters, job board; pure), map.ts (pure SVG renderer), discover.ts (who knows, lenses, search, lists, almanac, a person's day; pure), main.ts (app), style.css
 tests/          core (determinism, isolation, stubs, overlay, saves, golden), people (calendar, society, routines),
-                bases (all five economies, terrain, visitors), manor, town (street plans and town institutions), gossip, discover
+                bases (all five economies, terrain, visitors), manor, town (street plans and town institutions), gossip, discover,
+                design (town plans), character (people and their days), library, party
                 SAMPLE=1 / PERF=1 enable sample.test.ts / perf.test.ts
 ```
 

@@ -8,7 +8,7 @@
 
 import type { Rng } from "../../core/rng";
 import type { Registry } from "../../core/registry";
-import type { Era } from "../../core/types";
+import type { Design, Era } from "../../core/types";
 import type { Base } from "../core";
 import type { BuildingUse } from "./index";
 
@@ -27,7 +27,7 @@ function households(u: BuildingUse | undefined): number {
 }
 
 export function planUrban(
-  r: Rng, pop: number, sizeClass: string, base: Base, era: Era, useReg: Registry<BuildingUse>, walled: boolean, manorial: boolean,
+  r: Rng, pop: number, sizeClass: string, base: Base, era: Era, useReg: Registry<BuildingUse>, walled: boolean, manorial: boolean, design?: Design,
 ): UrbanPlan {
   const urban = sizeClass === "town" || sizeClass === "city";
   const special: string[] = [];
@@ -73,7 +73,8 @@ export function planUrban(
   if (pop >= 5000) worship.push("lazar_house");
 
   // The town's own buildings.
-  const roads = urban ? (sizeClass === "city" ? r.int(5, 6) : r.int(4, 5)) : r.int(3, 4);
+  const rolled = urban ? (sizeClass === "city" ? r.int(5, 6) : r.int(4, 5)) : r.int(3, 4);
+  const roads = design?.gates ?? rolled;
   const quarters = urban ? Math.min(4, roads) : 1;
   const civic: string[] = [];
   if (pop >= 1500) civic.push("market_hall");
@@ -83,7 +84,8 @@ export function planUrban(
   if (pop >= 10000) civic.push("courthouse");
   if (urban) for (let i = 0; i < quarters; i++) civic.push("watch_house");
   if (walled && urban) for (let i = 0; i < roads; i++) civic.push("gatehouse");
-  if ((sizeClass === "city" && r.chance(0.8)) || (sizeClass === "town" && r.chance(0.45))) civic.push("castle");
+  const castle = (sizeClass === "city" && r.chance(0.8)) || (sizeClass === "town" && r.chance(0.45));
+  if (design?.castle ?? castle) civic.push("castle");
   if (pop >= 3000) for (let i = 0, n = 1 + Math.floor(pop / 10000); i < n; i++) civic.push("school");
   if (pop >= 10000) for (let i = 0, n = count(pop / 12000); i < n; i++) civic.push("noble_town_house");
 

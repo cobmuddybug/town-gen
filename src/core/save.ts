@@ -17,6 +17,7 @@ export function load(save: SaveFile, modules: Module[]): Town {
     pinned: save.pinned,
     events: save.events,
     clock: save.clock,
+    party: save.party,
   });
   for (const [id, v] of Object.entries(save.modules)) {
     const m = modules.find((x) => x.id === id);
@@ -52,5 +53,19 @@ export function withPin(town: Town, modules: Module[], address: Address, pinned:
   const save = town.toSave();
   if (pinned) save.pinned[address] = town.pinSnapshot(address);
   else delete save.pinned[address];
+  return load(save, modules);
+}
+
+/** Rebuild a town with one more event (a note, or a deed that will spread as talk). */
+export function withEvent(town: Town, modules: Module[], event: SaveFile["events"][number]): Town {
+  const save = town.toSave();
+  save.events.push(event);
+  return load(save, modules);
+}
+
+/** Rebuild a town without the event at this index. */
+export function withoutEvent(town: Town, modules: Module[], index: number): Town {
+  const save = town.toSave();
+  save.events.splice(index, 1);
   return load(save, modules);
 }

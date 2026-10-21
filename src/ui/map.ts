@@ -68,7 +68,7 @@ export const MAP_STYLE = `
 .m-wheel{fill:var(--map-ink,#4a3f30)}
 .m-hi{stroke:var(--map-hi,#c0392b);stroke-width:2.2}
 .m-label{font-family:var(--map-font,'IM Fell English',Georgia,serif);fill:var(--map-ink,#4a3f30);text-anchor:middle}
-.m-title{font-size:26px;letter-spacing:2px}
+.m-title{font-size:26px;letter-spacing:2px;paint-order:stroke;stroke:var(--map-halo,#efe8d6);stroke-width:4px;stroke-opacity:.75}
 .m-crop-label{font-size:12px;font-style:italic;fill-opacity:.75}
 .m-small{font-size:6px;font-style:italic}
 .m-feature{fill:var(--map-ink,#4a3f30)}
@@ -229,15 +229,41 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
     const name = w.get<string>("name");
     if (c && name) out.push(`<g data-address="${esc(w.address)}"><title>${esc(name)}</title><text class="m-label m-ward" x="${f(c[0])}" y="${f(c[1])}">${esc(name)}</text></g>`);
   }
+  const [tx, ty] = titleAt(m, buildings.map((b) => b.get<Poly>("poly")), town.label(town.root));
+  out.push(`<text class="m-label m-title" x="${f(tx)}" y="${f(ty)}">${esc(town.label(town.root))}</text>`);
+  out.push("</svg>");
+  return out.join("");
+}
+
+/** Where the settlement's name goes: above it, centred if that's clear, else
+ *  slid sideways or put below, wherever the fewest roads and roofs are under it.
+ *  Never out at sea. */
+function titleAt(m: MapData, roofs: Poly[], name: string): Pt {
+  const xs = m.hedge.map((p) => p[0]);
   const top = Math.min(...m.hedge.map((p) => p[1]));
   const bottom = Math.max(...m.hedge.map((p) => p[1]));
   const cx = m.hedge.reduce((a, p) => a + p[0], 0) / m.hedge.length;
-  // Name above the village, unless that's out at sea.
-  const above: Pt = [cx, top - 16];
-  const y = m.sea && pointInSea(m, above) ? bottom + 40 : above[1];
-  out.push(`<text class="m-label m-title" x="${f(cx)}" y="${f(y)}">${esc(town.label(town.root))}</text>`);
-  out.push("</svg>");
-  return out.join("");
+  const span = Math.max(...xs) - Math.min(...xs);
+  const w = name.length * 16 + 10, h = 28;
+  const marks: Pt[] = [];
+  for (const r of m.roads) for (let i = 0; i + 1 < r.points.length; i++) {
+    const [a, b] = [r.points[i], r.points[i + 1]];
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4));
+    for (let k = 0; k < n; k++) marks.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
+  }
+  for (const p of roofs) if (p) marks.push(...p);
+  const under = ([x, y]: Pt) => marks.filter(([px, py]) => Math.abs(px - x) < w / 2 && py > y - h + 4 && py < y + 8).length;
+  const cands: Pt[] = [];
+  for (const dy of [16, 46]) for (const dx of [0, -0.22, 0.22, -0.4, 0.4]) cands.push([cx + dx * span, top - dy]);
+  for (const dx of [0, -0.25, 0.25]) cands.push([cx + dx * span, bottom + 40]);
+  let best = cands[0], bestN = Infinity;
+  for (const c of cands) {
+    if (m.sea && pointInSea(m, c)) continue;
+    const n = under(c);
+    if (n < bestN) { best = c; bestN = n; }
+    if (n === 0) break;
+  }
+  return best;
 }
 
 /** Dots for people, by where they are this block. Drawn over the map. */

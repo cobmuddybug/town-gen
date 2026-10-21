@@ -32,6 +32,18 @@
           <option value="early_modern">early modern</option>
         </select>
       </label>
+      <details class="plan" id="plan">
+        <summary title="Lay out a town your way. Applies above 700 people, where there are streets.">Plan</summary>
+        <div class="plan-body">
+          <label>Walls <select name="walls"><option value="">any</option><option value="none">none, open</option><option value="palisade">bank and palisade</option><option value="wall">stone wall</option></select></label>
+          <label>Gates <select name="gates"><option value="">any</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+          <label>Shape <select name="shape"><option value="">any</option><option value="round">round</option><option value="oval">oval</option><option value="long">long, along the high street</option></select></label>
+          <label>Castle <select name="castle"><option value="">any</option><option value="1">yes</option><option value="0">no</option></select></label>
+          <label>Market <select name="market"><option value="">any</option><option value="small">small</option><option value="large">large</option></select></label>
+          <label>Suburbs <select name="suburbs"><option value="">any</option><option value="few">few</option><option value="many">many</option></select></label>
+          <p class="plan-note">“Any” leaves it to the dice. Castles need 1,000 people or more.</p>
+        </div>
+      </details>
       <button type="submit">Generate</button>
       <button type="button" id="random-seed" title="New seed">New seed</button>
     </form>
@@ -50,7 +62,8 @@
       <label><input type="checkbox" id="show-people" /> People</label>
     </div>
     <div class="controls">
-      <button type="button" id="save">Save</button>
+      <select id="towns" aria-label="Your towns"></select>
+      <button type="button" id="save" title="Download this town as a file">Save</button>
       <label class="button">Load<input type="file" id="load" accept=".json,application/json" hidden /></label>
     </div>
   </header>

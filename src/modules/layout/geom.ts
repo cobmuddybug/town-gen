@@ -44,7 +44,26 @@ export function rect(c: Pt, u: Pt, w: number, d: number): Poly {
 }
 
 /** Separating-axis overlap test for two convex polygons, with an optional clearance. */
+// Bounding boxes, cached per polygon: layouts test each new shape against
+// everything already placed, so a cheap rejection first matters.
+const boxes = new WeakMap<Poly, [number, number, number, number]>();
+function box(p: Poly): [number, number, number, number] {
+  let b = boxes.get(p);
+  if (!b) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y] of p) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    boxes.set(p, (b = [x0, y0, x1, y1]));
+  }
+  return b;
+}
+
 export function convexOverlap(a: Poly, b: Poly, gap = 0): boolean {
+  // Boxes this far apart can't pass the edge-normal test below. The test only
+  // looks along edge normals, which can understate the true distance at a sharp
+  // corner, so the margin is generous (good for corners down to about 15°).
+  const A = box(a), B = box(b);
+  const apart = Math.max(B[0] - A[2], A[0] - B[2], B[1] - A[3], A[1] - B[3]);
+  if (apart > Math.max(0, gap) * 8) return false;
   for (const poly of [a, b]) {
     for (let i = 0; i < poly.length; i++) {
       const e = sub(poly[(i + 1) % poly.length], poly[i]);
@@ -89,10 +108,24 @@ export function segSegDist(a: Pt, b: Pt, c: Pt, d: Pt): number {
   return Math.min(segPointDist(a, c, d), segPointDist(b, c, d), segPointDist(c, a, b), segPointDist(d, a, b));
 }
 
-/** Smallest distance between a polyline and a polygon (0 if they touch or overlap). */
-export function polylinePolyDist(line: Pt[], poly: Poly): number {
+/** Whether a polyline comes within d of a polygon (touching or overlapping counts). */
+export function nearLine(line: Pt[], poly: Poly, d: number): boolean {
+  return polylinePolyDist(line, poly, d) < d;
+}
+
+/** Smallest distance between a polyline and a polygon (0 if they touch or overlap).
+ *  Given `within`, any answer of `within` or more may come back as a larger number. */
+export function polylinePolyDist(line: Pt[], poly: Poly, within = Infinity): number {
   let best = Infinity;
+  const [x0, y0, x1, y1] = box(poly);
   for (let i = 0; i + 1 < line.length; i++) {
+    // Skip segments whose box is already further off than the best so far
+    // (a lower bound, so the answer is unchanged). Roads are long, houses many.
+    const a = line[i], b = line[i + 1];
+    const gx = Math.max(0, x0 - Math.max(a[0], b[0]), Math.min(a[0], b[0]) - x1);
+    const gy = Math.max(0, y0 - Math.max(a[1], b[1]), Math.min(a[1], b[1]) - y1);
+    const lim = Math.min(best, within) + 1e-6;
+    if (gx * gx + gy * gy > lim * lim) continue;
     if (pointInPoly(line[i], poly)) return 0;
     for (let j = 0; j < poly.length; j++) {
       best = Math.min(best, segSegDist(line[i], line[i + 1], poly[j], poly[(j + 1) % poly.length]));

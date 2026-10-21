@@ -5,6 +5,7 @@ import tiersYaml from "../../../content/tiers.yaml";
 import basesYaml from "./content/bases.yaml";
 import sizesYaml from "./content/sizes.yaml";
 import materialsYaml from "./content/materials.yaml";
+import { STREET_PLAN_POP } from "../uses";
 
 export interface Tier extends Row { label: string; class: string; rank: number; income: number }
 export interface Base extends Row {
@@ -63,7 +64,10 @@ export const core: Module = {
       ctx.gen(s, "richestRuleHolds", (r) => r.chance(0.8));
       if (ctx.town.settings.lordship === "manorial") ctx.set(s, "charter", "manorial");
       else ctx.gen(s, "charter", (r) => (size.id === "hamlet" ? "lord-held" : r.pick(["lord-held", "lord-held", "chartered"])));
+      // A street plan's walls can be the DM's choice (settings.design).
+      const walls = pop > STREET_PLAN_POP ? ctx.town.settings.design?.walls : undefined;
       ctx.gen(s, "enclosure", (r) => {
+        if (walls) return walls === "wall" ? "stone wall" : walls === "palisade" ? "earth bank and palisade" : "nothing; the place lies open";
         if (size.id === "hamlet") return r.pick(["hedge", "hedge", "fence"]);
         if (size.id === "thorp") return "palisade";
         if (size.id === "village") return r.pick(["hedge and ditch", "palisade", "palisade", "bank and ditch"]);

@@ -34,12 +34,24 @@ export interface Edge {
 
 export type Lordship = "free" | "manorial";
 
+/** The DM's say over a street plan (over 700 people). Anything left out is rolled as usual. */
+export interface Design {
+  walls?: "none" | "palisade" | "wall";
+  /** main roads in, and so gates: 2 to 6 */
+  gates?: number;
+  shape?: "round" | "oval" | "long";
+  castle?: boolean;
+  market?: "small" | "large";
+  suburbs?: "few" | "many";
+}
+
 export interface Settings {
   base: string;
   pop: number;
   era: Era;
   /** a manorial village is owned outright by a lord (LF p.77) */
   lordship?: Lordship;
+  design?: Design;
 }
 
 export interface Ctx {
@@ -143,10 +155,13 @@ export interface Module {
 
 export interface SaveFile {
   format: 1;
-  town: { seed: string; era: Era; config: { base: string; pop: number; lordship?: Lordship } };
+  town: { seed: string; era: Era; config: { base: string; pop: number; lordship?: Lordship; design?: Design } };
   modules: Record<string, string>;
   overlay: Record<Address, Record<string, unknown>>;
   pinned: Record<Address, Record<string, unknown>>;
-  events: { date: string; kind: string; target?: Address; text: string }[];
+  /** DM notes and things the party did. A "deed" has a block and a building, and spreads as talk. */
+  events: { date: string; kind: string; target?: Address; text: string; block?: string; at?: Address }[];
   clock: { date: string; block: string };
+  /** where the DM has put the party on the map, and what the town calls them */
+  party?: { at: [number, number]; name?: string };
 }

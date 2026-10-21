@@ -14,7 +14,7 @@
 import { PI, TAU, atan2, cos, sin, q } from "../../core/dmath";
 import type { Rng } from "../../core/rng";
 import {
-  add, along, area, centroid, convexOverlap, dist, dot, len, mul, norm, perp, pointInPoly, polylinePolyDist, project,
+  add, along, area, centroid, convexOverlap, dist, dot, len, mul, norm, perp, pointInPoly, nearLine, project,
   qp, qpoly, rect, sub, type Poly, type Pt,
 } from "./geom";
 import type { Feature, FieldPiece, Footprint, HamletLayout, PlacedBuilding, Road, Terrain } from "./hamlet";
@@ -28,6 +28,12 @@ export interface TownOpts {
   /** main roads, and so gates */
   roads: number;
   terrain: Terrain;
+  /** more room than the estimate asks for: 1 unless an earlier try left buildings without plots */
+  room?: number;
+  /** the DM's choices; each is rolled when left out */
+  shape?: "round" | "oval" | "long";
+  market?: "small" | "large";
+  suburbs?: "few" | "many";
 }
 
 /** What a street front is like. Commercial uses want the first few. */
@@ -145,7 +151,11 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
     else if (!GEO.has(site ?? "") || (site === "gate" && !walled)) needIn += plotsFor(p);
   });
   // Some ordinary folk always live outside the gates.
-  const spill = Math.round(needIn * (urban ? 0.12 : 0.06));
+  // On a roomier retry, fewer go outside: suburbs only grow along the roads,
+  // and a town with two gates hasn't road enough for them.
+  const retry = Math.max(0, 1 - ((o.room ?? 1) - 1) * 2.5);
+  const spillShare = (urban ? 0.12 : 0.06) * (o.suburbs === "few" ? 0.25 : o.suburbs === "many" ? 2.5 : 1) * retry;
+  const spill = Math.round(needIn * spillShare);
   needIn -= spill;
   needOut += spill;
 
@@ -156,16 +166,30 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   const mainW = urban ? 7 : 6;
   const laneW = urban ? 3 : 3.5;
   const blockLen: [number, number] = urban ? [55, 100] : [90, 160];
-  const marketR = urban ? 16 + 0.45 * Math.sqrt(needIn * 6) : 18 + 0.3 * Math.sqrt(needIn * 6);
+  const marketR = (urban ? 16 + 0.45 * Math.sqrt(needIn * 6) : 18 + 0.3 * Math.sqrt(needIn * 6)) * (o.market === "small" ? 0.7 : o.market === "large" ? 1.5 : 1);
 
   // The whole plan is drawn in (angle, radius) and bent by a wobble, so the
   // town is not a circle. The finer terms drift with the radius, so the rings
   // of streets are not copies of each other.
-  const a1 = r.range(0.04, 0.09), a2 = r.range(0.02, 0.05), p1 = r.range(0, TAU), p2 = r.range(0, TAU);
-  const a3 = r.range(0.02, 0.04), a4 = r.range(0.015, 0.03), p3 = r.range(0, TAU), p4 = r.range(0, TAU);
+  // One draw each whatever the shape, so choosing a shape moves nothing else.
+  const [lo1, hi1, k2] = o.shape === "round" ? [0.02, 0.05, 0.5] : o.shape === "long" ? [0.03, 0.08, 0.5] : [0.13, 0.24, 1];
+  // p1 is let: a long town turns to lie along its first main road, once the roads are known.
+  const a1 = r.range(lo1, hi1), a2 = r.range(0.035, 0.07) * k2;
+  let p1 = r.range(0, TAU);
+  const p2 = r.range(0, TAU);
+  const a3 = r.range(0.025, 0.05), a4 = r.range(0.02, 0.04), p3 = r.range(0, TAU), p4 = r.range(0, TAU);
   const l3 = r.range(90, 160), l4 = r.range(60, 110);
+  // A long town is an ellipse about its high street (`axis`, set once the roads
+  // are known), the same area as the circle, wobbled as usual.
+  const LONG = 1.8;
+  let axis = 0;
+  const ell = (phi: number) => {
+    if (o.shape !== "long") return 1;
+    const c = cos(phi - axis), sn = sin(phi - axis);
+    return 1 / Math.sqrt(LONG) / Math.sqrt((c * c) / (LONG * LONG) + sn * sn);
+  };
   const f = (phi: number, rho: number) =>
-    1 + a1 * sin(2 * phi + p1) + a2 * sin(3 * phi + p2) + a3 * sin(5 * phi + p3 + rho / l3) + a4 * sin(7 * phi + p4 - rho / l4);
+    ell(phi) * (1 + a1 * sin(2 * phi + p1) + a2 * sin(3 * phi + p2) + a3 * sin(5 * phi + p3 + rho / l3) + a4 * sin(7 * phi + p4 - rho / l4));
   const P = (phi: number, rho: number): Pt => { const k = rho * f(phi, rho); return [C[0] + cos(phi) * k, C[1] + sin(phi) * k]; };
   /** How far outside the wall line a point is (negative inside), in metres. */
   let wallR = 0;
@@ -190,6 +214,7 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
     const step = coast ? spread / Math.max(1, k - 1) : spread / k;
     theta0.push(base + i * step + r.range(-0.22, 0.22) * step * (coast && (i === 0 || i === k - 1) ? 0.3 : 1));
   }
+  if (o.shape === "long") { axis = theta0[0]; p1 = PI / 2 - 2 * axis; }
   const curve = theta0.map(() => ({ k: r.range(0.03, 0.08) * (r.chance(0.5) ? 1 : -1), l: r.range(120, 260), ph: r.range(0, TAU) }));
   const theta = (i: number, rho: number): number => {
     const n = ((i % k) + k) % k;
@@ -320,7 +345,7 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
     // How much room do we have, after the sea takes its share?
     if (coast && seaD === Infinity) seaD = (marketR + depth * 2.5) * r.range(1.3, 2.2);
     capacity = plots.filter((p) => !coast || p.poly.every((v) => beyond(v) < seaD - quayW - depth - 2)).length;
-    if (capacity - reserveGuess >= needIn * 1.04 && ring >= 1) break;
+    if (capacity - reserveGuess >= needIn * 1.04 * (o.room ?? 1) && ring >= 1) break;
   }
   const lastRing = ringOut.length - 1;
   wallR = ringStreet[ringStreet.length - 1] + street / 2 + 2;
@@ -397,7 +422,12 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   // ---- river ----------------------------------------------------------------
   const riverW = urban ? r.range(9, 14) : r.range(4, 6);
   const riverPhi = coast ? seaPhi + PI * r.range(0.6, 1.4) : r.range(0, TAU);
-  const riverOff = wallR * f(riverPhi, wallR) + r.range(30, 45);
+  // The river runs straight past the town: clear of its furthest point that
+  // way, which for a lobed or long town is not the radius at that angle.
+  let reach = wallR * f(riverPhi, wallR);
+  const ru0 = dirOf(riverPhi);
+  for (let k = 0; k < 120; k++) reach = Math.max(reach, dot(sub(P((k / 120) * TAU, wallR * 1.04), C), ru0));
+  const riverOff = reach + r.range(30, 45);
   const rv0 = add(C, mul(dirOf(riverPhi), riverOff));
   const ru = perp(dirOf(riverPhi));
   const riverPts: Pt[] = [];
@@ -424,8 +454,8 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   const solids: Poly[] = [];
   const result: (PlacedBuilding | undefined)[] = [];
   const clearOutside = (poly: Poly, ofRiver = true): boolean => {
-    for (const rd of roads) if (polylinePolyDist(rd.points, poly) < rd.width / 2 + 1) return false;
-    if (ofRiver && polylinePolyDist(river, poly) < riverW / 2 + 0.8) return false;
+    for (const rd of roads) if (nearLine(rd.points, poly, rd.width / 2 + 1)) return false;
+    if (ofRiver && nearLine(river, poly, riverW / 2 + 0.8)) return false;
     for (const s of solids) if (convexOverlap(poly, s, 1)) return false;
     if (poly.some((v) => outside(v) < 8)) return false;
     if (coast && poly.some((v) => beyond(v) > seaD - 3)) return false;
@@ -473,7 +503,7 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   const sw: [number, number] = [plotW[0] * 1.2, plotW[1] * 1.35];
   const sd = depth * 1.3;
   for (let i = 0; i < nSub; i++) {
-    const want = Math.ceil((needOut * 1.12 * shares[i]) / shareTot) + 2;
+    const want = Math.ceil((needOut * 1.12 * (o.room ?? 1) * shares[i]) / shareTot) + 2;
     const rd = roads[i];
     const s0 = project(rd.points, P(theta(i, wallR), wallR)) + (walled ? 18 : 10);
     for (const side of [1, -1]) {
@@ -490,7 +520,7 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
         const off = rd.width / 2 + 0.8;
         const poly = qpoly([add(a.p, mul(na, off)), add(b.p, mul(nb, off)), add(b.p, mul(nb, off + sd)), add(a.p, mul(na, off + sd))]);
         s += w;
-        if (polylinePolyDist(river, poly) < riverW / 2 + 1.5) { s += 4; gap(); continue; }
+        if (nearLine(river, poly, riverW / 2 + 1.5)) { s += 4; gap(); continue; }
         if (solids.some((x) => convexOverlap(poly, x, 0.5))) { gap(); continue; }
         if (coast && poly.some((v) => beyond(v) > seaD - 3)) { gap(); continue; }
         const id = makePlot(poly, "suburb", run, idx++, `sub${i}`, 99, s);
@@ -515,7 +545,7 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
       const a = add(base0, mul(u, t)), b = add(base0, mul(u, t + w));
       t += w;
       const poly = qpoly([a, b, add(b, mul(seaN, -depth)), add(a, mul(seaN, -depth))]);
-      if (poly.some((v) => outside(v) > -street - 2) || roads.some((rd) => polylinePolyDist(rd.points, poly) < rd.width / 2 + 0.5)) {
+      if (poly.some((v) => outside(v) > -street - 2) || roads.some((rd) => nearLine(rd.points, poly, rd.width / 2 + 0.5))) {
         run = runs++; idx = 0;
         continue;
       }
@@ -669,7 +699,7 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
       const phi = lerp(theta(sct, wallR), sectorEnd(sct, wallR), r.range(0.35, 0.65));
       cc = P(phi, wallR + cr * 0.25);
       if (coast && beyond(cc) > seaD - cr - 10) continue;
-      if (polylinePolyDist(river, rect(cc, [1, 0], cr * 2, cr * 2)) < riverW) continue;
+      if (nearLine(river, rect(cc, [1, 0], cr * 2, cr * 2), riverW)) continue;
       at = sct;
       break;
     }
@@ -733,7 +763,7 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
     w.compass = compassOf(len(v) < 1 ? [0, -1] : v);
     if (dist(w.centre, C) < marketR + depth * 3 && w.kind === "intramural") w.near.push("market");
     if (bridges.some((b) => dist(b, w.centre) < wallR * 0.6)) w.near.push("bridge");
-    if (river.length && polylinePolyDist(river, [w.centre, add(w.centre, [1, 0]), add(w.centre, [0, 1])]) < wallR * 0.45) w.near.push("river");
+    if (river.length && nearLine(river, [w.centre, add(w.centre, [1, 0]), add(w.centre, [0, 1])], wallR * 0.45)) w.near.push("river");
     if (coast && beyond(w.centre) > seaD - wallR * 0.5) w.near.push("quay");
     if (chief && dist(w.centre, chief) < depth * 4) w.near.push("church");
   }
@@ -990,9 +1020,9 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
         const poly: Poly = [];
         for (let s = 0; s <= 5; s++) poly.push(add(C, mul(dirOf(lerp(s0, s1, s / 5)), rIn)));
         for (let s = 5; s >= 0; s--) poly.push(add(C, mul(dirOf(lerp(s0, s1, s / 5)), rOut)));
-        if (poly.some(inSea) || polylinePolyDist(river, poly) < riverW / 2 + 2) continue;
+        if (poly.some(inSea) || nearLine(river, poly, riverW / 2 + 2)) continue;
         if (subCorners.some((c) => pointInPoly(c, poly))) continue;
-        if (roads.some((rd) => polylinePolyDist(rd.points, poly) < rd.width / 2 + 1)) continue;
+        if (roads.some((rd) => nearLine(rd.points, poly, rd.width / 2 + 1))) continue;
         const mida = (s0 + s1) / 2;
         fields.push({ field: fi, poly: qpoly(poly), stripes: q(((r.chance(0.5) ? mida : mida + PI / 2) * 180) / PI + r.range(-12, 12)) });
       }

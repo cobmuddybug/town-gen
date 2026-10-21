@@ -1,5 +1,5 @@
 import { ancestors, typeOf, type Address } from "../core/address";
-import { load, serialize, withEdit, withPin, withReroll } from "../core/save";
+import { load, serialize, withEdit, withEvent, withoutEvent, withPin, withReroll } from "../core/save";
 import type { Town } from "../core/town";
 import type { Era, PanelLink, PanelRow, PanelSpec, SaveFile } from "../core/types";
 import type { MapData } from "../modules/layout";
@@ -10,6 +10,9 @@ import { BLOCKS, addDays, describeDate, parseDate, type Block } from "../core/ca
 import { occupancy } from "../modules/routines";
 import { describeHour } from "../modules/gossip";
 import { almanac, dayOf, LENSES, lensView, LISTS, placeName, search, whoKnows, type Fact, type Lens } from "./discover";
+import { designFrom, fetchKept, forget, keep, listKept, townKey } from "./library";
+import { encounter, jobBoard, nearestBuildingTo, partyName, reachOf, report, type Text } from "./party";
+import { lsd } from "../modules/households";
 
 const modules = defaultModules;
 const STORE = "town-gen:last";
@@ -26,13 +29,16 @@ let showPeople = false;
 try { showPeople = localStorage.getItem("town-gen:people") === "1"; } catch { /* ignore */ }
 
 // What the inspector shows: an entity, the finder, the almanac, or who knows a fact.
-type Page = "inspect" | "find" | "almanac" | "knows";
+type Page = "inspect" | "find" | "almanac" | "knows" | "nearby" | "jobs";
 let page: Page = "inspect";
 let fact: Fact | undefined;
 let query = "";
 let listId: string | undefined;
 let follow: Address | undefined;
 let lens: Lens = "none";
+// The nearby page's encounter roll (0 = none yet), and whether the next map click places the party.
+let rolls = 0;
+let placing = false;
 try { lens = (localStorage.getItem("town-gen:lens") as Lens) || "none"; } catch { /* ignore */ }
 
 const esc = (s: unknown) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -51,13 +57,55 @@ function setTown(t: Town, keepView = false) {
   town.society();
   if (selected && !town.find(selected)) selected = undefined;
   if (!keepView) view = undefined;
-  try { localStorage.setItem(STORE, serialize(town)); } catch { /* storage may be blocked */ }
-  const s = town.toSave().town;
-  history.replaceState(null, "", `#seed=${encodeURIComponent(s.seed)}&pop=${s.config.pop}&base=${s.config.base}${s.config.lordship === "manorial" ? "&manor=1" : ""}&era=${s.era}`);
+  store();
+  history.replaceState(null, "", `#${townKey(town.toSave())}`);
   syncForm();
+  drawTowns();
   drawMap();
   drawInspector();
 }
+
+/** Remember the current town, and keep it in the library if it has been worked on. */
+function store() {
+  try {
+    localStorage.setItem(STORE, serialize(town));
+    keep(localStorage, town.toSave(), town.label(town.root));
+  } catch { /* storage may be blocked or full */ }
+}
+
+// ---- your towns ----------------------------------------------------------
+
+const townsEl = $<HTMLSelectElement>("#towns");
+
+function drawTowns() {
+  let kept: ReturnType<typeof listKept> = [];
+  try { kept = listKept(localStorage); } catch { /* ignore */ }
+  const here = townKey(town.toSave());
+  const BASES: Record<string, string> = { agricultural: "farming", fishing: "fishing", herding: "herding", mining: "mining", woodcutting: "woodcutting" };
+  townsEl.innerHTML = `<option value="" selected>Your towns (${kept.length})</option>` +
+    kept.map((k) => `<option value="${esc(k.key)}"${k.key === here ? " disabled" : ""}>${esc(k.name)} — ${k.pop.toLocaleString()}, ${esc(BASES[k.base] ?? k.base)}${k.key === here ? " (open)" : ""}</option>`).join("") +
+    (kept.some((k) => k.key === here) ? `<option value="forget">Forget ${esc(town.label(town.root))}…</option>` : "");
+  townsEl.title = kept.length ? "Towns you have edited, pinned people in or made notes on. Untouched towns come back from their seed." : "Towns you edit or pin people in are kept here";
+}
+
+townsEl.addEventListener("change", () => {
+  const v = townsEl.value;
+  townsEl.value = "";
+  if (!v) return;
+  if (v === "forget") {
+    if (!confirm(`Forget your edits and pins in ${town.label(town.root)}? The seed still gives the town as generated.`)) return;
+    try { forget(localStorage, townKey(town.toSave())); } catch { /* ignore */ }
+    const save = town.toSave();
+    selected = undefined;
+    setTown(load({ ...save, overlay: {}, pinned: {}, events: [] }, modules));
+    return;
+  }
+  const save = fetchKept(localStorage, v);
+  if (!save) { drawTowns(); return; }
+  selected = undefined;
+  follow = undefined;
+  setTown(load(save, modules));
+});
 
 // ---- clock ---------------------------------------------------------------
 
@@ -74,7 +122,7 @@ function syncClock() {
 
 function setClock(date: string, block: string) {
   town.clock = { date, block };
-  try { localStorage.setItem(STORE, serialize(town)); } catch { /* ignore */ }
+  store();
   syncClock();
   drawPeople();
   drawFollow();
@@ -116,6 +164,11 @@ function syncForm() {
   (form.elements.namedItem("era") as HTMLSelectElement).value = s.era;
   (form.elements.namedItem("base") as HTMLSelectElement).value = s.config.base;
   (form.elements.namedItem("manorial") as HTMLInputElement).checked = s.config.lordship === "manorial";
+  const d = s.config.design ?? {};
+  for (const k of ["walls", "gates", "shape", "castle", "market", "suburbs"] as const) {
+    const v = d[k];
+    (form.elements.namedItem(k) as HTMLSelectElement).value = v === undefined ? "" : typeof v === "boolean" ? (v ? "1" : "0") : String(v);
+  }
   syncManor();
 }
 
@@ -127,8 +180,17 @@ function syncManor() {
   box.disabled = pop > MANOR_MAX;
   if (box.disabled) box.checked = false;
   box.closest("label")!.title = box.disabled ? "Towns and cities are not manors" : "A manorial village is owned outright by its lord, and its people are mostly villeins";
+  const plan = $<HTMLDetailsElement>("#plan");
+  plan.classList.toggle("off", pop <= 700);
+  plan.classList.toggle("set", [...plan.querySelectorAll("select")].some((x) => x.value));
+  plan.querySelector("summary")!.title = pop <= 700 ? "Plans apply above 700 people, where there are streets; a hamlet grows as it will" : "Lay out a town your way. Applies above 700 people, where there are streets.";
 }
 (form.elements.namedItem("pop") as HTMLInputElement).addEventListener("input", syncManor);
+$("#plan").addEventListener("change", syncManor);
+document.addEventListener("pointerdown", (e) => {
+  const plan = $<HTMLDetailsElement>("#plan");
+  if (plan.open && !plan.contains(e.target as Node)) plan.open = false;
+});
 
 function select(a: Address | undefined) {
   selected = a;
@@ -150,10 +212,31 @@ function buildingOf(a: Address): Address | undefined {
   return all.find((x) => typeOf(x) === "building");
 }
 
+function drawParty() {
+  const svg = mapEl.querySelector("svg");
+  if (!svg) return;
+  svg.querySelector(".m-party")?.remove();
+  const at = town.party?.at;
+  if (!at) return;
+  const r = reachOf(town);
+  svg.insertAdjacentHTML("beforeend", `<g class="m-party"><title>${esc(partyName(town))}: right-click elsewhere to move</title><circle class="m-party-reach" cx="${f1(at[0])}" cy="${f1(at[1])}" r="${r}"/><path class="m-party-flag" d="M${f1(at[0])},${f1(at[1])}v-14l10,3.5l-10,3.5"/><circle class="m-party-dot" cx="${f1(at[0])}" cy="${f1(at[1])}" r="2.6"/></g>`);
+}
+
+/** Put the party on the map and open the report on what's round about them. */
+function setParty(at: [number, number]) {
+  town.party = { ...(town.party ?? {}), at: [Math.round(at[0] * 10) / 10, Math.round(at[1] * 10) / 10] };
+  rolls = 0;
+  store();
+  drawParty();
+  page = "nearby";
+  drawInspector();
+  insp.scrollTop = 0;
+}
+
 function drawMap() {
   mapEl.innerHTML = renderMap(town) +
     `<div class="lens"><select id="lens-select" title="Colour the map by...">${LENSES.filter((l) => !l.streetOnly || town.settlement().get<MapData>("map").kind === "town").map((l) => `<option value="${l.id}"${l.id === lens ? " selected" : ""}>${esc(l.label)}</option>`).join("")}</select><div class="legend"></div></div>` +
-    `<div class="zoom"><button data-zoom="in" title="Zoom in">+</button><button data-zoom="out" title="Zoom out">−</button><button data-zoom="fit" title="Fit to the settlement">◎</button></div>`;
+    `<div class="zoom"><button data-zoom="in" title="Zoom in">+</button><button data-zoom="out" title="Zoom out">−</button><button data-zoom="fit" title="Fit to the settlement">◎</button><button data-zoom="party" title="Place the party: click the map (or right-click anywhere)">⚑</button></div>`;
   const svg = mapEl.querySelector("svg")!;
   if (!view) view = fitVillage();
   applyView(svg);
@@ -162,6 +245,7 @@ function drawMap() {
   drawPeople();
   drawLens();
   drawFollow();
+  drawParty();
   mapEl.querySelector<HTMLSelectElement>("#lens-select")!.addEventListener("change", (ev) => {
     lens = (ev.target as HTMLSelectElement).value as Lens;
     try { localStorage.setItem("town-gen:lens", lens); } catch { /* ignore */ }
@@ -274,9 +358,21 @@ mapEl.addEventListener("pointerup", (e) => {
   drag = undefined;
   mapEl.querySelector("svg")?.classList.remove("dragging");
   if (!d || d.moved) return;
+  if (placing && e.button === 0) {
+    placing = false;
+    mapEl.classList.remove("placing");
+    setParty(toMapCoords(mapEl.querySelector("svg")!, e.clientX, e.clientY));
+    return;
+  }
+  if (e.button !== 0) return;
   const target = document.elementFromPoint(e.clientX, e.clientY);
   const g = target?.closest<SVGGElement>("g[data-address]");
   select(g?.dataset.address);
+});
+mapEl.addEventListener("contextmenu", (e) => {
+  if (!(e.target as Element).closest("svg")) return;
+  e.preventDefault();
+  setParty(toMapCoords(mapEl.querySelector("svg")!, e.clientX, e.clientY));
 });
 mapEl.addEventListener("wheel", (e) => {
   e.preventDefault();
@@ -287,6 +383,7 @@ mapEl.addEventListener("wheel", (e) => {
 mapEl.addEventListener("click", (e) => {
   const b = (e.target as Element).closest<HTMLButtonElement>("[data-zoom]");
   if (!b) return;
+  if (b.dataset.zoom === "party") { placing = !placing; mapEl.classList.toggle("placing", placing); return; }
   if (b.dataset.zoom === "in") zoom(1 / 1.4);
   else if (b.dataset.zoom === "out") zoom(1.4);
   else { view = fitVillage(); applyView(); }
@@ -335,7 +432,7 @@ function crumbs(e: Address): string {
 function tabsHtml(): string {
   const t = (id: Page, label: string) => `<button data-page="${id}" class="${page === id || (id === "inspect" && page === "knows") ? "on" : ""}">${label}</button>`;
   const following = follow && town.find(follow) ? `<span class="following">following ${link(follow)} <button data-follow="" title="Stop following">×</button></span>` : "";
-  return `<nav class="tabs">${t("inspect", "Inspect")}${t("find", "Find")}${t("almanac", "Almanac")}${following}</nav>`;
+  return `<nav class="tabs">${t("inspect", "Inspect")}${t("nearby", "Nearby")}${t("jobs", "Jobs")}${t("find", "Find")}${t("almanac", "Almanac")}${following}</nav>`;
 }
 
 function rowsHtml(rows: PanelRow[]): string {
@@ -389,6 +486,76 @@ function knowsHtml(): string {
   return h.join("");
 }
 
+const textHtml = (x: Text) => x.map((v) => (typeof v === "object" ? link(v.address, v.text) : esc(v))).join("");
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function nearbyHtml(): string {
+  const h: string[] = [`<h2>Nearby</h2>`];
+  const at = town.party?.at;
+  if (!at) {
+    h.push(`<p class="sub">Put the party on the map: right-click where they are, or press ⚑ and click. This page then reports what's going on around them, who they bump into, what's being said, and who has work for them.</p>`);
+    return h.join("");
+  }
+  const { date, block } = town.clock;
+  const r = report(town, at, date, block as Block);
+  h.push(`<p class="sub">${esc(cap(partyName(town)))}, ${textHtml(r.where)}. ${esc(describeDate(date))}, ${esc(block.replace("_", " "))}. <button class="knows" data-party-clear title="Take the party off the map">remove</button></p>`);
+  h.push(`<label class="party-name">The town calls them <input id="party-name" placeholder="the strangers" value="${esc(town.party?.name ?? "")}" autocomplete="off" /></label>`);
+
+  // Who do we bump into?
+  h.push(`<details class="panel" open><summary>Who do they bump into?</summary>`);
+  if (rolls) {
+    const e = encounter(town, at, date, block as Block, rolls);
+    if (!e) h.push(`<p class="sub">Nobody about. The street is empty.</p>`);
+    else {
+      h.push(`<div class="encounter" data-involves="${esc(e.p)}"><h3>${link(e.p)} <span class="sub">— ${textHtml(e.where)}, ${esc(e.doing)}</span></h3>`);
+      h.push(`<p class="opener">${esc(e.opener)}</p><dl class="rows">`);
+      for (const [l, v] of [["Looks", e.looks], ["Talks", e.speech], ["Habit", e.habit], ["Wants", e.want], ["To strangers", e.strangers]] as const) if (v) h.push(`<dt>${l}</dt><dd><span class="val">${esc(v)}</span></dd>`);
+      h.push(`</dl></div>`);
+    }
+  }
+  h.push(`<p><button data-roll>${rolls ? "Someone else" : "Roll an encounter"}</button></p></details>`);
+
+  // Here and now.
+  h.push(`<details class="panel" open><summary>Here and now</summary><dl class="rows">`);
+  for (const b of r.buildings.slice(0, 10)) {
+    const who = b.inside.map((x) => `${link(x.p)}: ${esc(x.doing)}`).join("; ");
+    const more = b.total > b.inside.length ? `; and ${b.total - b.inside.length} more` : "";
+    h.push(`<dt>${Math.round(b.d)} m</dt><dd data-involves="${esc(b.a)}"><span class="val">${link(b.a)}${b.total ? ` — ${who}${more}` : ` <span class="sub">— empty</span>`}</span></dd>`);
+  }
+  if (!r.buildings.length) h.push(`<dt>—</dt><dd><span class="val">open ground; nobody within call</span></dd>`);
+  h.push(`</dl></details>`);
+  if (r.street.length) h.push(`<details class="panel" open><summary>Out and about</summary><dl class="rows">${r.street.map((x) => `<dt></dt><dd data-involves="${esc(x.p)}"><span class="val">${link(x.p)}: ${esc(x.doing)}</span></dd>`).join("")}</dl></details>`);
+
+  // What's being said.
+  h.push(`<details class="panel" open><summary>Talk round here</summary><dl class="rows">`);
+  h.push(r.talk.length ? r.talk.map((x) => `<dt></dt><dd><span class="val">${textHtml(x.text)} <button class="knows" data-fact="${esc(x.fact)}">who knows?</button><span class="hint">heard at ${esc(town.label(x.at).replace(/^The /, "the "))}</span></span></dd>`).join("") : `<dt></dt><dd><span class="val">the weather, the price of bread, and who drank too much</span></dd>`);
+  h.push(`</dl></details>`);
+
+  // The party's deeds.
+  h.push(`<details class="panel" open><summary>What they say about ${esc(partyName(town))}</summary><dl class="rows">`);
+  for (const x of r.deeds) h.push(`<dt></dt><dd><span class="val">${textHtml(x.text)} <button class="knows" data-fact="${esc(x.fact)}">who knows?</button><span class="hint">${x.total ? Math.round((100 * x.heard) / x.total) : 0}% of households have heard</span></span></dd>`);
+  if (!r.deeds.length) h.push(`<dt></dt><dd><span class="val sub">Nothing yet. Log what they did below and the town will talk.</span></dd>`);
+  h.push(`</dl><p class="deed-entry"><input id="deed-text" placeholder="what they did: started a fight at the alehouse…" autocomplete="off" /> <button data-deed>Spread it</button></p>`);
+  const deeds = town.events.map((ev, i) => ({ ev, i })).filter((x) => x.ev.kind === "deed");
+  if (deeds.length) h.push(`<ul class="links deeds">${deeds.map(({ ev, i }) => `<li>${esc(ev.date)}, ${esc((ev.block ?? "").replace("_", " "))}: ${esc(ev.text)}${ev.at ? `, at ${link(ev.at, town.label(ev.at).replace(/^The /, "the "))}` : ""} <button class="knows" data-undeed="${i}" title="Forget it was ever done">×</button></li>`).join("")}</ul>`);
+  h.push(`</details>`);
+
+  if (r.jobs.length) h.push(`<details class="panel" open><summary>Work going nearby</summary>${r.jobs.map(jobHtml).join("")}<p><a href="#" data-page="jobs">All the work going in ${esc(town.label(town.root))}</a></p></details>`);
+  if (r.visitors.length) h.push(`<details class="panel" open><summary>In town today</summary><ul class="links">${r.visitors.map((v) => `<li>${esc(v)}</li>`).join("")}</ul></details>`);
+  return h.join("");
+}
+
+function jobHtml(j: ReturnType<typeof jobBoard>[number]): string {
+  const involves = [j.patron, ...(j.target ? [j.target] : [])].join(" ");
+  return `<div class="hook job" data-involves="${esc(involves)}"><h3>${esc(j.title)} <span class="pay">${esc(lsd(j.pay))}</span></h3><p>${textHtml(j.detail)}</p><p class="sub">Risk: ${textHtml(j.risk)}</p><p class="sub">Ask at ${link(j.at, town.label(j.at).replace(/^The /, "the "))}${j.fact ? ` <button class="knows" data-fact="${esc(j.fact)}">who knows?</button>` : ""}</p></div>`;
+}
+
+function jobsHtml(): string {
+  const jobs = jobBoard(town, town.clock.date);
+  return `<h2>Work going</h2><p class="sub">What people in ${esc(town.label(town.root))} would pay to have done: debts, grudges, quarrels, worries. Pay is what the patron can actually spare. Hover a job to see who's in it.</p>` +
+    (jobs.length ? jobs.map(jobHtml).join("") : `<p class="sub">Nobody wants anything done that they'd pay a stranger for.</p>`);
+}
+
 function describeHourShort(h: number): string {
   return describeHour(h).slice(5);
 }
@@ -405,7 +572,20 @@ function followHtml(p: Address): string {
 
 function drawInspector() {
   if (page !== "inspect") {
-    insp.innerHTML = tabsHtml() + (page === "find" ? findHtml() : page === "almanac" ? almanacHtml() : knowsHtml());
+    insp.innerHTML = tabsHtml() + (page === "find" ? findHtml() : page === "almanac" ? almanacHtml() : page === "nearby" ? nearbyHtml() : page === "jobs" ? jobsHtml() : knowsHtml());
+    if (page === "nearby") {
+      const name = insp.querySelector<HTMLInputElement>("#party-name");
+      // The name is in every telling of their deeds, so the town is rebuilt with it.
+      name?.addEventListener("change", () => {
+        if (!town.party) return;
+        const save = town.toSave();
+        save.party = { ...save.party!, name: name.value.trim() || undefined };
+        if (!save.party.name) delete save.party.name;
+        setTown(load(save, modules), true);
+      });
+      const deed = insp.querySelector<HTMLInputElement>("#deed-text");
+      deed?.addEventListener("keydown", (k) => { if (k.key === "Enter") logDeed(); });
+    }
     if (page === "find") {
       const q = insp.querySelector<HTMLInputElement>("#find-q")!;
       q.addEventListener("input", () => { query = q.value; insp.querySelector("#find-results")!.innerHTML = findResultsHtml(); });
@@ -417,6 +597,7 @@ function drawInspector() {
   const ent = town.get(e);
   const h: string[] = [tabsHtml()];
   if (e !== town.root) h.push(crumbs(e));
+  h.push(`<button class="pin" data-print title="Print this page, with the map around it, as a handout or notes">Print</button>`);
   if (ent.type === "person" || ent.type === "household") {
     const on = !!town.pinned[e];
     h.push(`<button class="pin${on ? " on" : ""}" data-pin="${on ? "off" : "on"}" title="Pinned entities keep their details through generator upgrades">${on ? "Pinned" : "Pin"}</button>`);
@@ -465,7 +646,7 @@ insp.addEventListener("click", (ev) => {
   const go = t.closest<HTMLElement>("[data-go]");
   if (go) { ev.preventDefault(); select(go.dataset.go === town.root ? undefined : go.dataset.go); return; }
   const pg = t.closest<HTMLElement>("[data-page]");
-  if (pg) { page = pg.dataset.page as Page; drawInspector(); insp.scrollTop = 0; return; }
+  if (pg) { ev.preventDefault(); page = pg.dataset.page as Page; drawInspector(); insp.scrollTop = 0; return; }
   const fk = t.closest<HTMLElement>("[data-fact]");
   if (fk) { fact = fk.dataset.fact as Fact; page = "knows"; drawInspector(); insp.scrollTop = 0; return; }
   const ls = t.closest<HTMLElement>("[data-list]");
@@ -474,6 +655,12 @@ insp.addEventListener("click", (ev) => {
   if (dt) { ev.preventDefault(); setClock(dt.dataset.date!, "forenoon"); return; }
   const fo = t.closest<HTMLElement>("[data-follow]");
   if (fo) { follow = fo.dataset.follow || undefined; drawFollow(); drawInspector(); return; }
+  if (t.closest("[data-print]")) { printPage(); return; }
+  if (t.closest("[data-roll]")) { rolls++; drawInspector(); return; }
+  if (t.closest("[data-deed]")) { logDeed(); return; }
+  const ud = t.closest<HTMLElement>("[data-undeed]");
+  if (ud) { setTown(withoutEvent(town, modules, Number(ud.dataset.undeed)), true); return; }
+  if (t.closest("[data-party-clear]")) { town.party = undefined; store(); drawParty(); drawInspector(); return; }
   const e = selected ?? town.root;
   const pin = t.closest<HTMLElement>("[data-pin]");
   if (pin) { setTown(withPin(town, modules, e, pin.dataset.pin === "on"), true); return; }
@@ -489,6 +676,41 @@ insp.addEventListener("mouseover", (ev) => {
   const hook = (ev.target as HTMLElement).closest<HTMLElement>("[data-involves]");
   markMap(hook ? hook.dataset.involves!.split(" ") : []);
 });
+
+/** Print the inspector with every section open and a map inset: the whole place, or around the building. */
+function printPage() {
+  const shut = [...insp.querySelectorAll<HTMLDetailsElement>("details:not([open])")];
+  shut.forEach((d) => { d.open = true; });
+  const svg = mapEl.querySelector("svg")!;
+  const b = selected ? buildingOf(selected) : undefined;
+  let box = fitVillage();
+  const g = b && svg.querySelector<SVGGElement>(`g[data-address="${CSS.escape(b)}"]`);
+  if (g) {
+    const r = g.getBBox(), pad = 70;
+    box = [r.x - pad, r.y - pad, r.width + 2 * pad, r.height + 2 * pad];
+  }
+  const fig = document.createElement("figure");
+  fig.className = "print-map";
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  clone.setAttribute("viewBox", box.map((n) => n.toFixed(1)).join(" "));
+  fig.append(clone);
+  (insp.querySelector("h2 + .sub") ?? insp.querySelector("h2"))!.after(fig);
+  window.addEventListener("afterprint", () => {
+    fig.remove();
+    shut.forEach((d) => { d.open = false; });
+  }, { once: true });
+  window.print();
+}
+
+/** Log what the party just did where they stand; the town starts talking from this block. */
+function logDeed() {
+  const input = insp.querySelector<HTMLInputElement>("#deed-text");
+  const text = input?.value.trim();
+  if (!text || !town.party) return;
+  const at = nearestBuildingTo(town, town.party.at);
+  if (!at) return;
+  setTown(withEvent(town, modules, { kind: "deed", date: town.clock.date, block: town.clock.block, at, text }), true);
+}
 
 function startEdit(e: Address, dd: HTMLElement, key: string) {
   const current = town.get(e).get(key);
@@ -522,10 +744,12 @@ function startEdit(e: Address, dd: HTMLElement, key: string) {
 
 form.addEventListener("submit", (ev) => {
   ev.preventDefault();
+  $<HTMLDetailsElement>("#plan").open = false;
   const fd = new FormData(form);
   selected = undefined;
   const pop = Math.min(30000, Math.max(50, Number(fd.get("pop")) || 200));
-  setTown(generate(String(fd.get("seed")) || randomSeed(), { pop, era: fd.get("era") as Era, base: String(fd.get("base") || "agricultural"), lordship: fd.get("manorial") && pop <= MANOR_MAX ? "manorial" : "free" }));
+  const design = pop > 700 ? designFrom((k) => fd.get(k) as string | null) : undefined;
+  setTown(generate(String(fd.get("seed")) || randomSeed(), { pop, era: fd.get("era") as Era, base: String(fd.get("base") || "agricultural"), lordship: fd.get("manorial") && pop <= MANOR_MAX ? "manorial" : "free", ...(design ? { design } : {}) }));
 });
 $("#random-seed").addEventListener("click", () => {
   (form.elements.namedItem("seed") as HTMLInputElement).value = randomSeed();
@@ -558,11 +782,15 @@ function start() {
   if (hash.get("seed")) {
     let saved: SaveFile | undefined;
     try { saved = JSON.parse(localStorage.getItem(STORE) ?? "null") ?? undefined; } catch { /* ignore */ }
-    const base = hash.get("base") || "agricultural";
-    const lordship = hash.get("manor") ? "manorial" as const : "free" as const;
-    const same = saved && saved.town.seed === hash.get("seed") && String(saved.town.config.pop) === hash.get("pop") && saved.town.era === hash.get("era") && saved.town.config.base === base && (saved.town.config.lordship ?? "free") === lordship;
-    if (same) return setTown(load(saved!, modules));
-    return setTown(generate(hash.get("seed")!, { pop: Number(hash.get("pop")) || 200, era: (hash.get("era") as Era) || "high_medieval", base, lordship }));
+    const seed = hash.get("seed")!;
+    const design = designFrom((k) => hash.get(k));
+    const settings = { pop: Number(hash.get("pop")) || 200, era: (hash.get("era") as Era) || "high_medieval", base: hash.get("base") || "agricultural", lordship: hash.get("manor") ? "manorial" as const : "free" as const, ...(design ? { design } : {}) };
+    const key = townKey({ town: { seed, era: settings.era, config: settings } });
+    if (saved && townKey(saved) === key) return setTown(load(saved, modules));
+    let kept: SaveFile | undefined;
+    try { kept = fetchKept(localStorage, key); } catch { /* ignore */ }
+    if (kept) return setTown(load(kept, modules));
+    return setTown(generate(seed, settings));
   }
   try {
     const saved = localStorage.getItem(STORE);

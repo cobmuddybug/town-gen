@@ -2,11 +2,12 @@ import { BLOCKS, BLOCK_HOURS, describeDate, feastOn, parseDate, weekday, type Bl
 import { data } from "../../core/content";
 import type { Address } from "../../core/address";
 import type { Entity, Town } from "../../core/town";
-import type { Module, PanelRow } from "../../core/types";
+import type { Module, PanelLink, PanelRow } from "../../core/types";
 import routinesYaml from "./content/routines.yaml";
 import { visitorsOn } from "../visitors";
 import type { BuildingUse, Occupation } from "../uses";
 import { isStreetPlan, nearestBuilding } from "../layout";
+import type { Tier } from "../core";
 
 // Where is everyone right now? Routines are pure functions of the person, the
 // date and the block: nothing is stored, so the clock can move freely.
@@ -182,6 +183,80 @@ function place(town: Town, p: Entity, where: string): string {
   return home;
 }
 
+
+// Errands: where people go to buy things, and what they're about there.
+// `rank`: only households at least this well off; `sex`: who usually goes.
+const ERRANDS: { uses: string[]; doing: string[]; weight: number; rank?: number; sex?: string }[] = [
+  { uses: ["bakehouse"], doing: ["buying the day's bread", "taking the dough round to be baked"], weight: 5 },
+  { uses: ["mill"], doing: ["taking a sack of grain to be ground, and watching the miller's thumb"], weight: 3 },
+  { uses: ["trader"], doing: ["buying salt, needles and a little thread", "swapping eggs for salt"], weight: 4 },
+  { uses: ["butcher_shop"], doing: ["at the butcher's, haggling over a joint", "buying offal for the pot"], weight: 4 },
+  { uses: ["fishmonger"], doing: ["buying salt herring", "turning over the fish to find a fresh one"], weight: 3 },
+  { uses: ["poulterer"], doing: ["buying a fowl, and a dozen eggs"], weight: 2 },
+  { uses: ["cookshop"], doing: ["buying a hot pie to take home"], weight: 2 },
+  { uses: ["chandlery", "town_chandlery"], doing: ["buying candles and soap"], weight: 2 },
+  { uses: ["smithy", "town_smithy"], doing: ["taking a cracked pot to be mended", "waiting while a hinge is made"], weight: 2 },
+  { uses: ["cobbler"], doing: ["getting boots mended, again"], weight: 2 },
+  { uses: ["fripperer"], doing: ["turning over second-hand clothes"], weight: 2 },
+  { uses: ["apothecary"], doing: ["buying a remedy for a cough"], weight: 1 },
+  { uses: ["spicer"], doing: ["buying pepper, a pinch at a time"], weight: 1, rank: 6 },
+  { uses: ["draper", "mercer"], doing: ["choosing cloth for a new gown"], weight: 2, rank: 6 },
+  { uses: ["wine_merchant"], doing: ["ordering wine for the house"], weight: 1, rank: 7 },
+  { uses: ["barber"], doing: ["being shaved, and catching up on the talk"], weight: 2, sex: "m" },
+];
+// Who runs a household's errands.
+const SHOPPERS = new Set(["housewife", "servant_house", "old", "spinner"]);
+// Ties people go visiting on.
+const VISIT = new Set(["friend", "kin", "courting", "betrothed"]);
+
+const shopMemo = new WeakMap<Town, Set<string>>();
+function usesHere(town: Town): Set<string> {
+  let s = shopMemo.get(town);
+  if (!s) shopMemo.set(town, (s = new Set(town.children(town.root, "building").map((b) => b.get<string>("use")))));
+  return s;
+}
+
+/** An errand to a shop, if one's due: the building and what they're doing there. */
+function errand(town: Town, p: Entity, home: Address, date: string, block: Block): { where: string; doing: string } | undefined {
+  const r = town.rngFor(p.address, routines, `errand:${date}:${block}`);
+  const market = isStreetPlan(town) && (town.settlement().get<string[]>("marketDays") ?? []).includes(weekdayName(date));
+  if (!r.chance(market ? 0.4 : 0.22)) return undefined;
+  if (market && r.chance(0.5)) return { where: "place:market", doing: r.pick(["at the market, buying for the week", "at the market stalls, comparing prices", "at the market, mostly talking"]) };
+  const here = usesHere(town);
+  const hh = town.get(town.parentOf(p.address)!);
+  const rank = town.registry<Tier>("tiers").find(hh.get<string>("tier") ?? "")?.rank ?? 4;
+  const sex = p.get<string>("sex");
+  const ok = ERRANDS.filter((e) => e.uses.some((u) => here.has(u)) && (e.rank === undefined || rank >= e.rank) && (!e.sex || e.sex === sex));
+  if (!ok.length) return undefined;
+  const e = r.weighted(ok, (x) => x.weight);
+  const to = nearestBuilding(town, home, e.uses.filter((u) => here.has(u)));
+  if (!to || to === home) return undefined;
+  return { where: to, doing: r.pick(e.doing) };
+}
+
+/** A visit to someone they're close to, if one's due. */
+function visit(town: Town, p: Entity, home: Address, date: string, block: Block, chance: number): { where: string; doing: string } | undefined {
+  const r = town.rngFor(p.address, routines, `visit-friend:${date}:${block}`);
+  if (!r.chance(chance)) return undefined;
+  const ties = town.edges({ touching: p.address }).filter((e) => VISIT.has(e.kind) && e.from.includes("/building:") && e.to.includes("/building:"));
+  const away = ties.map((e) => (e.from === p.address ? e.to : e.from)).filter((o) => buildingOfPerson(town, o) !== home);
+  if (!away.length) return undefined;
+  const who = r.pick(away);
+  const kind = ties.find((e) => e.from === who || e.to === who)!.kind;
+  const name = town.label(who);
+  const doing = kind === "courting" || kind === "betrothed"
+    ? r.pick([`walking out with ${name}, chaperoned, more or less`, `at ${name}'s house, being looked over by the family`])
+    : block === "evening" || block === "night"
+      ? r.pick([`round at ${name}'s, talking by the fire`, `at ${name}'s, sharing a jug and the news`, `sitting up with ${name}, putting the world right`])
+      : r.pick([`calling on ${name}`, `at ${name}'s, helping with a job and talking the whole time`, `visiting ${name}, with a cake wrapped in a cloth`]);
+  return { where: buildingOfPerson(town, who), doing };
+}
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+function weekdayName(date: string): string {
+  return WEEKDAYS[weekday(date) % 7];
+}
+
 function fill(text: string, month: number): string {
   const m = content.months[String(month)] ?? {};
   return text.replace(/\{(\w+)\}/g, (_, k) => m[k] ?? "at work");
@@ -225,6 +300,23 @@ export function whereabouts(town: Town, person: Address, date: string, block: Bl
     else if (block === "afternoon" && traits.includes("gossip") && r.chance(0.35)) slot = { where: "green", doing: "at the well, talking" };
     else if (block === "morning" && traits.includes("pious") && r.chance(0.3) && age >= 12) slot = { where: "chapel", doing: "an early prayer before work" };
   }
+  // Errands to the shops, and visits to friends and kin. Their own streams, so
+  // nobody else's day moves. `direct` holds a building chosen here; any later
+  // change of plan (week-work, visitors, the watch) drops it.
+  let direct: { slot: Slot; where: string } | undefined;
+  {
+    const home = buildingOfPerson(town, person);
+    const free = !working && t !== "watch" && !(slot.where === "alehouse" || slot.where === "chapel");
+    let go: { where: string; doing: string } | undefined;
+    if (free && !feast?.holy && (block === "forenoon" || block === "afternoon") && (SHOPPERS.has(t) || (t === "child" && age >= 8))) {
+      go = errand(town, p, home, date, block);
+      if (go && t === "child") go.doing = `sent to the shop: ${go.doing}`;
+    }
+    if (!go && free && age >= 14 && slot.where === "home" && (block === "evening" || (feast?.holy && block === "afternoon"))) {
+      go = visit(town, p, home, date, block, feast?.holy ? 0.35 : 0.14);
+    }
+    if (go) { slot = { where: "home", doing: go.doing }; direct = { slot, where: go.where }; }
+  }
   // Week-work: one day in seven on the lord's demesne; boon days at harvest (LF p.77).
   const hh = town.get(town.parentOf(person)!);
   const labourDay = hh.get<number | undefined>("manor.labourDay");
@@ -267,8 +359,9 @@ export function whereabouts(town: Town, person: Address, date: string, block: Bl
     slot = { where: "shore", doing: "gutting and salting the catch, mending nets" };
   }
   const outdoors = slot.where === "home" && /\{(house|child)\}/.test(slot.doing) && out.includes(slot.doing.match(/\{(house|child)\}/)![1]);
-  const where = slot.where === "away" ? "place:away" : slot.where === "fair" ? "place:fair" : outdoors ? "place:fields" : place(town, p, slot.where);
-  const label = where.startsWith("place:") ? PLACES[where] : slot.where === "home" ? "at home" : `at ${town.label(where).replace(/^The /, "the ")}`;
+  const chosen = direct && direct.slot === slot ? direct.where : undefined;
+  const where = chosen ?? (slot.where === "away" ? "place:away" : slot.where === "fair" ? "place:fair" : outdoors ? "place:fields" : place(town, p, slot.where));
+  const label = where.startsWith("place:") ? PLACES[where] : slot.where === "home" && !chosen ? "at home" : `at ${town.label(where).replace(/^The /, "the ")}`;
   return { where, label, doing: fill(slot.doing, month) };
 }
 
@@ -331,10 +424,28 @@ export const routines: Module = {
         const { date, block } = town.clock;
         const here = occupancy(town, date, block as Block).get(b.address) ?? [];
         if (!here.length) return [{ label: "Nobody", value: `${describeDate(date)}, ${block.replace("_", " ")}` }];
-        // A church at mass holds hundreds; list the first few and count the rest.
-        const MAX = 30;
-        const rows: PanelRow[] = here.slice(0, MAX).map((a) => ({ label: "", value: [{ text: town.label(a), address: a }, `: ${whereabouts(town, a, date, block as Block).doing}`] }));
-        if (here.length > MAX) rows.push({ label: "", value: `and ${here.length - MAX} more` });
+        // A church at mass holds hundreds: one line per household, the first dozen households, and a count.
+        const groups = new Map<string, { people: Address[]; doing: string }>();
+        for (const a of here) {
+          const doing = whereabouts(town, a, date, block as Block).doing;
+          const k = `${town.parentOf(a)}|${doing}`;
+          const g = groups.get(k);
+          if (g) g.people.push(a);
+          else groups.set(k, { people: [a], doing });
+        }
+        const all = [...groups.values()];
+        const shared = all.every((g) => g.doing === all[0].doing) ? all[0].doing : undefined;
+        const MAX = 12;
+        const rows: PanelRow[] = shared && here.length > 1 ? [{ label: "", value: `${here.length} here, ${shared}` }] : [];
+        for (const g of all.slice(0, MAX)) {
+          const value: (string | PanelLink)[] = g.people.flatMap((a, i) => [...(i ? [", "] : []), { text: town.label(a), address: a }]);
+          if (!shared) value.push(`: ${g.doing}`);
+          rows.push({ label: "", value });
+        }
+        if (all.length > MAX) {
+          const rest = all.slice(MAX).reduce((n, g) => n + g.people.length, 0);
+          rows.push({ label: "", value: `and ${rest} more from ${all.length - MAX} other households` });
+        }
         return rows;
       },
     },

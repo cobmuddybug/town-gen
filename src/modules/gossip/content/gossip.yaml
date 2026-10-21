@@ -79,12 +79,30 @@ ballads:
   - "the children have a skipping rhyme about it"
   - "the players at the inn worked it into their play, to roars"
 # Chatter: what everyone already knows, brought up again. One or two things
-# every few days, by edge kind.
+# every few days, by edge kind; each kind has a few ways of being said.
 chatter:
-  rival: "{a} and {b} are at it again, over {about}"
-  dispute: "the quarrel between {a} and {b}, over {about}, is no nearer settled"
-  betrothed: "{a} and {b} are to be married; the banns are read on Sunday"
-  debtor_of: "{a} still owes {b} {amount}, and {b} has started saying so in public"
-  grievance: "{a} is still complaining about {b}: {about}"
-  apprentice_of: "{a} has been beaten again by {b}, his master, they say"
-  friend: "{a} and {b} are thick as thieves these days, and nobody can think why"
+  rival:
+    - "{a} and {b} are at it again, over {about}"
+    - "{a} won't drink in the same room as {b} since the business over {about}"
+    - "{a} has been telling anyone who'll listen what {b} did over {about}"
+  dispute:
+    - "the quarrel between {a} and {b}, over {about}, is no nearer settled"
+    - "{a} and {b} have taken {about} to the elders again"
+    - "{about}: {a} and {b} still can't agree, and the whole place has taken sides"
+  betrothed:
+    - "{a} and {b} are to be married; the banns are read on Sunday"
+    - "{a} and {b} were seen walking out after church, and the wedding's to be soon"
+  debtor_of:
+    - "{a} still owes {b} {amount}, and {b} has started saying so in public"
+    - "{b} has been round to {a}'s door again about the {amount}"
+    - "{a} crossed the road to keep clear of {b}, and everyone knows it's the {amount}"
+  grievance:
+    - "{a} is still complaining about {b}: {about}"
+    - "{a} raised {about} against {b} again, and nobody wants to hear it"
+  apprentice_of:
+    - "{a} has been beaten again by {b}, his master, they say"
+    - "{a} was sent home in tears by {b}, his master, and the mother is furious"
+  friend:
+    - "{a} and {b} are thick as thieves these days, and nobody can think why"
+    - "{a} and {b} were up half the night together at the alehouse again"
+    - "{a} has been helping {b} with the work, and won't take a penny for it"

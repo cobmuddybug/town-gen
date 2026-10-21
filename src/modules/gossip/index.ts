@@ -26,7 +26,7 @@ interface GossipData {
   topics: Record<string, [string, string, string]>;
   news: Record<string, string>;
   ballads: string[];
-  chatter: Record<string, string>;
+  chatter: Record<string, string[]>;
 }
 const content = data<GossipData>(gossipYaml);
 
@@ -122,7 +122,7 @@ export function rumoursIn(town: Town, year: number): Rumour[] {
   if (!memo) yearMemo.set(town, (memo = new Map()));
   const hit = memo.get(year);
   if (hit) return hit;
-  const out = [...secretsIn(town, year), ...newsIn(town, year), ...chatterIn(town, year)].sort((a, b) => a.start - b.start || (a.id < b.id ? -1 : 1));
+  const out = [...secretsIn(town, year), ...newsIn(town, year), ...chatterIn(town, year), ...deedsIn(town, year)].sort((a, b) => a.start - b.start || (a.id < b.id ? -1 : 1));
   memo.set(year, out);
   return out;
 }
@@ -188,15 +188,23 @@ const CHATTER_DAYS = 4;
 function chatterIn(town: Town, year: number): Rumour[] {
   const known = town.edges().filter((e) => e.knownBy === "public" && content.chatter[e.kind] && e.from.includes("/building:") && e.to.includes("/building:"));
   if (!known.length) return [];
+  // Choose the kind of talk first: friendships outnumber everything else, and
+  // would otherwise be all anyone talked about.
+  const byKind = new Map<string, Edge[]>();
+  for (const e of known) { const l = byKind.get(e.kind); if (l) l.push(e); else byKind.set(e.kind, [e]); }
+  const kinds = [...byKind.keys()].sort();
   const out: Rumour[] = [];
   const first = jdn({ y: year, m: 1, d: 1 }), last = jdn({ y: year, m: 12, d: 31 });
   const name = (a: Address) => town.label(a);
   for (let p = Math.ceil(first / CHATTER_DAYS); p * CHATTER_DAYS <= last; p++) {
     const r = town.rngFor(town.root, gossip, `chatter:${p}`);
+    let prev: string | undefined;
     for (let k = 0, n = r.int(1, 2); k < n; k++) {
-      const e = r.pick(known);
+      const choices = kinds.length > 1 ? kinds.filter((x) => x !== prev) : kinds;
+      const kind = (prev = r.pick(choices));
+      const e = r.pick(byKind.get(kind)!);
       const amount = typeof e.facts?.amount === "number" ? lsd(e.facts.amount as number) : "money";
-      const tpl = content.chatter[e.kind].replace(/\{about\}/g, String(e.facts?.about ?? "the old business")).replace(/\{amount\}/g, amount);
+      const tpl = r.pick(content.chatter[e.kind]).replace(/\{about\}/g, String(e.facts?.about ?? "the old business")).replace(/\{amount\}/g, amount);
       const text = tpl.replace(/\{a\}/g, name(e.from)).replace(/\{b\}/g, name(e.to));
       const hubs = buildingsOfUse(town, DRINK);
       const origin = hubs.length ? hubs[r.int(0, hubs.length - 1)].a : buildingOf(town, e.from) ?? "place:green";
@@ -206,6 +214,37 @@ function chatterIn(town: Town, year: number): Rumour[] {
       });
     }
   }
+  return out;
+}
+
+/** What the party is known to have done. */
+export function partyName(town: Town): string {
+  return town.party?.name?.trim() || "the strangers";
+}
+
+/** The party's deeds (DM-logged events of kind "deed"), told and retold like any news.
+ *  The third telling pins it on some local instead. */
+function deedsIn(town: Town, year: number): Rumour[] {
+  const out: Rumour[] = [];
+  const who = partyName(town);
+  town.events.forEach((ev, i) => {
+    if (ev.kind !== "deed" || !ev.at || parseDate(ev.date).y !== year) return;
+    const r = town.rngFor(town.root, gossip, `deed:${i}:${ev.date}`);
+    const locals = town.children(town.root, "building").flatMap((b) => town.children(b.address, "household"))
+      .flatMap((h) => town.children(h.address, "person")).filter((p) => p.get<number>("age") >= 16);
+    const wrong = locals.length ? r.pick(locals).address : undefined;
+    const what = ev.text.trim().replace(/[.!]+$/, "");
+    const tpl: [string, string, string] = [
+      `${who} ${what}`,
+      `${who} ${what}, and that's not the half of it, by the way it's told now`,
+      wrong ? `it was {c}, not ${who}, who ${what}` : `${who} ${what}, or so somebody's cousin swears`,
+    ];
+    out.push({
+      id: `deed/${i}`, kind: "news", topic: "deed", start: hourOf(ev.date, (ev.block ?? "forenoon") as Block), origin: ev.at,
+      texts: tpl.map((t) => t.replace("{c}", wrong ? town.label(wrong) : "")) as [string, string, string], tpl,
+      ...(wrong ? { who: { c: wrong } } : {}), about: [], lastToKnow: [], how: "seen with their own eyes",
+    });
+  });
   return out;
 }
 
@@ -346,6 +385,24 @@ export function reach(town: Town, r: Rumour, now: number): { heard: number; tota
 }
 
 /** Who knows about an edge right now: its own knownBy, plus everyone the talk has reached. */
+/** Secrets as one person stands with them at a moment: ones they are in or were
+ *  let into ("kept"), and ones that reached them as talk ("heard"). `out` says the
+ *  talk has started; secrets old enough to be common knowledge are left out. */
+export function secretsOf(town: Town, person: Address, date: string, block: Block): { edge: Edge; how: "kept" | "heard"; out: boolean; since?: number }[] {
+  const now = hourOf(date, block);
+  const byEdge = new Map(allSecrets(town).map((r) => [r.edge, r]));
+  const out: { edge: Edge; how: "kept" | "heard"; out: boolean; since?: number }[] = [];
+  for (const e of town.edges()) {
+    if (e.knownBy === "public") continue;
+    const r = byEdge.get(e.id);
+    if (r && now >= r.start + fadeOf(r) * 3) continue;
+    const started = !!r && r.start <= now;
+    if (e.knownBy.includes(person)) out.push({ edge: e, how: "kept", out: started });
+    else if (started && knows(town, r!, person, now)) out.push({ edge: e, how: "heard", out: true, since: r!.start });
+  }
+  return out;
+}
+
 export function knownByAt(town: Town, edge: Edge, date: string, block: Block): Address[] | "public" {
   if (edge.knownBy === "public") return "public";
   const r = allSecrets(town).find((x) => x.edge === edge.id);
@@ -372,7 +429,7 @@ export function linked(town: Town, r: Rumour, telling: 0 | 1 | 2, suffix = ""): 
   return out;
 }
 
-function tellingAt(town: Town, r: Rumour, b: Address | undefined, now: number, suffix = ""): (string | PanelLink)[] {
+export function tellingAt(town: Town, r: Rumour, b: Address | undefined, now: number, suffix = ""): (string | PanelLink)[] {
   const s = b ? spread(town, r).get(b) : undefined;
   let tail = "";
   // A big enough story gets a song in a town's taverns after a few days.

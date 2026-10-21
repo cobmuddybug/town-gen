@@ -47,6 +47,7 @@ export interface TownInit {
   pinned?: SaveFile["pinned"];
   events?: SaveFile["events"];
   clock?: SaveFile["clock"];
+  party?: SaveFile["party"];
 }
 
 export class Town {
@@ -58,6 +59,8 @@ export class Town {
   readonly pinned: SaveFile["pinned"];
   readonly events: SaveFile["events"];
   clock: SaveFile["clock"];
+  /** The party's marker. Like the clock, it moves without regenerating anything. */
+  party: SaveFile["party"];
   readonly overrides: OverrideRecord[] = [];
   readonly warnings: string[] = [];
 
@@ -74,6 +77,7 @@ export class Town {
     this.pinned = structuredClone(init.pinned ?? {});
     this.events = structuredClone(init.events ?? []);
     this.clock = { ...(init.clock ?? { date: "1203-09-29", block: "forenoon" }) };
+    this.party = init.party ? structuredClone(init.party) : undefined;
     this.root = `town:${hashHex(this.seed, 4)}`;
 
     for (const m of this.modules) for (const name of m.provides ?? []) {
@@ -299,13 +303,17 @@ export class Town {
       town: {
         seed: this.seed,
         era: this.settings.era,
-        config: { base: this.settings.base, pop: this.settings.pop, ...(this.settings.lordship === "manorial" ? { lordship: "manorial" as const } : {}) },
+        config: {
+          base: this.settings.base, pop: this.settings.pop, ...(this.settings.lordship === "manorial" ? { lordship: "manorial" as const } : {}),
+          ...(this.settings.design && Object.keys(this.settings.design).length ? { design: { ...this.settings.design } } : {}),
+        },
       },
       modules,
       overlay: structuredClone(this.overlay),
       pinned: structuredClone(this.pinned),
       events: structuredClone(this.events),
       clock: { ...this.clock },
+      ...(this.party ? { party: structuredClone(this.party) } : {}),
     };
   }
 

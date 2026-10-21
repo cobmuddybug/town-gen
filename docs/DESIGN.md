@@ -567,9 +567,12 @@ To get hooks, generators must create **stakes**, not trivia: debts, land, inheri
   "overlay": { "town:7f3a/building:b017": { "use": "cooper" } },
   "pinned":  { "town:7f3a/person:p00412": { "...full snapshot..." } },
   "events":  [ { "date": "1203-09-29", "kind": "dm-note", "target": "town:7f3a/person:p00412", "text": "Owes the party a favour" } ],
-  "clock":   { "date": "1203-10-02", "block": "evening" }
+  "clock":   { "date": "1203-10-02", "block": "evening" },
+  "party":   { "at": [412.5, -88.0], "name": "the Ravens" }
 }
 ```
+
+A `deed` event (`{ "kind": "deed", "date", "block", "at": <building>, "text" }`) is something the party did; the gossip module spreads it like news. `party` is the party's marker, which moves like the clock, without regenerating anything.
 
 Loading means regenerating from the seed with the pinned module versions, then applying the pinned snapshots, then the overlay, then the events. Saves stay small and readable, and they diff nicely in git.
 
