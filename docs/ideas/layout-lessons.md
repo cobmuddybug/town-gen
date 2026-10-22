@@ -106,6 +106,33 @@ check each of these:
 - **newtown.ts, library.ts:** dialog fields. Hidden fields must be dropped in `designFrom`.
 - **CLAUDE.md:** the module map.
 
+## Added after the six forms (2026-10-23)
+
+- **Guard first, then refactor.** A frozen-input snapshot of river output (`tests/layout-river-guard.test.ts`,
+  fixture in `tests/fixtures/`) let one engine grow seven forms without moving river towns. Every
+  form-specific change is gated on `form`, never applied to the river silently.
+- **Height shapes the streets.** Contour-following side streets go wherever the level runs, so a form is
+  mostly a height field: a cone round a castle gives Devizes' arcs; a crest gives a ridge; a ramp from the
+  shore gives a harbour (add coombes, or a ramp gives a grid). Main roads that "climb least" go round
+  a cone in rings: give them a pull away from the anchor.
+- **The town disc.** The engine bounds side streets by a disc round the market. A long or one-sided town
+  needs its own bound (`offSite`: a band along a ridge, the half-plane away from a castle or precinct).
+- **Size the ground to the form.** `townRadius` assumes a full circle of land. A harbour loses half to the
+  sea, a ridge both flanks: scale R, or the town only fits on the last retry.
+- **Overflow hides shortfall.** Housing that spills onto roadside plots "fits" a town that doesn't. Allow it
+  only on the last, roomiest try, so a short town is laid out again bigger; then the Suburbs choice
+  really changes the suburbs.
+- **Weigh every front.** "Take the first kind of street with room" crams trades into a front with few
+  plots (rows of tailors). Score all fronts with a penalty instead; what spills to the suburbs still takes
+  them first.
+- **Convex tests on concave shapes.** `convexOverlap` treats a polygon as convex: a bent market refuses
+  plots on its inner side. Test such shapes by their edge.
+- **Measure to outlines, not corners.** A precinct has four corners; "distance to built" by vertex says
+  the wall is 180 away when it is 25.
+- **Look before you tune a test.** Twice a failing threshold was a test fault (corners; a big-village
+  naming rule), and twice it was the layout (rings round a castle; walls bulging between arms). The
+  picture tells which.
+
 ## Ideas carried forward
 
 - A real "narrows" needs rivers that vary in width (the river has one width now). The ridge and
