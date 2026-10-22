@@ -3,7 +3,8 @@ import { addDays, describeDate, easter } from "../../core/calendar";
 import { data } from "../../core/content";
 import type { Entity, Town } from "../../core/town";
 import type { EdgeKind, Module, PanelRow, Sifter } from "../../core/types";
-import { isStreetPlan, nearestBuilding } from "../layout";
+import { buildingsOfUse, isStreetPlan, nearestBuilding, type MapData } from "../layout";
+import { centroid, dist, type Poly } from "../layout/geom";
 import religionYaml from "./content/religion.yaml";
 
 // The religious hierarchy in towns (LF p.85): seats from shrine to cathedral,
@@ -120,6 +121,23 @@ export const religion: Module = {
     onHouseholdResolved(ctx, h) {
       if (!isStreetPlan(ctx.town)) return;
       const b = ctx.town.parentOf(h.address)!;
+      const map = ctx.town.settlement().get<MapData>("map");
+      if (map.plan === "river") {
+        // A river town: the nearest parish church on your own side of the water. Over the bridge,
+        // an old village or the abbey's tenants keep their own church, however small.
+        const bankOf = (a: string) => map.wards?.[ctx.town.get(a).get<number>("ward")]?.bank;
+        const mine = bankOf(b);
+        const uses = mine === "far" && (map.farBank === "village" || map.farBank === "abbey") ? [...PARISH, "chapel"] : PARISH;
+        const at = centroid(ctx.town.get(b).get<Poly>("poly"));
+        let best: string | undefined, bd = Infinity;
+        for (const x of buildingsOfUse(ctx.town, uses)) {
+          if (bankOf(x.a) !== mine) continue;
+          const d = dist(at, x.p);
+          if (d < bd) { bd = d; best = x.a; }
+        }
+        ctx.set(h, "parish", best ?? nearestBuilding(ctx.town, b, PARISH) ?? null);
+        return;
+      }
       // Everyone belongs to the nearest parish church.
       ctx.set(h, "parish", nearestBuilding(ctx.town, b, PARISH) ?? null);
     },

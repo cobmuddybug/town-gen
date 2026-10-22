@@ -23,7 +23,7 @@ exports[`street plans > the layout is stable for a seed 1`] = `
     "Without Southgate",
     "Without Northgate",
     "Without Aldgate",
-    "Without Ludgate",
+    "Abbey Fee",
   ],
 }
 `;

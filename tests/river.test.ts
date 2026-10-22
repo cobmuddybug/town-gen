@@ -321,3 +321,49 @@ describe("river towns in the generator", () => {
     expect(defaultModules.find((m) => m.id === "layout")!.version).toBe("2.0.0");
   });
 });
+
+describe("the rest of the town follows the banks", () => {
+  const bankOf = (t: Town, building: string) => t.settlement().get<MapData>("map").wards![t.get(building).get<number>("ward")]?.bank;
+
+  test("far-bank households go to a church on their own bank", () => {
+    for (const k of ["village", "abbey"] as FarBank[]) {
+      const { t } = riverTown(`parish-${k}`, 4000, k);
+      t.society();
+      let far = 0;
+      for (const h of t.allEntities().filter((e) => e.type === "household")) {
+        const parish = h.get<string | null>("parish");
+        if (!parish) continue;
+        const home = bankOf(t, t.parentOf(h.address)!);
+        expect(bankOf(t, parish), `${k} ${h.address}`).toBe(home);
+        if (home === "far") far++;
+      }
+      expect(far, k).toBeGreaterThan(0);
+    }
+  }, 300000);
+
+  test("the far ward is named for the far bank", () => {
+    for (const k of ["village", "bridgend", "abbey", "wharf"] as FarBank[]) {
+      const { t } = riverTown(`nm-${k}`, 3000, k);
+      const names = t.children(t.root, "ward").filter((w) => w.get("bank") === "far").map((w) => w.get<string>("name"));
+      expect(names.length, k).toBeGreaterThan(0);
+      for (const n of names) expect(n, k).toMatch(/Bridge|Strand|Abbey|^Old /);
+    }
+  }, 300000);
+
+  test("an old village over the bridge is held by another lord", () => {
+    const { t } = riverTown("lord", 3000, "village");
+    const w = t.children(t.root, "ward").find((x) => x.get("bank") === "far")!;
+    const panel = defaultModules.flatMap((m) => m.panels ?? []).find((p) => p.id === "ward")!;
+    expect(panel.rows(t, w).some((r) => r.label === "Held by")).toBe(true);
+  }, 300000);
+
+  test("abbey towns can quarrel over the abbot's mill; river towns over the bridge", () => {
+    const issue = (t: Town) => String(t.find(`${t.root}/institution:town`)?.get("politics.issue") ?? "");
+    const abbey = Array.from({ length: 30 }, (_, i) => riverTown(`qa${i}`, 4000, "abbey").t);
+    abbey.forEach((t) => t.society());
+    expect(abbey.some((t) => issue(t).includes("abbot"))).toBe(true);
+    const radial = Array.from({ length: 30 }, (_, i) => generate(`qr${i}`, { pop: 4000, design: { layout: "radial" } }));
+    radial.forEach((t) => t.society());
+    expect(radial.every((t) => !issue(t).includes("abbot") && !issue(t).includes("far bank"))).toBe(true);
+  }, 600000);
+});
