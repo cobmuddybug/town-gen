@@ -2,6 +2,8 @@
 
 Filed 2026-10-23 at the user's request: "file this for brainstorming after this update, when we get around to it, I'll want you to work on them all". Every one of these is to be done; brainstorm each before building. Ordered by how much of the river-town code each can reuse.
 
+Before starting any of these, read [layout-lessons.md](layout-lessons.md): what building the river town taught.
+
 1. **Ridge town, down to a river** (Totnes, Lewes, Shaftesbury, Bridgnorth). One main street climbs a ridge from a river crossing to a castle or church at the top; burgage plots fall away steeply both sides; lanes and steps drop off the ridge. Reuses the height field, the high street up from the bridge, burgage cutting, back and water lanes. Main change: the high street follows the ridge line instead of curving to a market.
 2. **Castle-gate town** (Devizes, the user's original reference; Ludlow, Richmond (Yorks), Launceston, Pembroke). The town grows outside the castle gate; streets curve round the old outer bailey; the market fills the space before the gate. Reuses the height field (castle on the high point), contour side streets (concentric arcs round a hill), plot cutting, the wall-fits-the-town logic, ward clustering. New: streets that follow the bailey line rather than the slope.
 3. **Street town** (Marlborough, Chipping Campden, Thame, Henley-in-Arden, Northleach). One very wide high street that is also the market, long burgage plots both sides, back lanes, little else; often no wall. Reuses the widened-street market, plot cutting, back and cross lanes, suburb ribbons; a river at one end can reuse the bridge. Mostly simplification: no side-street growth.
