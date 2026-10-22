@@ -177,7 +177,6 @@ function syncClock() {
   clockLabelEl.title = `${describeDate(town.clock.date)}, ${town.clock.block.replace("_", " ")}. Click to pick a date; [ and ] step.`;
   clockDate.value = town.clock.date;
   clockBlock.value = town.clock.block;
-  mapEl.querySelector('[data-zoom="people"]')?.classList.toggle("on", showPeople);
 }
 
 function setClock(date: string, block: string) {
@@ -316,8 +315,8 @@ function setParty(at: [number, number]) {
 
 function drawMap() {
   mapEl.innerHTML = renderMap(town) +
-    `<div class="lens"><select id="lens-select" title="Colour the map by...">${LENSES.filter((l) => !l.streetOnly || town.settlement().get<MapData>("map").kind === "town").map((l) => `<option value="${l.id}"${l.id === lens ? " selected" : ""}>${esc(l.label)}</option>`).join("")}</select><div class="legend"></div></div>` +
-    `<div class="zoom"><button data-zoom="in" title="Zoom in">+</button><button data-zoom="out" title="Zoom out">−</button><button data-zoom="fit" title="Fit to the settlement">◎</button><button data-zoom="party" title="Place the party: click the map (or right-click anywhere)">⚑</button><button data-zoom="people" title="Show townsfolk">☺</button></div>`;
+    mapToolsHtml() +
+    `<div class="zoom" role="group" aria-label="Map view"><button data-zoom="in" aria-label="Zoom in" title="Zoom in">+</button><button data-zoom="out" aria-label="Zoom out" title="Zoom out">−</button><button data-zoom="fit" title="Fit the whole settlement">Fit</button><button data-zoom="party" title="Place the party: click the map (or right-click anywhere)">Party</button></div><div id="map-tip" hidden></div>`;
   const svg = mapEl.querySelector("svg")!;
   if (!view) view = fitVillage();
   applyView(svg);
@@ -327,11 +326,73 @@ function drawMap() {
   drawLens();
   drawFollow();
   drawParty();
-  mapEl.querySelector<HTMLSelectElement>("#lens-select")!.addEventListener("change", (ev) => {
-    lens = (ev.target as HTMLSelectElement).value as Lens;
-    try { localStorage.setItem("town-gen:lens", lens); } catch { /* ignore */ }
-    drawLens();
-  });
+}
+
+// ---- the map toolbar --------------------------------------------------------
+
+/** The lenses shown as chips; the rest wait under "More". */
+const LENS_CHIPS: Lens[] = ["none", "wealth", "class", "crime"];
+const LENS_SHORT: Partial<Record<Lens, string>> = { none: "Plain", crime: "Crime" };
+
+function mapToolsHtml(): string {
+  const street = town.settlement().get<MapData>("map").kind === "town";
+  const avail = LENSES.filter((l) => !l.streetOnly || street);
+  const chips = avail.filter((l) => LENS_CHIPS.includes(l.id));
+  const more = avail.filter((l) => !LENS_CHIPS.includes(l.id));
+  const inMore = more.find((l) => l.id === lens);
+  const chip = (l: (typeof LENSES)[number]) => `<button data-lens="${l.id}" aria-pressed="${l.id === lens}" title="${esc(l.label)}">${esc(LENS_SHORT[l.id] ?? l.label)}</button>`;
+  return `<div class="maptools"><div class="bar-row" role="toolbar" aria-label="Colour the map by">${chips.map(chip).join("")}` +
+    (more.length ? `<span class="more-wrap"><button data-lens-more aria-expanded="false" aria-pressed="${!!inMore}">${inMore ? esc(inMore.label.replace(/ \(.*\)$/, "")) : "More"} ▾</button><span class="pop lens-more" hidden>${more.map((l) => `<button data-lens="${l.id}" aria-pressed="${l.id === lens}">${esc(l.label)}</button>`).join("")}</span></span>` : "") +
+    `<span class="sep" aria-hidden="true"></span><button data-people aria-pressed="${showPeople}" title="Draw where everyone is at this time of day">Show townsfolk</button></div><div class="legend"></div></div>`;
+}
+
+function setLens(l: Lens) {
+  lens = l;
+  try { localStorage.setItem("town-gen:lens", lens); } catch { /* ignore */ }
+  mapEl.querySelector(".maptools")!.outerHTML = mapToolsHtml();
+  drawLens();
+}
+
+mapEl.addEventListener("click", (e) => {
+  const t = e.target as HTMLElement;
+  const lb = t.closest<HTMLElement>("[data-lens]");
+  if (lb) { setLens(lb.dataset.lens as Lens); return; }
+  const mb = t.closest<HTMLElement>("[data-lens-more]");
+  if (mb) {
+    const pop = mapEl.querySelector<HTMLElement>(".lens-more")!;
+    pop.hidden = !pop.hidden;
+    mb.setAttribute("aria-expanded", String(!pop.hidden));
+    return;
+  }
+  if (t.closest("[data-people]")) { togglePeople(); mapEl.querySelector("[data-people]")?.setAttribute("aria-pressed", String(showPeople)); }
+});
+document.addEventListener("pointerdown", (e) => {
+  if (!(e.target as Element).closest(".more-wrap")) mapEl.querySelector<HTMLElement>(".lens-more")?.setAttribute("hidden", "");
+});
+
+// Names under the pointer: what a building is and whose.
+const tipAt = { x: 0, y: 0, a: "" };
+let tipFrame = 0;
+mapEl.addEventListener("pointermove", (e) => {
+  tipAt.x = e.clientX; tipAt.y = e.clientY;
+  const g = drag?.moved || pinch ? null : (e.target as Element).closest?.<SVGGElement>("g[data-address]");
+  tipAt.a = g?.dataset.address ?? "";
+  if (!tipFrame) tipFrame = requestAnimationFrame(drawTip);
+});
+mapEl.addEventListener("pointerleave", () => { tipAt.a = ""; if (!tipFrame) tipFrame = requestAnimationFrame(drawTip); });
+function drawTip() {
+  tipFrame = 0;
+  const tip = mapEl.querySelector<HTMLElement>("#map-tip");
+  if (!tip) return;
+  if (!tipAt.a || !town.find(tipAt.a)) { tip.hidden = true; return; }
+  const a = tipAt.a;
+  const hh = typeOf(a) === "building" ? town.children(a, "household")[0] : undefined;
+  tip.innerHTML = `<strong>${esc(town.label(a))}</strong>${hh ? ` · ${esc(town.label(hh.address))}` : ""}`;
+  const r = mapEl.getBoundingClientRect();
+  tip.hidden = false;
+  const x = Math.min(tipAt.x - r.left + 14, r.width - tip.offsetWidth - 8);
+  const y = tipAt.y - r.top + 16 + tip.offsetHeight > r.height ? tipAt.y - r.top - tip.offsetHeight - 10 : tipAt.y - r.top + 16;
+  tip.style.transform = `translate(${x}px, ${y}px)`;
 }
 
 // ---- lenses and following -------------------------------------------------
@@ -399,6 +460,7 @@ function applyView(svg = mapEl.querySelector("svg")!) {
   svg.setAttribute("viewBox", view!.map((n) => n.toFixed(2)).join(" "));
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   shown = [...view!] as [number, number, number, number];
+  mapEl.dataset.zoom = view![2] > 900 ? "far" : view![2] > 350 ? "mid" : "near";
 }
 
 /** How a viewBox sits in the map's box: scale and offset, as preserveAspectRatio "meet" does it. */
@@ -449,8 +511,8 @@ function markMap(highlight: Address[] = []) {
 /** Bring a thing into view: centre its building, close enough to read, gliding there. */
 function focusOn(a: Address) {
   const svg = mapEl.querySelector("svg");
-  const b = buildingOf(a);
-  const g = b && svg?.querySelector<SVGGElement>(`g[data-address="${CSS.escape(b)}"]`);
+  const b = buildingOf(a) ?? a;
+  const g = svg?.querySelector<SVGGElement>(`g[data-address="${CSS.escape(b)}"]`);
   if (!svg || !g || !view) return;
   const r = g.getBBox();
   const w = Math.min(320, view[2]), h = (w * view[3]) / view[2];
@@ -485,7 +547,7 @@ const pinchOf = () => {
 };
 
 mapEl.addEventListener("pointerdown", (e) => {
-  if ((e.target as Element).closest(".zoom, .lens")) return;
+  if ((e.target as Element).closest(".zoom, .maptools")) return;
   touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
   mapEl.setPointerCapture(e.pointerId);
   if (touches.size === 2) { pinch = pinchOf(); drag = undefined; return; }
@@ -556,7 +618,6 @@ mapEl.addEventListener("wheel", (e) => {
 mapEl.addEventListener("click", (e) => {
   const b = (e.target as Element).closest<HTMLButtonElement>("[data-zoom]");
   if (!b) return;
-  if (b.dataset.zoom === "people") { togglePeople(); return; }
   if (b.dataset.zoom === "party") { placing = !placing; mapEl.classList.toggle("placing", placing); return; }
   if (b.dataset.zoom === "in") zoom(1 / 1.4);
   else if (b.dataset.zoom === "out") zoom(1.4);
