@@ -130,6 +130,11 @@ describe("search palette", () => {
     expect(paletteGroups(town, "zzqxv")).toEqual([]);
   });
 
+  test("a broad query still offers people, however many places match", () => {
+    expect(paletteGroups(town, "a").map((g) => g.title)).toContain("People");
+    expect(paletteGroups(town, "a", { player: true }).map((g) => g.title)).toContain("People");
+  });
+
   test("lists are offered by title", () => {
     const lists = paletteGroups(town, "debts").find((x) => x.title === "Lists")!;
     expect(lists.items.map((i) => i.list)).toContain("debts");

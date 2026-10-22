@@ -34,7 +34,8 @@ export function paletteGroups(town: Town, query: string, opts: { player?: boolea
   if (!words.length) return [];
   const all = (t: string) => words.every((w) => t.toLowerCase().includes(w));
   const groups = new Map<PaletteTitle, PaletteItem[]>(ORDER.map((t) => [t, []]));
-  for (const r of search(town, query, 400, { player: opts.player }).results) {
+  // All matches, not a capped page: places sort first, and a cap would starve People.
+  for (const r of search(town, query, Infinity, { player: opts.player }).results) {
     const g = r.kind === "person" ? "People" : r.kind === "institution" ? "Offices" : "Places";
     groups.get(g)!.push({ address: r.address, label: r.label, detail: r.detail });
   }

@@ -15,6 +15,7 @@ import { MANOR_MAX, PLAN_MIN, newTownHtml, settingsFromForm, sizePreview } from 
 import { clockLabel, stepClock, townMenuHtml } from "./topbar";
 import { History, isTypingTarget } from "./history";
 import { glance, starsOf } from "./glance";
+import { HIDDEN_ALMANAC, HIDDEN_LISTS, playerPanels, playerRows } from "./player";
 import { DIRECTORY_TABS, directory, directoryHtml, type DirTab } from "./directory";
 import { paletteGroups, paletteHtml, paletteItems, type PaletteGroup, type PaletteItem } from "./palette";
 import type { Occupation } from "../modules/uses";
@@ -47,6 +48,10 @@ let dirFilter = "";
 let dirSort: { col: number; desc: boolean } | undefined;
 let follow: Address | undefined;
 let lens: Lens = "none";
+// Player view: the screen is shared with the players, so the DM's secrets stay off it.
+let player = false;
+try { player = localStorage.getItem("town-gen:player") === "1"; } catch { /* ignore */ }
+const PLAYER_LENSES = new Set<Lens>(["crime", "thread"]);
 // The nearby page's encounter roll (0 = none yet), and whether the next map click places the party.
 let rolls = 0;
 let placing = false;
@@ -260,7 +265,14 @@ form.addEventListener("input", syncManor);
 $("#reroll-seed").addEventListener("click", () => { field<HTMLInputElement>("seed").value = randomSeed(); });
 $("#new-town-cancel").addEventListener("click", () => dialog.close());
 
+/** The underworld and its crews: pages for the DM only. */
+function isUnderworld(a: Address): boolean {
+  const W = world(town);
+  return !!W && (a === W.address || W.gangs.some((g) => g.address === a));
+}
+
 function select(a: Address | undefined) {
+  if (player && a && isUnderworld(a)) a = undefined;
   selected = a;
   if (!walking) hist.push(a ?? town.root);
   page = "inspect";
@@ -336,7 +348,7 @@ const LENS_SHORT: Partial<Record<Lens, string>> = { none: "Plain", crime: "Crime
 
 function mapToolsHtml(): string {
   const street = town.settlement().get<MapData>("map").kind === "town";
-  const avail = LENSES.filter((l) => !l.streetOnly || street);
+  const avail = LENSES.filter((l) => (!l.streetOnly || street) && !(player && PLAYER_LENSES.has(l.id)));
   const chips = avail.filter((l) => LENS_CHIPS.includes(l.id));
   const more = avail.filter((l) => !LENS_CHIPS.includes(l.id));
   const inMore = more.find((l) => l.id === lens);
@@ -652,6 +664,7 @@ function rowHtml(e: Address, r: PanelRow, starrable = false): string {
   const o = town.overlay[e]?.[r.key ?? ""];
   const edited = r.key !== undefined && o !== undefined;
   const editable = r.key !== undefined && typeof r.value !== "object" && !r.noEdit;
+  starrable &&= !player;
   const st = starrable && e !== town.root ? starsOf(town, e).find((x) => x.label === r.label) : undefined;
   const star = starrable && e !== town.root ? `<button data-star="${esc(r.label)}" class="${st ? "on" : ""}" title="${st ? "Unstar" : "Star: keep this row at the top of the page"}" aria-pressed="${!!st}">${st ? "★" : "☆"}</button>` : "";
   const tools = r.key || star
@@ -668,7 +681,14 @@ function rowHtml(e: Address, r: PanelRow, starrable = false): string {
 
 function panelsFor(e: Address): PanelSpec[] {
   const type = town.get(e).type;
-  return modules.flatMap((m) => m.panels ?? []).filter((p) => p.for === type).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const all = modules.flatMap((m) => m.panels ?? []).filter((p) => p.for === type).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  return player ? playerPanels(all) : all;
+}
+
+/** A panel's rows, as the current view may show them. */
+function rowsOf(e: Address, p: PanelSpec): PanelRow[] {
+  const rows = p.rows(town, town.get(e));
+  return player ? playerRows(town, rows) : rows;
 }
 
 // Sections you closed stay closed, per kind of page ("person:secrets").
@@ -676,7 +696,7 @@ let shut = new Set<string>();
 try { shut = new Set(JSON.parse(localStorage.getItem("town-gen:shut") ?? "[]") as string[]); } catch { /* ignore */ }
 const shutKey = (e: Address, id: string) => `${town.get(e).type}:${id}`;
 
-function panelHtml(e: Address, p: PanelSpec, rows = p.rows(town, town.get(e))): string {
+function panelHtml(e: Address, p: PanelSpec, rows = rowsOf(e, p)): string {
   if (!rows.length) return "";
   const open = shut.has(shutKey(e, p.id)) ? "" : " open";
   return `<details class="panel"${open} data-panel="${p.id}" id="panel-${p.id}"><summary>${esc(p.title)}</summary><dl class="rows">${rows.map((r) => rowHtml(e, r, true)).join("")}</dl></details>`;
@@ -698,7 +718,7 @@ const railEl = $<HTMLElement>("#rail");
 function drawRail() {
   const on = page === "inspect" || page === "knows" ? (selected ? "" : "town") : page;
   railEl.querySelectorAll<HTMLButtonElement>("[data-page]").forEach((b) => {
-    if (b.dataset.page === "underworld") b.hidden = !world(town);
+    if (b.dataset.page === "underworld") b.hidden = !world(town) || player;
     if (b.dataset.page === on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
   });
 }
@@ -712,9 +732,10 @@ railEl.addEventListener("click", (ev) => {
 });
 
 function dirPageHtml(): string {
-  const tabs = DIRECTORY_TABS(town);
+  const hiddenLists = player ? HIDDEN_LISTS : undefined;
+  const tabs = DIRECTORY_TABS(town, { hiddenLists });
   if (!tabs.some((t) => t.id === dirTab)) dirTab = "people";
-  const d = directory(town, dirTab, { date: town.clock.date, block: town.clock.block as Block, filter: dirFilter, sort: dirSort });
+  const d = directory(town, dirTab, { date: town.clock.date, block: town.clock.block as Block, filter: dirFilter, sort: dirSort, hiddenLists });
   return directoryHtml(tabs, dirTab, d, dirFilter, dirSort ?? (dirTab.startsWith("list:") ? undefined : { col: 0, desc: false }));
 }
 
@@ -726,8 +747,9 @@ const almanacShow = new Set(["feast", "market", "visit", "secret", "life"]);
 function almanacHtml(): string {
   const from = town.clock.date;
   const all = almanac(town, from, 60);
-  const items = all.filter((x) => almanacShow.has(x.kind === "rent" ? "feast" : x.kind));
-  const chips = ALMANAC_KINDS.map(([k, l]) => `<button data-almanac="${k}" class="${almanacShow.has(k) ? "on" : ""}">${l} (${all.filter((x) => (x.kind === "rent" ? "feast" : x.kind) === k).length})</button>`).join(" ");
+  const kindOf = (x: { kind: string }) => (x.kind === "rent" ? "feast" : x.kind);
+  const items = all.filter((x) => almanacShow.has(kindOf(x)) && !(player && HIDDEN_ALMANAC.has(kindOf(x))));
+  const chips = ALMANAC_KINDS.filter(([k]) => !(player && HIDDEN_ALMANAC.has(k))).map(([k, l]) => `<button data-almanac="${k}" class="${almanacShow.has(k) ? "on" : ""}">${l} (${all.filter((x) => (x.kind === "rent" ? "feast" : x.kind) === k).length})</button>`).join(" ");
   const h: string[] = [`<h2>Almanac</h2>`, `<p class="sub">The next sixty days from ${esc(describeDate(from))}. Click a date to go there.</p>`, `<p class="lists">${chips}</p>`];
   let day = "";
   for (const it of items) {
@@ -782,7 +804,7 @@ function nearbyHtml(): string {
       h.push(`<p class="opener">${esc(e.opener)}</p>`);
       if (e.lines?.length) h.push(`<ul class="lines">${e.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`);
       h.push(`<dl class="rows">`);
-      if (e.crew) h.push(`<dt>Underneath</dt><dd class="dm"><span class="val">${textHtml(e.crew)}</span></dd>`);
+      if (e.crew && !player) h.push(`<dt>Underneath</dt><dd class="dm"><span class="val">${textHtml(e.crew)}</span></dd>`);
       for (const [l, v] of [["Looks", e.looks], ["Talks", e.speech], ["Habit", e.habit], ["Wants", e.want], ["To strangers", e.strangers]] as const) if (v) h.push(`<dt>${l}</dt><dd><span class="val">${esc(v)}</span></dd>`);
       h.push(`</dl></div>`);
     }
@@ -800,7 +822,7 @@ function nearbyHtml(): string {
   h.push(`</dl></details>`);
   if (r.street.length) h.push(`<details class="panel" open><summary>Out and about</summary><dl class="rows">${r.street.map((x) => `<dt></dt><dd data-involves="${esc(x.p)}"><span class="val">${link(x.p)}: ${esc(x.doing)}</span></dd>`).join("")}</dl></details>`);
 
-  if (r.crime) h.push(crimeNearHtml(r.crime));
+  if (r.crime && !player) h.push(crimeNearHtml(r.crime));
 
   // What's being said.
   h.push(`<details class="panel" open><summary>Talk round here</summary><dl class="rows">`);
@@ -811,9 +833,9 @@ function nearbyHtml(): string {
   h.push(`<details class="panel" open><summary>What they say about ${esc(partyName(town))}</summary><dl class="rows">`);
   for (const x of r.deeds) h.push(`<dt></dt><dd><span class="val">${textHtml(x.text)} <button class="knows" data-fact="${esc(x.fact)}">who knows?</button><span class="hint">${x.total ? Math.round((100 * x.heard) / x.total) : 0}% of households have heard</span></span></dd>`);
   if (!r.deeds.length) h.push(`<dt></dt><dd><span class="val sub">Nothing yet. Log what they did below and the town will talk.</span></dd>`);
-  h.push(`</dl><p class="deed-entry"><input id="deed-text" placeholder="what they did: started a fight at the alehouse…" autocomplete="off" /> <button data-deed>Spread it</button></p>`);
+  h.push(player ? `</dl>` : `</dl><p class="deed-entry"><input id="deed-text" placeholder="what they did: started a fight at the alehouse…" autocomplete="off" /> <button data-deed>Spread it</button></p>`);
   const deeds = town.events.map((ev, i) => ({ ev, i })).filter((x) => x.ev.kind === "deed");
-  if (deeds.length) h.push(`<ul class="links deeds">${deeds.map(({ ev, i }) => `<li>${esc(ev.date)}, ${esc((ev.block ?? "").replace("_", " "))}: ${esc(ev.text)}${ev.at ? `, at ${link(ev.at, town.label(ev.at).replace(/^The /, "the "))}` : ""} <button class="knows" data-undeed="${i}" title="Forget it was ever done">×</button></li>`).join("")}</ul>`);
+  if (deeds.length && !player) h.push(`<ul class="links deeds">${deeds.map(({ ev, i }) => `<li>${esc(ev.date)}, ${esc((ev.block ?? "").replace("_", " "))}: ${esc(ev.text)}${ev.at ? `, at ${link(ev.at, town.label(ev.at).replace(/^The /, "the "))}` : ""} <button class="knows" data-undeed="${i}" title="Forget it was ever done">×</button></li>`).join("")}</ul>`);
   h.push(`</details>`);
 
   if (r.jobs.length) h.push(`<details class="panel" open><summary>Work going nearby</summary>${r.jobs.map(jobHtml).join("")}<p><a href="#" data-page="jobs">All the work going in ${esc(town.label(town.root))}</a></p></details>`);
@@ -876,6 +898,8 @@ function followHtml(p: Address): string {
 }
 
 function drawInspector() {
+  if (player && (page === "underworld" || page === "knows")) page = "inspect";
+  if (player && selected && isUnderworld(selected)) selected = undefined;
   insp.classList.toggle("wide", page === "directory");
   if (page !== "inspect") {
     insp.innerHTML = followingHtml() + (page === "directory" ? dirPageHtml() : page === "almanac" ? almanacHtml() : page === "party" ? nearbyHtml() : page === "jobs" ? jobsHtml() : page === "underworld" ? underworldHtml() : knowsHtml());
@@ -925,7 +949,7 @@ function drawInspector() {
   }
 
   // The card: the facts asked for most, then the ones the DM starred here.
-  const panels = panelsFor(e).map((p) => ({ p, rows: p.rows(town, town.get(e)) })).filter((x) => x.rows.length);
+  const panels = panelsFor(e).map((p) => ({ p, rows: rowsOf(e, p) })).filter((x) => x.rows.length);
   const stars = starsOf(town, e);
   const starred = stars.flatMap((st) => {
     const r = panels.flatMap((x) => x.rows).find((r) => r.label === st.label);
@@ -961,8 +985,8 @@ function drawInspector() {
   if (ent.type === "settlement") {
     const council = town.children(e, "institution");
     h.push(`<details class="panel" open><summary>Institutions</summary><ul class="links">${council.map((c) => `<li>${link(c.address)}</li>`).join("")}</ul></details>`);
-    const hooks = findHooks(town);
-    h.push(`<details class="panel" open><summary>Hooks</summary>${hooks.length ? hooks.map((k) => `<div class="hook" data-involves="${esc(k.involves.join(" "))}"><h3>${esc(k.title)}</h3><p>${esc(k.summary)}</p><p>${k.involves.map((a) => link(a)).join(", ")}</p></div>`).join("") : '<p class="sub">Nothing has come to light. Try another seed, or look closer.</p>'}</details>`);
+    const hooks = player ? [] : findHooks(town);
+    if (!player) h.push(`<details class="panel" open><summary>Hooks</summary>${hooks.length ? hooks.map((k) => `<div class="hook" data-involves="${esc(k.involves.join(" "))}"><h3>${esc(k.title)}</h3><p>${esc(k.summary)}</p><p>${k.involves.map((a) => link(a)).join(", ")}</p></div>`).join("") : '<p class="sub">Nothing has come to light. Try another seed, or look closer.</p>'}</details>`);
     const byUse = new Map<string, Address[]>();
     for (const b of town.children(e, "building")) {
       const l = town.label(b.address);
@@ -1134,7 +1158,7 @@ let palGroups: PaletteGroup[] = [];
 let palActive = 0;
 
 function drawPalette() {
-  palGroups = paletteGroups(town, searchEl.value);
+  palGroups = paletteGroups(town, searchEl.value, player ? { player, hiddenLists: HIDDEN_LISTS } : {});
   const n = paletteItems(palGroups).length;
   palActive = Math.max(0, Math.min(palActive, n - 1));
   palEl.innerHTML = paletteHtml(palGroups, palActive, searchEl.value);
@@ -1200,6 +1224,24 @@ document.addEventListener("pointerdown", (e) => {
   if (!(e.target as Element).closest(".search-wrap")) closePalette();
 });
 
+// ---- player view -----------------------------------------------------------
+
+const playerBtn = $<HTMLButtonElement>("#player-toggle");
+function setPlayer(on: boolean) {
+  player = on;
+  try { localStorage.setItem("town-gen:player", on ? "1" : "0"); } catch { /* ignore */ }
+  document.body.classList.toggle("player", on);
+  playerBtn.setAttribute("aria-pressed", String(on));
+  playerBtn.textContent = on ? "Player view on" : "Player view";
+  if (on && PLAYER_LENSES.has(lens)) lens = "none";
+  closePalette();
+  const svg = mapEl.querySelector(".maptools");
+  if (svg) svg.outerHTML = mapToolsHtml();
+  drawLens();
+  drawInspector();
+}
+playerBtn.addEventListener("click", () => setPlayer(!player));
+
 // ---- keys ----------------------------------------------------------------
 
 document.addEventListener("keydown", (e) => {
@@ -1208,6 +1250,7 @@ document.addEventListener("keydown", (e) => {
   if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { e.preventDefault(); walk(e.key === "ArrowLeft" ? -1 : 1); return; }
   if (isTypingTarget(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === "/") { e.preventDefault(); searchEl.focus(); searchEl.select(); }
+  else if (e.key === "P" && e.shiftKey) { e.preventDefault(); setPlayer(!player); }
   else if (e.key === "[") { e.preventDefault(); stepBy(-1); }
   else if (e.key === "]") { e.preventDefault(); stepBy(1); }
 });
@@ -1243,3 +1286,4 @@ function fresh(seed: string, settings: Parameters<typeof generate>[1] = {}) {
   return t;
 }
 start();
+setPlayer(player);

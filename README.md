@@ -21,6 +21,19 @@ On Omarchy, `./install.sh` builds the app and installs it as a user service on h
 - **Gossip.** Secrets come out and spread house by house, a block an hour, faster through the taverns, growing in the telling. Move the clock and watch it travel.
 - **Ways in.** Ask *who knows* about any debt, affair, feud or rumour, and see where each of them is now and later today. Colour the map by wealth, class, parish, ward value or guild, or draw the threads from one person to everyone they're tied to. Search everyone and everything, browse ready-made lists, read the almanac of what's coming, and follow one person through their day.
 - **Hooks** are found by pattern-matching the social graph, not rolled from a table.
+- **Player view.** One switch (or Shift+P) hides secrets, the underworld, debts, "who knows?" and the editing tools, so you can turn the screen to the table.
+
+### Finding your way round
+
+The top bar holds the town menu (your towns, files, book sources), search, the clock and **New town**. The rail on the left opens the town-wide views: Town, Directory (sortable tables of people, households, buildings, trades, offices, wards, and the ready-made lists), Party, Jobs, Underworld and Almanac. Whatever you select opens on the right, with a card of the facts asked for most; star (☆) any row to keep it on that card.
+
+| Key | Does |
+| --- | --- |
+| `/` or `Ctrl+K` | search everyone and everything; arrows and Enter to open |
+| `Alt+←` / `Alt+→` | back and forward through what you've looked at |
+| `[` / `]` | move the clock one block back or forward |
+| `Shift+P` | player view on or off |
+| `Esc` | close a menu or the search |
 
 See `docs/DESIGN.md` for the design and roadmap.
 

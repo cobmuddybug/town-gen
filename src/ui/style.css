@@ -345,3 +345,8 @@ input:focus-visible, select:focus-visible { outline-offset: 0; }
 #map-tip[hidden] { display: none; }
 #map[data-zoom="far"] .m-small { display: none; }
 @media print { #map-tip, #map .maptools { display: none; } }
+
+/* ---- player view: the DM's tools and notes stay off a shared screen ---- */
+body.player .bar { box-shadow: inset 0 3px 0 var(--accent); }
+body.player #player-toggle { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+body.player .knows, body.player .tools, body.player dd.dm, body.player [data-party-clear], body.player .glance-hint, body.player [data-pin], body.player .src { display: none !important; }

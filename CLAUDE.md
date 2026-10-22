@@ -10,7 +10,8 @@ Low-fantasy, human-only, mundane medieval settlement generator for D&D. The desi
 - `npm run check`: typecheck + tests. Run it before saying anything is done.
 - `npm run build`: static build to `dist/`
 - `BASE=fishing tools/preview.sh OUTDIR [seeds] [pop]`: render map PNGs for a few seeds (needs `rsvg-convert`)
-- `node tools/look.mjs URL OUT.png 'js step' ...`: drive headless Chromium against the dev server and take a screenshot
+- `node tools/look.mjs URL OUT.png 'js step' ...`: drive headless Chromium against the dev server and take a screenshot (`SIZE=WxH`, `DARK=1`)
+- `tools/ui-smoke.sh 'js step' ...`: start Vite on :31742, run the steps in headless Chromium, and fail if a step throws or the page does (`URLHASH='#seed=x&pop=3000'`, `OUT=dir` keeps the screenshot)
 
 ## Licence: MIT, and keep it that way
 
@@ -72,7 +73,11 @@ src/modules/    one folder per module: index.ts + content/*.yaml
   politics      factions, the Michaelmas choosing, the quarrel of the year, who can be leaned on
   hire          hirelings and travelled old hands, chosen in the society phase
   sifters       plot-hook sifters over the graph (capped at 2 each)
-src/ui/         library.ts (your towns, the URL key), party.ts (nearby report, encounters, job board; pure), map.ts (pure SVG renderer), discover.ts (who knows, lenses, search, lists, almanac, a person's day; pure), main.ts (app), style.css
+src/ui/         library.ts (your towns, the URL key), party.ts (nearby report, encounters, job board; pure), map.ts (pure SVG renderer), discover.ts (who knows, lenses, search, lists, almanac, a person's day; pure),
+                newtown.ts (New town dialog, settings), topbar.ts (clock, town menu), history.ts (back/forward, typing targets), palette.ts (grouped search),
+                directory.ts (the Directory's tables), glance.ts (the inspector card, stars), player.ts (what player view hides), main.ts (app wiring), style.css
+                UI logic lives in the pure modules with tests in tests/ui.test.ts and tests/player.test.ts; main.ts only renders and wires.
+                Stars are save events of kind "star"; player view must never show secrets, crews, debts or "who knows?" (tests/player.test.ts).
 tests/          core (determinism, isolation, stubs, overlay, saves, golden), people (calendar, society, routines),
                 bases (all five economies, terrain, visitors), manor, town (street plans and town institutions), gossip, discover,
                 design (town plans), character (people and their days), library, party, crime, features (the lived-in town),
