@@ -343,7 +343,7 @@ input:focus-visible, select:focus-visible { outline-offset: 0; }
 #map-tip { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; max-width: 320px; padding: 4px 9px; background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 4px 14px #00000029; font-size: var(--fs-s); color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #map-tip strong { color: var(--ink); font-weight: 600; }
 #map-tip[hidden] { display: none; }
-#map[data-zoom="far"] .m-small { display: none; }
+#map[data-scale="far"] .m-small { display: none; }
 @media print { #map-tip, #map .maptools { display: none; } }
 
 /* ---- player view: the DM's tools and notes stay off a shared screen ---- */

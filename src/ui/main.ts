@@ -477,7 +477,8 @@ function applyView(svg = mapEl.querySelector("svg")!) {
   svg.setAttribute("viewBox", view!.map((n) => n.toFixed(2)).join(" "));
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   shown = [...view!] as [number, number, number, number];
-  mapEl.dataset.zoom = view![2] > 900 ? "far" : view![2] > 350 ? "mid" : "near";
+  // How far out the map is, for the labels: not "data-zoom", which the zoom buttons answer to.
+  mapEl.dataset.scale = view![2] > 900 ? "far" : view![2] > 350 ? "mid" : "near";
 }
 
 /** How a viewBox sits in the map's box: scale and offset, as preserveAspectRatio "meet" does it. */
