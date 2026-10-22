@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`radial layout g1 (800 people) is unchanged 1`] = `"4a33d6852bec969dd73ed7272582500457051d35b5f7af7b774cdb899e6ebf0e"`;
+
+exports[`radial layout g2 (3000 people) is unchanged 1`] = `"d70546dd589c7f383e32c73127fa21c700897fbcc543a7d263fb05b1fd197c88"`;
+
+exports[`radial layout g3 (9000 people) is unchanged 1`] = `"035c7990587c417a10a9b4891010d7c4bb6019531e3a8ad6b34ff86002ffd850"`;
+
+exports[`radial layout g4 (26000 people) is unchanged 1`] = `"0ee7c24d126028b18827a184b90220ea05cba92de62bb3d2d1d3b265f9991f15"`;

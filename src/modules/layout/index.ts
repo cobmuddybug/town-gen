@@ -1,12 +1,13 @@
 import type { Module } from "../../core/types";
 import type { BuildingUse } from "../uses";
 import { layoutHamlet, type HamletLayout, type Terrain } from "./hamlet";
-import { layoutTown, type Enclosure, type Scale, type TownLayout } from "./town";
+import { layoutRadial } from "./radial";
+import type { Enclosure, Scale, TownLayout } from "./streets";
 import { STREET_PLAN_POP } from "../uses";
 
 export type { HamletLayout, PlacedBuilding } from "./hamlet";
-export type { TownLayout, WardGeo } from "./town";
-export { VALUE_CLASSES } from "./town";
+export type { TownLayout, WardGeo } from "./streets";
+export { VALUE_CLASSES } from "./streets";
 
 const cache = new Map<string, HamletLayout>();
 
@@ -49,7 +50,7 @@ export const layout: Module = {
         // The room estimate is rough. When it falls short, buildings find no plot and
         // would be lost, so lay the town out again, roomier, from the same stream.
         for (let room = 1; ; room += 0.08) {
-          map = layoutTown(ctx.rng(s, "town"), footprints, {
+          map = layoutRadial(ctx.rng(s, "town"), footprints, {
             scale: s.get<Scale>("sizeClass"), enclosure, roads: s.get<number>("mainRoads"), terrain, ...designed, ...(room > 1 ? { room } : {}),
           });
           if (map.buildings.length >= footprints.length || room > 1.5) break;
