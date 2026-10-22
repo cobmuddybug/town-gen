@@ -10,65 +10,38 @@
 </head>
 <body>
   <header class="bar">
-    <h1>Town Generator</h1>
-    <form id="new-town" class="controls">
-      <label>Seed <input name="seed" size="10" autocomplete="off" /></label>
-      <label>People <input name="pop" type="number" min="50" max="30000" step="10" title="Up to about 700: a hamlet. Up to 6,000: a village. Beyond: a town, and from 25,000 a city." /></label>
-      <label>Living by
-        <select name="base">
-          <option value="agricultural">farming</option>
-          <option value="fishing">fishing</option>
-          <option value="herding">herding</option>
-          <option value="mining">mining</option>
-          <option value="woodcutting">woodcutting</option>
-        </select>
-      </label>
-      <label title="A manorial village is owned outright by its lord, and its people are mostly villeins"><input type="checkbox" name="manorial" /> Manor</label>
-      <label>Era
-        <select name="era">
-          <option value="early_medieval">early medieval</option>
-          <option value="high_medieval">high medieval</option>
-          <option value="late_medieval">late medieval</option>
-          <option value="early_modern">early modern</option>
-        </select>
-      </label>
-      <details class="plan" id="plan">
-        <summary title="Lay out a town your way. Applies above 700 people, where there are streets.">Plan</summary>
-        <div class="plan-body">
-          <label>Walls <select name="walls"><option value="">any</option><option value="none">none, open</option><option value="palisade">bank and palisade</option><option value="wall">stone wall</option></select></label>
-          <label>Gates <select name="gates"><option value="">any</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
-          <label>Shape <select name="shape"><option value="">any</option><option value="round">round</option><option value="oval">oval</option><option value="long">long, along the high street</option></select></label>
-          <label>Castle <select name="castle"><option value="">any</option><option value="1">yes</option><option value="0">no</option></select></label>
-          <label>Market <select name="market"><option value="">any</option><option value="small">small</option><option value="large">large</option></select></label>
-          <label>Suburbs <select name="suburbs"><option value="">any</option><option value="few">few</option><option value="many">many</option></select></label>
-          <label>Crime <select name="crime"><option value="">any</option><option value="quiet">quiet</option><option value="usual">the usual</option><option value="rife">rife</option></select></label>
-          <p class="plan-note">“Any” leaves it to the dice. Castles need 1,000 people or more; gangs need 1,000 too.</p>
-        </div>
-      </details>
-      <button type="submit">Generate</button>
-      <button type="button" id="random-seed" title="New seed">New seed</button>
-    </form>
-    <div class="controls clock" id="clock">
-      <button type="button" data-step="-1" title="Back one block">◀</button>
-      <input id="clock-date" size="10" title="Date (YYYY-MM-DD)" />
-      <select id="clock-block">
-        <option value="morning">morning 5–8</option>
-        <option value="forenoon">forenoon 9–12</option>
-        <option value="afternoon">afternoon 13–16</option>
-        <option value="evening">evening 17–20</option>
-        <option value="night">night 21–24</option>
-        <option value="late_night">late night 1–4</option>
-      </select>
-      <button type="button" data-step="1" title="Forward one block">▶</button>
-      <label><input type="checkbox" id="show-people" /> People</label>
+    <div class="menu-wrap">
+      <button type="button" id="town-menu" aria-haspopup="menu" aria-expanded="false" title="Your towns, files and settings"><span id="town-name">Town Generator</span> <span class="caret">▾</span></button>
+      <div id="town-menu-list" class="pop menu" role="menu" hidden></div>
+      <input type="file" id="load" accept=".json,application/json" hidden />
     </div>
-    <div class="controls">
-      <select id="towns" aria-label="Your towns"></select>
-      <button type="button" id="sources" title="Show the book citations in the panels, or hide them behind §">§</button>
-      <button type="button" id="save" title="Download this town as a file">Save</button>
-      <label class="button">Load<input type="file" id="load" accept=".json,application/json" hidden /></label>
+    <div class="search-wrap">
+      <input id="search" type="search" placeholder="Search people, places, trades" autocomplete="off" spellcheck="false" aria-label="Search the town" />
+      <kbd>/</kbd>
+      <div id="palette" class="pop palette" hidden></div>
     </div>
+    <div class="clock" id="clock">
+      <button type="button" data-step="-1" aria-label="Back one block" title="Back one block  [">◀</button>
+      <button type="button" id="clock-label" aria-haspopup="dialog" aria-expanded="false" title="Pick a date and time of day"></button>
+      <button type="button" data-step="1" aria-label="Forward one block" title="Forward one block  ]">▶</button>
+      <div id="clock-pop" class="pop" hidden>
+        <label class="field"><span>Date</span><input id="clock-date" size="10" title="YYYY-MM-DD" /></label>
+        <label class="field"><span>Time of day</span>
+          <select id="clock-block">
+            <option value="morning">morning 5–8</option>
+            <option value="forenoon">forenoon 9–12</option>
+            <option value="afternoon">afternoon 13–16</option>
+            <option value="evening">evening 17–20</option>
+            <option value="night">night 21–24</option>
+            <option value="late_night">late night 1–4</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <button type="button" id="player-toggle" aria-pressed="false" title="Hide the DM's secrets, for sharing the screen  (Shift+P)">Player view</button>
+    <button type="button" id="new-town-btn" class="primary">New town</button>
   </header>
+  <dialog id="new-town-dialog" aria-label="New town"><form id="new-town"></form></dialog>
   <main>
     <section id="map" aria-label="Map"></section>
     <aside id="inspector" aria-label="Inspector"></aside>

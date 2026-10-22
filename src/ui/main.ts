@@ -6,12 +6,14 @@ import type { MapData } from "../modules/layout";
 import { findHooks } from "../modules/sifters";
 import { defaultModules, generate } from "../town-gen";
 import { renderMap, renderPeople } from "./map";
-import { BLOCKS, addDays, describeDate, parseDate, type Block, whenOf } from "../core/calendar";
+import { describeDate, parseDate, type Block, whenOf } from "../core/calendar";
 import { occupancy } from "../modules/routines";
 import { describeHour } from "../modules/gossip";
 import { almanac, dayOf, LENSES, lensView, LISTS, placeName, search, whoKnows, type Fact, type Lens } from "./discover";
 import { fetchKept, forget, keep, listKept, townKey } from "./library";
-import { MANOR_MAX, settingsFromForm } from "./newtown";
+import { MANOR_MAX, PLAN_MIN, newTownHtml, settingsFromForm, sizePreview } from "./newtown";
+import { clockLabel, stepClock, townMenuHtml } from "./topbar";
+import { isTypingTarget } from "./history";
 import { encounter, jobBoard, nearestBuildingTo, partyName, reachOf, report, type Text } from "./party";
 import { lsd } from "../modules/households";
 import { crimeContent, world } from "../modules/crime";
@@ -76,51 +78,99 @@ function store() {
   } catch { /* storage may be blocked or full */ }
 }
 
-// ---- your towns ----------------------------------------------------------
+// ---- the town menu --------------------------------------------------------
 
-const townsEl = $<HTMLSelectElement>("#towns");
+const menuBtn = $<HTMLButtonElement>("#town-menu");
+const menuEl = $<HTMLElement>("#town-menu-list");
 
 function drawTowns() {
   let kept: ReturnType<typeof listKept> = [];
   try { kept = listKept(localStorage); } catch { /* ignore */ }
-  const here = townKey(town.toSave());
-  const BASES: Record<string, string> = { agricultural: "farming", fishing: "fishing", herding: "herding", mining: "mining", woodcutting: "woodcutting" };
-  townsEl.innerHTML = `<option value="" selected>Your towns (${kept.length})</option>` +
-    kept.map((k) => `<option value="${esc(k.key)}"${k.key === here ? " disabled" : ""}>${esc(k.name)} — ${k.pop.toLocaleString()}, ${esc(BASES[k.base] ?? k.base)}${k.key === here ? " (open)" : ""}</option>`).join("") +
-    (kept.some((k) => k.key === here) ? `<option value="forget">Forget ${esc(town.label(town.root))}…</option>` : "");
-  townsEl.title = kept.length ? "Towns you have edited, pinned people in or made notes on. Untouched towns come back from their seed." : "Towns you edit or pin people in are kept here";
+  $("#town-name").textContent = town.label(town.root);
+  document.title = `${town.label(town.root)} · Town Generator`;
+  menuEl.innerHTML = townMenuHtml(kept, townKey(town.toSave()), town.label(town.root), showSources);
 }
 
-townsEl.addEventListener("change", () => {
-  const v = townsEl.value;
-  townsEl.value = "";
-  if (!v) return;
-  if (v === "forget") {
+/** Open one popover (the menu, the clock) and close the others. */
+function openPop(el: HTMLElement | undefined) {
+  for (const p of document.querySelectorAll<HTMLElement>(".bar .pop")) {
+    if (p.id === "palette") continue;
+    const on = p === el && p.hidden;
+    p.hidden = !on;
+    const owner = p.id === "town-menu-list" ? menuBtn : p.id === "clock-pop" ? $<HTMLElement>("#clock-label") : undefined;
+    owner?.setAttribute("aria-expanded", String(on));
+  }
+  el?.querySelector<HTMLElement>("button:not([disabled]), input, select")?.focus();
+}
+document.addEventListener("pointerdown", (e) => {
+  const t = e.target as Element;
+  if (!t.closest(".menu-wrap, .clock")) openPop(undefined);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && document.querySelector(".bar .pop:not([hidden]):not(#palette)")) openPop(undefined);
+});
+
+menuBtn.addEventListener("click", () => openPop(menuEl));
+menuEl.addEventListener("click", (ev) => {
+  const t = (ev.target as HTMLElement).closest<HTMLButtonElement>("button");
+  if (!t) return;
+  const key = t.dataset.openTown;
+  const act = t.dataset.menu;
+  if (act !== "sources") openPop(undefined);
+  if (key) {
+    const save = fetchKept(localStorage, key);
+    if (!save) { drawTowns(); return; }
+    selected = undefined;
+    follow = undefined;
+    setTown(load(save, modules));
+  } else if (act === "download") {
+    const blob = new Blob([serialize(town)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${town.label(town.root).replace(/\W+/g, "-").toLowerCase()}.town.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  } else if (act === "open") {
+    $<HTMLInputElement>("#load").click();
+  } else if (act === "sources") {
+    showSources = !showSources;
+    try { localStorage.setItem("town-gen.sources", showSources ? "1" : "0"); } catch { /* ignore */ }
+    drawTowns();
+    menuEl.querySelector<HTMLElement>('[data-menu="sources"]')?.focus();
+    drawInspector();
+  } else if (act === "forget") {
     if (!confirm(`Forget your edits and pins in ${town.label(town.root)}? The seed still gives the town as generated.`)) return;
     try { forget(localStorage, townKey(town.toSave())); } catch { /* ignore */ }
     const save = town.toSave();
     selected = undefined;
     setTown(load({ ...save, overlay: {}, pinned: {}, events: [] }, modules));
-    return;
   }
-  const save = fetchKept(localStorage, v);
-  if (!save) { drawTowns(); return; }
-  selected = undefined;
-  follow = undefined;
-  setTown(load(save, modules));
+});
+$<HTMLInputElement>("#load").addEventListener("change", async (ev) => {
+  const input = ev.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+  try {
+    selected = undefined;
+    setTown(load(JSON.parse(await file.text()) as SaveFile, modules));
+  } catch (err) {
+    alert(`Couldn't load that file: ${(err as Error).message}`);
+  }
 });
 
 // ---- clock ---------------------------------------------------------------
 
 const clockDate = $<HTMLInputElement>("#clock-date");
 const clockBlock = $<HTMLSelectElement>("#clock-block");
-const peopleBox = $<HTMLInputElement>("#show-people");
+const clockLabelEl = $<HTMLButtonElement>("#clock-label");
 
 function syncClock() {
+  clockLabelEl.textContent = clockLabel(town.clock.date, town.clock.block);
+  clockLabelEl.title = `${describeDate(town.clock.date)}, ${town.clock.block.replace("_", " ")}. Click to pick a date; [ and ] step.`;
   clockDate.value = town.clock.date;
-  clockDate.title = describeDate(town.clock.date);
   clockBlock.value = town.clock.block;
-  peopleBox.checked = showPeople;
+  mapEl.querySelector('[data-zoom="people"]')?.classList.toggle("on", showPeople);
 }
 
 function setClock(date: string, block: string) {
@@ -132,6 +182,11 @@ function setClock(date: string, block: string) {
   drawInspector();
 }
 
+function stepBy(step: number) {
+  const c = stepClock(town.clock.date, town.clock.block, step);
+  setClock(c.date, c.block);
+}
+
 function drawPeople() {
   const svg = mapEl.querySelector("svg");
   svg?.querySelector(".m-people")?.remove();
@@ -139,59 +194,65 @@ function drawPeople() {
   svg.insertAdjacentHTML("beforeend", renderPeople(town, occupancy(town, town.clock.date, town.clock.block as Block)));
 }
 
+function togglePeople() {
+  showPeople = !showPeople;
+  try { localStorage.setItem("town-gen:people", showPeople ? "1" : "0"); } catch { /* ignore */ }
+  syncClock();
+  drawPeople();
+}
+
 $("#clock").addEventListener("click", (ev) => {
-  const b = (ev.target as HTMLElement).closest<HTMLElement>("[data-step]");
-  if (!b) return;
-  const step = Number(b.dataset.step);
-  let i = BLOCKS.indexOf(town.clock.block as Block) + step;
-  let date = town.clock.date;
-  if (i < 0) { i = BLOCKS.length - 1; date = addDays(date, -1); }
-  if (i >= BLOCKS.length) { i = 0; date = addDays(date, 1); }
-  setClock(date, BLOCKS[i]);
+  const t = ev.target as HTMLElement;
+  if (t.closest("#clock-label")) { openPop($<HTMLElement>("#clock-pop")); return; }
+  const b = t.closest<HTMLElement>("[data-step]");
+  if (b) stepBy(Number(b.dataset.step));
 });
 clockBlock.addEventListener("change", () => setClock(town.clock.date, clockBlock.value));
 clockDate.addEventListener("change", () => {
   try { parseDate(clockDate.value.trim()); setClock(clockDate.value.trim(), town.clock.block); }
   catch { clockDate.value = town.clock.date; }
 });
-peopleBox.addEventListener("change", () => {
-  showPeople = peopleBox.checked;
-  try { localStorage.setItem("town-gen:people", showPeople ? "1" : "0"); } catch { /* ignore */ }
-  drawPeople();
-});
+
+// ---- the New town dialog ----------------------------------------------------
+
+const dialog = $<HTMLDialogElement>("#new-town-dialog");
+form.innerHTML = newTownHtml();
+const field = <T extends Element>(name: string) => form.elements.namedItem(name) as unknown as T;
 
 function syncForm() {
   const s = town.toSave().town;
-  (form.elements.namedItem("seed") as HTMLInputElement).value = s.seed;
-  (form.elements.namedItem("pop") as HTMLInputElement).value = String(s.config.pop);
-  (form.elements.namedItem("era") as HTMLSelectElement).value = s.era;
-  (form.elements.namedItem("base") as HTMLSelectElement).value = s.config.base;
-  (form.elements.namedItem("manorial") as HTMLInputElement).checked = s.config.lordship === "manorial";
+  field<HTMLInputElement>("seed").value = s.seed;
+  field<HTMLInputElement>("pop").value = String(s.config.pop);
+  field<HTMLSelectElement>("era").value = s.era;
+  field<HTMLSelectElement>("base").value = s.config.base;
+  field<HTMLInputElement>("manorial").checked = s.config.lordship === "manorial";
   const d = s.config.design ?? {};
   for (const k of ["walls", "gates", "shape", "castle", "market", "suburbs", "crime"] as const) {
     const v = d[k];
-    (form.elements.namedItem(k) as HTMLSelectElement).value = v === undefined ? "" : typeof v === "boolean" ? (v ? "1" : "0") : String(v);
+    field<HTMLSelectElement>(k).value = v === undefined ? "" : typeof v === "boolean" ? (v ? "1" : "0") : String(v);
   }
   syncManor();
 }
 
+/** What this many people will make, and which choices apply to it. */
 function syncManor() {
-  const pop = Number((form.elements.namedItem("pop") as HTMLInputElement).value) || 0;
-  const box = form.elements.namedItem("manorial") as HTMLInputElement;
-  box.disabled = pop > MANOR_MAX;
-  if (box.disabled) box.checked = false;
-  box.closest("label")!.title = box.disabled ? "Towns and cities are not manors" : "A manorial village is owned outright by its lord, and its people are mostly villeins";
-  const plan = $<HTMLDetailsElement>("#plan");
-  plan.classList.toggle("off", pop <= 700);
-  plan.classList.toggle("set", [...plan.querySelectorAll("select")].some((x) => x.value));
-  plan.querySelector("summary")!.title = pop <= 700 ? "Plans apply above 700 people, where there are streets; a hamlet grows as it will" : "Lay out a town your way. Applies above 700 people, where there are streets.";
+  const pop = Number(field<HTMLInputElement>("pop").value) || 0;
+  const p = sizePreview(Math.min(30000, Math.max(50, pop || 200)));
+  $("#size-preview").textContent = p.line;
+  const manor = $<HTMLElement>("#manor-field");
+  manor.hidden = pop > MANOR_MAX;
+  if (manor.hidden) field<HTMLInputElement>("manorial").checked = false;
+  $<HTMLElement>("#plan").hidden = pop <= PLAN_MIN;
 }
-(form.elements.namedItem("pop") as HTMLInputElement).addEventListener("input", syncManor);
-$("#plan").addEventListener("change", syncManor);
-document.addEventListener("pointerdown", (e) => {
-  const plan = $<HTMLDetailsElement>("#plan");
-  if (plan.open && !plan.contains(e.target as Node)) plan.open = false;
+
+$("#new-town-btn").addEventListener("click", () => {
+  syncForm();
+  dialog.showModal();
+  field<HTMLInputElement>("pop").focus();
 });
+form.addEventListener("input", syncManor);
+$("#reroll-seed").addEventListener("click", () => { field<HTMLInputElement>("seed").value = randomSeed(); });
+$("#new-town-cancel").addEventListener("click", () => dialog.close());
 
 function select(a: Address | undefined) {
   selected = a;
@@ -237,7 +298,7 @@ function setParty(at: [number, number]) {
 function drawMap() {
   mapEl.innerHTML = renderMap(town) +
     `<div class="lens"><select id="lens-select" title="Colour the map by...">${LENSES.filter((l) => !l.streetOnly || town.settlement().get<MapData>("map").kind === "town").map((l) => `<option value="${l.id}"${l.id === lens ? " selected" : ""}>${esc(l.label)}</option>`).join("")}</select><div class="legend"></div></div>` +
-    `<div class="zoom"><button data-zoom="in" title="Zoom in">+</button><button data-zoom="out" title="Zoom out">−</button><button data-zoom="fit" title="Fit to the settlement">◎</button><button data-zoom="party" title="Place the party: click the map (or right-click anywhere)">⚑</button></div>`;
+    `<div class="zoom"><button data-zoom="in" title="Zoom in">+</button><button data-zoom="out" title="Zoom out">−</button><button data-zoom="fit" title="Fit to the settlement">◎</button><button data-zoom="party" title="Place the party: click the map (or right-click anywhere)">⚑</button><button data-zoom="people" title="Show townsfolk">☺</button></div>`;
   const svg = mapEl.querySelector("svg")!;
   if (!view) view = fitVillage();
   applyView(svg);
@@ -462,6 +523,7 @@ mapEl.addEventListener("wheel", (e) => {
 mapEl.addEventListener("click", (e) => {
   const b = (e.target as Element).closest<HTMLButtonElement>("[data-zoom]");
   if (!b) return;
+  if (b.dataset.zoom === "people") { togglePeople(); return; }
   if (b.dataset.zoom === "party") { placing = !placing; mapEl.classList.toggle("placing", placing); return; }
   if (b.dataset.zoom === "in") zoom(1 / 1.4);
   else if (b.dataset.zoom === "out") zoom(1.4);
@@ -879,42 +941,24 @@ function startEdit(e: Address, dd: HTMLElement, key: string) {
   input.addEventListener(opts ? "change" : "blur", commit);
 }
 
-// ---- top bar -------------------------------------------------------------
+// ---- building a town ------------------------------------------------------
 
 form.addEventListener("submit", (ev) => {
   ev.preventDefault();
-  $<HTMLDetailsElement>("#plan").open = false;
+  dialog.close();
   const fd = new FormData(form);
   selected = undefined;
+  follow = undefined;
   const { seed, settings } = settingsFromForm((k) => fd.get(k) as string | null);
   setTown(fresh(seed ?? randomSeed(), settings));
 });
-$("#random-seed").addEventListener("click", () => {
-  (form.elements.namedItem("seed") as HTMLInputElement).value = randomSeed();
-  form.requestSubmit();
-});
-$("#sources").addEventListener("click", () => {
-  showSources = !showSources;
-  try { localStorage.setItem("town-gen.sources", showSources ? "1" : "0"); } catch { /* ignore */ }
-  drawInspector();
-});
-$("#save").addEventListener("click", () => {
-  const blob = new Blob([serialize(town)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${town.label(town.root).replace(/\W+/g, "-").toLowerCase()}.town.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-});
-$<HTMLInputElement>("#load").addEventListener("change", async (ev) => {
-  const file = (ev.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-  try {
-    selected = undefined;
-    setTown(load(JSON.parse(await file.text()) as SaveFile, modules));
-  } catch (err) {
-    alert(`Couldn't load that file: ${(err as Error).message}`);
-  }
+
+// ---- keys ----------------------------------------------------------------
+
+document.addEventListener("keydown", (e) => {
+  if (isTypingTarget(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey || dialog.open) return;
+  if (e.key === "[") { e.preventDefault(); stepBy(-1); }
+  else if (e.key === "]") { e.preventDefault(); stepBy(1); }
 });
 window.addEventListener("resize", () => { view = undefined; drawMap(); });
 

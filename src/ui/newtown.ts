@@ -37,3 +37,31 @@ export function settingsFromForm(get: (k: string) => string | null): { seed: str
   };
   return { seed: get("seed")?.trim() || undefined, settings };
 }
+
+const opt = (pairs: [string, string][]) => pairs.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+const ANY: [string, string] = ["", "any"];
+
+/** The New town dialog's form body. Nothing applies until "Build town". */
+export function newTownHtml(): string {
+  return `<h2>New town</h2>
+<div class="fields">
+  <label class="field"><span>Name the seed</span><span class="row"><input name="seed" autocomplete="off" spellcheck="false" /><button type="button" id="reroll-seed" title="A new random seed">Reroll</button></span></label>
+  <label class="field"><span>How many people?</span><input name="pop" type="number" min="50" max="30000" step="10" /></label>
+  <p id="size-preview" class="preview" aria-live="polite"></p>
+  <label class="field"><span>How do they live?</span><select name="base">${opt([["agricultural", "farming"], ["fishing", "fishing"], ["herding", "herding"], ["mining", "mining"], ["woodcutting", "woodcutting"]])}</select></label>
+  <label class="field"><span>When?</span><select name="era">${opt([["early_medieval", "early medieval"], ["high_medieval", "high medieval"], ["late_medieval", "late medieval"], ["early_modern", "early modern"]])}</select></label>
+  <label class="check" id="manor-field"><input type="checkbox" name="manorial" /> <span>Held as a manor <span class="sub">— owned outright by its lord; most people are villeins</span></span></label>
+</div>
+<fieldset id="plan">
+  <legend>Street plan</legend>
+  <label class="field"><span>Walls</span><select name="walls">${opt([ANY, ["none", "none, open"], ["palisade", "bank and palisade"], ["wall", "stone wall"]])}</select></label>
+  <label class="field"><span>Gates</span><select name="gates">${opt([ANY, ["2", "2"], ["3", "3"], ["4", "4"], ["5", "5"], ["6", "6"]])}</select></label>
+  <label class="field"><span>Shape</span><select name="shape">${opt([ANY, ["round", "round"], ["oval", "oval"], ["long", "long, along the high street"]])}</select></label>
+  <label class="field"><span>Castle</span><select name="castle">${opt([ANY, ["1", "yes"], ["0", "no"]])}</select></label>
+  <label class="field"><span>Market</span><select name="market">${opt([ANY, ["small", "small"], ["large", "large"]])}</select></label>
+  <label class="field"><span>Suburbs</span><select name="suburbs">${opt([ANY, ["few", "few"], ["many", "many"]])}</select></label>
+  <label class="field"><span>Crime</span><select name="crime">${opt([ANY, ["quiet", "quiet"], ["usual", "the usual"], ["rife", "rife"]])}</select></label>
+  <p class="plan-note">“Any” leaves it to the dice. Castles and gangs need 1,000 people or more.</p>
+</fieldset>
+<div class="actions"><button type="button" id="new-town-cancel">Cancel</button><button type="submit" class="primary">Build town</button></div>`;
+}

@@ -73,3 +73,34 @@ describe("history", () => {
     expect(isTypingTarget(null)).toBe(false);
   });
 });
+
+import { clockLabel, stepClock, townMenuHtml } from "../src/ui/topbar";
+import { newTownHtml } from "../src/ui/newtown";
+
+describe("top bar", () => {
+  test("clock label is short weekday, day, month and the time of day", () => {
+    expect(clockLabel("1203-10-01", "forenoon")).toBe("Wed 1 Oct · forenoon");
+    expect(clockLabel("1203-10-01", "late_night")).toBe("Wed 1 Oct · late night");
+  });
+
+  test("stepping the clock wraps across days", () => {
+    expect(stepClock("1203-10-01", "late_night", 1)).toEqual({ date: "1203-10-02", block: "morning" });
+    expect(stepClock("1203-10-01", "morning", -1)).toEqual({ date: "1203-09-30", block: "late_night" });
+    expect(stepClock("1203-10-01", "morning", 1)).toEqual({ date: "1203-10-01", block: "forenoon" });
+  });
+
+  test("the town menu offers file actions, and forgetting only for a kept town", () => {
+    const kept = [{ key: "k1", name: "Ashby", pop: 200, base: "agricultural", updated: 0 }];
+    const open = townMenuHtml(kept, "k1", "Ashby", false);
+    expect(open).toContain("Download file");
+    expect(open).toContain("Open file…");
+    expect(open).toContain("Show book sources");
+    expect(open).toContain("Forget my edits to Ashby…");
+    expect(townMenuHtml(kept, "k2", "Brill", false)).not.toContain("Forget my edits");
+  });
+
+  test("the new town dialog has the plan, the preview and a build button", () => {
+    const h = newTownHtml();
+    for (const s of ['id="plan"', 'id="size-preview"', 'id="reroll-seed"', "Build town", "How many people?", 'name="walls"', 'name="crime"']) expect(h).toContain(s);
+  });
+});
