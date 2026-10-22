@@ -19,7 +19,7 @@ import {
 } from "./geom";
 import type { Feature, FieldPiece, Footprint, PlacedBuilding, Road, Terrain } from "./hamlet";
 import {
-  PRIORITY, blob, boatPoly, building, compassOf, dirOf, insetOutline, isSuburbFp, nearestWard, plotsFor,
+  CHURCH_SIZE, PRIORITY, blob, boatPoly, building, compassOf, dirOf, insetOutline, isSuburbFp, nearestWard, plotsFor,
   type Enclosure, type FrontKind, type Plot, type Scale, type TownLayout, type WardGeo,
 } from "./streets";
 
@@ -68,9 +68,6 @@ interface Block {
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 
-const CHURCH_SIZE: Record<string, [number, number]> = {
-  grand_temple: [64, 20], temple: [38, 13], fane: [26, 10], chapel: [16, 7.5], chantry: [11, 6], shrine: [5, 4],
-};
 
 export function layoutRadial(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   const urban = o.scale === "town" || o.scale === "city";

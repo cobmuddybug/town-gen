@@ -2,6 +2,8 @@ import type { Module } from "../../core/types";
 import type { BuildingUse } from "../uses";
 import { layoutHamlet, type HamletLayout, type Terrain } from "./hamlet";
 import { layoutRadial } from "./radial";
+import { layoutRiver } from "./river";
+import type { FarBank } from "../../core/types";
 import type { Enclosure, Scale, TownLayout } from "./streets";
 import { STREET_PLAN_POP } from "../uses";
 
@@ -42,7 +44,10 @@ export const layout: Module = {
       const terrain = s.get<Terrain>("terrain") ?? "farmland";
       const { shape, market, suburbs } = ctx.town.settings.design ?? {};
       const designed = street ? { ...(shape ? { shape } : {}), ...(market ? { market } : {}), ...(suburbs ? { suburbs } : {}) } : {};
-      const key = `${ctx.town.seed}|${s.address}|${layout.version}|${terrain}|${JSON.stringify(designed)}|${JSON.stringify(footprints)}`;
+      const layoutPlan = s.get<"radial" | "river" | undefined>("layoutPlan") ?? "radial";
+      const farBank = s.get<FarBank | undefined>("farBank") ?? "village";
+      const farUses = s.get<number[] | undefined>("farUses") ?? [];
+      const key = `${ctx.town.seed}|${s.address}|${layout.version}|${terrain}|${layoutPlan}|${farBank}|${JSON.stringify(farUses)}|${JSON.stringify(designed)}|${JSON.stringify(footprints)}`;
       let map = cache.get(key);
       if (!map && street) {
         const encl = s.get<string>("enclosure");
@@ -50,9 +55,10 @@ export const layout: Module = {
         // The room estimate is rough. When it falls short, buildings find no plot and
         // would be lost, so lay the town out again, roomier, from the same stream.
         for (let room = 1; ; room += 0.08) {
-          map = layoutRadial(ctx.rng(s, "town"), footprints, {
-            scale: s.get<Scale>("sizeClass"), enclosure, roads: s.get<number>("mainRoads"), terrain, ...designed, ...(room > 1 ? { room } : {}),
-          });
+          const opts = { scale: s.get<Scale>("sizeClass"), enclosure, roads: s.get<number>("mainRoads"), terrain, ...designed, ...(room > 1 ? { room } : {}) };
+          map = layoutPlan === "river"
+            ? layoutRiver(ctx.rng(s, "river"), footprints, { ...opts, farBank, far: farUses, need: 0 })
+            : layoutRadial(ctx.rng(s, "town"), footprints, opts);
           if (map.buildings.length >= footprints.length || room > 1.5) break;
         }
         cache.set(key, map);
@@ -70,7 +76,7 @@ export const layout: Module = {
       if (wards) for (const w of wards) {
         ctx.create("ward", s.address, wardId(w.id), {
           index: w.id, kind: w.kind, valueClass: w.value, quarter: w.quarter, centre: w.centre, compass: w.compass,
-          adjacent: w.adj.map((a) => `${s.address}/ward:${wardId(a)}`), near: w.near,
+          adjacent: w.adj.map((a) => `${s.address}/ward:${wardId(a)}`), near: w.near, ...(w.bank ? { bank: w.bank } : {}),
         });
       }
       // Number buildings in placement order, which is deterministic.

@@ -31,7 +31,8 @@ describe("town plans (settings.design)", () => {
 
   test("a long town lies along its first road, and the river stays outside", () => {
     for (const seed of ["design-c", "design-d", "design-e"]) {
-      const t = generate(seed, { pop: 7000, design: { shape: "long", gates: 2 } });
+      // Shapes are the radial plan's.
+      const t = generate(seed, { pop: 7000, design: { shape: "long", gates: 2, layout: "radial" } });
       const m = t.settlement().get<MapData & { kind: "town" }>("map");
       // Longest extent of the town ground is clearly longer than its width.
       let best = 0, worst = Infinity;

@@ -176,3 +176,8 @@ export function marketSize(o: { scale: Scale; market?: "small" | "large" }, need
   const base = urban ? 20 + 0.55 * Math.sqrt(need * 6) : o.scale === "village" ? 20 + 0.42 * Math.sqrt(need * 6) : 18 + 0.3 * Math.sqrt(need * 6);
   return base * (o.market === "small" ? 0.7 : o.market === "large" ? 1.5 : 1);
 }
+
+/** A church's nave length and width, by kind. */
+export const CHURCH_SIZE: Record<string, [number, number]> = {
+  grand_temple: [64, 20], temple: [38, 13], fane: [26, 10], chapel: [16, 7.5], chantry: [11, 6], shrine: [5, 4],
+};

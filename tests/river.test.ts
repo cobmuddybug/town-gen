@@ -3,7 +3,9 @@ import { Rng } from "../src/core/rng";
 import { segPointDist, type Pt } from "../src/modules/layout/geom";
 import { heightField } from "../src/modules/layout/height";
 import { riverSite, riverStreets, sideOf, type RiverOpts, type RiverSite, type StreetNet } from "../src/modules/layout/river";
-import { pointInPoly, polylinePolyDist } from "../src/modules/layout/geom";
+import { convexOverlap, pointInPoly, polylinePolyDist } from "../src/modules/layout/geom";
+import type { MapData } from "../src/modules/layout";
+import type { Town } from "../src/core/town";
 import { generate } from "../src/town-gen";
 import type { Design, FarBank, LayoutPlan } from "../src/core/types";
 
@@ -193,4 +195,107 @@ describe("the river town's streets", () => {
     expect(n.gates.length).toBeGreaterThanOrEqual(OPTS(4000).roads);
     expect(n.gates.some((g) => g.road === "high")).toBe(true);
   });
+});
+
+// ---- whole river towns -------------------------------------------------------
+const riverTown = (seed: string, pop: number, farBank: FarBank = "village", base = "agricultural") => {
+  const t = generate(seed, { pop, base, design: { layout: "river", farBank } });
+  return { t, map: t.settlement().get<MapData>("map") };
+};
+const wardOf = (t: Town, b: { get<T>(k: string): T }) => t.settlement().get<MapData>("map").wards![b.get<number>("ward")];
+const farShare = (t: Town) => {
+  const bs = t.children(t.root, "building");
+  return bs.filter((b) => wardOf(t, b)?.bank === "far").length / bs.length;
+};
+/** Buildings that overlap each other or stand in the river (a grid keeps it quick). */
+function overlaps(t: Town): string[] {
+  const map = t.settlement().get<MapData>("map");
+  const bs = t.children(t.root, "building").map((b) => ({ a: b.address, poly: b.get<Pt[]>("poly") }));
+  const cell = 40, grid = new Map<string, number[]>();
+  const out: string[] = [];
+  bs.forEach((b, i) => {
+    const xs = b.poly.map((p) => p[0]), ys = b.poly.map((p) => p[1]);
+    const keys: string[] = [];
+    for (let x = Math.floor(Math.min(...xs) / cell); x <= Math.floor(Math.max(...xs) / cell); x++) for (let y = Math.floor(Math.min(...ys) / cell); y <= Math.floor(Math.max(...ys) / cell); y++) keys.push(`${x},${y}`);
+    const seen = new Set<number>();
+    for (const k of keys) for (const j of grid.get(k) ?? []) if (!seen.has(j)) { seen.add(j); if (convexOverlap(b.poly, bs[j].poly, -0.3)) out.push(`${b.a} × ${bs[j].a}`); }
+    for (const k of keys) { const l = grid.get(k); if (l) l.push(i); else grid.set(k, [i]); }
+    if (b.poly.some((p) => nearestDist(map.stream.points, p) < map.stream.width / 2 - 0.5)) out.push(`${b.a} in the river`);
+  });
+  return out;
+}
+const SIG: Record<FarBank, string[][]> = {
+  village: [["chapel", "fane"]],
+  bridgend: [["town_tannery"], ["inn", "hostel"]],
+  abbey: [["priory", "friary"]],
+  wharf: [["warehouse"], ["boatwright"]],
+};
+
+describe("whole river towns", () => {
+  test.each([800, 3000, 8000, 30000])("every footprint is placed, with no overlaps, at %i people", (pop) => {
+    const { t, map } = riverTown(`place${pop}`, pop);
+    expect(map.plan).toBe("river");
+    expect(t.children(t.root, "building").length).toBe(t.settlement().get<string[]>("plan").length);
+    expect(overlaps(t).slice(0, 5)).toEqual([]);
+  }, 300000);
+
+  test("smallest river towns place everything and keep the far bank's share", () => {
+    for (const pop of [701, 750, 900, 1000]) for (const k of ["village", "bridgend", "abbey", "wharf"] as FarBank[]) {
+      const { t } = riverTown(`small${pop}${k}`, pop, k);
+      expect(t.children(t.root, "building").length, `${pop} ${k}`).toBe(t.settlement().get<string[]>("plan").length);
+      const share = farShare(t);
+      expect(share, `${pop} ${k}`).toBeGreaterThanOrEqual(0.15);
+      expect(share, `${pop} ${k}`).toBeLessThanOrEqual(0.25);
+    }
+  }, 300000);
+
+  test("the far bank holds 15–25% of buildings across seeds", () => {
+    for (let i = 0; i < 10; i++) for (const pop of [1500, 6000]) {
+      const s = farShare(riverTown(`share${i}`, pop).t);
+      expect(s, `share${i} ${pop}`).toBeGreaterThanOrEqual(0.15);
+      expect(s, `share${i} ${pop}`).toBeLessThanOrEqual(0.25);
+    }
+  }, 300000);
+
+  test("each far-bank kind's signature uses stand on the far bank, at 750 and 5000", () => {
+    for (const k of Object.keys(SIG) as FarBank[]) for (const pop of [750, 5000]) {
+      const { t } = riverTown(`sig${k}${pop}`, pop, k);
+      const far = t.children(t.root, "building").filter((b) => wardOf(t, b)?.bank === "far").map((b) => b.get<string>("use"));
+      for (const any of SIG[k]) expect(far.some((u) => any.includes(u)), `${k} ${pop} ${any}`).toBe(true);
+    }
+  }, 300000);
+
+  test("far-bank wards are suburbs, and the wall stays on the near bank", () => {
+    const { map } = riverTown("wall", 8000);
+    const far = map.wards!.filter((w) => w.bank === "far");
+    expect(far.length).toBeGreaterThan(0);
+    for (const w of far) expect(w.kind).toBe("suburb");
+    const near = sideOf(map.stream.points, map.market![0]);
+    expect(map.wall!.line.every((p) => sideOf(map.stream.points, p) === near)).toBe(true);
+  }, 300000);
+
+  test("a city has two bridges", () => expect(riverTown("city", 30000).map.bridges!.length).toBe(2), 300000);
+
+  test("a coast river town has its quay on the near bank and the river reaches the sea", () => {
+    const { map } = riverTown("coastal", 4000, "wharf", "fishing");
+    expect(map.quay?.length).toBeGreaterThan(0);
+    const near = sideOf(map.stream.points, map.market![0]);
+    expect(map.quay!.every((p) => sideOf(map.stream.points, p) === near)).toBe(true);
+    expect(map.coast?.length).toBeGreaterThan(0);
+  }, 300000);
+
+  test("same seed, same map", () => {
+    expect(JSON.stringify(riverTown("det", 5000).map)).toBe(JSON.stringify(riverTown("det", 5000).map));
+  }, 300000);
+});
+
+describe("river towns and the rest of the generator", () => {
+  test("every quarter has a ward, so every quarter gets its constable", () => {
+    for (const [seed, pop] of [["burgh-a", 8000], ["q1", 5000], ["q2", 9000], ["q3", 20000]] as const) {
+      const t = generate(seed, { pop, design: { layout: "river" } });
+      const quarters = t.settlement().get<number>("quarters");
+      const have = new Set(t.children(t.root, "ward").filter((w) => w.get("kind") === "intramural").map((w) => w.get<number>("quarter")));
+      for (let q = 0; q < quarters; q++) expect(have.has(q), `${seed} quarter ${q}`).toBe(true);
+    }
+  }, 300000);
 });
