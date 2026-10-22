@@ -131,7 +131,9 @@ describe("the crime calendar", () => {
     const W = world(t)!;
     const jobs = jobBoard(t, "1203-10-07");
     expect(jobs.some((j) => /^(stolen|racket|bounty|blackmail|knife|crew)\//.test(j.id))).toBe(true);
-    const den = W.gangs.find((g) => g.den)!.den!;
+    // The den where most of its crew are that evening: a crew at its own den notices strangers first.
+    const atDen = (g: (typeof W.gangs)[number]) => [...W.crew].filter(([p, m]) => m.gang === g && whereabouts(t, p, "1203-10-07", "evening").where === g.den).length;
+    const den = [...W.gangs].filter((g) => g.den).sort((a, b) => atDen(b) - atDen(a))[0].den!;
     const at = centroid(t.get(den).get<Poly>("poly"));
     const r = report(t, at, "1203-10-07", "evening");
     expect(r.crime?.dens.some((d) => d.a === den)).toBe(true);

@@ -28,6 +28,29 @@ const RIVER_ISSUES = [
 ];
 // With an abbey over the water, the abbot is the town's oldest grievance: it comes up three times as often.
 const ABBEY_ISSUES = ["the abbot's mill over the river, where the town's bakers must grind and pay his multure"];
+// Each kind of town has its own old quarrel, which comes up as often as the abbot's.
+const FORM_ISSUES: Record<string, string[]> = {
+  castle: [
+    "castle-guard: the constable of the castle calls on the burgesses to stand watch on its walls, and they say their charter frees them",
+    "the garrison's men drinking in the town on credit, and the constable's court that hears the town's complaints",
+  ],
+  abbey: [
+    "the abbot's market tolls: every stall before the abbey gate pays the abbey, and the townsmen want a market of their own",
+    "the abbey's court, which tries the town's quarrels and keeps the fines",
+  ],
+  harbour: [
+    "harbour dues: who keeps the quay in repair, and who pockets what the ships pay to tie up at it",
+    "a wreck on the rocks below the headland, and whether its cargo is the lord's, the finders' or the drowned men's kin's",
+  ],
+  street: [
+    "the stalls that crowd the street on market days until a cart can't pass, and the shopkeepers whose doors they block",
+    "the street's middle row of shambles and booths, which the lord lets out and the town wants pulled down",
+  ],
+  crossroads: [
+    "the carriers who use the crossroads and won't pay to mend its roads",
+    "which road the new market cross faces, and so which street's shops get the trade",
+  ],
+};
 
 interface Faction { name: string; leader?: Address; members: Address[]; stands: string }
 export interface Politics { factions: Faction[]; issue: string; election: string; holder?: Address; office?: string; bribable: { who: Address; office: string; owes: number }[] }
@@ -60,7 +83,10 @@ export const politics: Module = {
         { name: "the crafts", leader: crafts, members: crafty.slice(0, 60), stands: "fair dues, open markets, and a voice on the council for the guilds" },
       ]);
       const map = town.settlement().get<MapData>("map");
-      const pool = map.plan === "river" ? [...ISSUES, ...RIVER_ISSUES, ...(map.farBank === "abbey" ? [...ABBEY_ISSUES, ...ABBEY_ISSUES, ...ABBEY_ISSUES] : [])] : ISSUES;
+      const own = FORM_ISSUES[map.plan ?? ""] ?? [];
+      const pool = map.farBank
+        ? [...ISSUES, ...RIVER_ISSUES, ...(map.farBank === "abbey" ? [...ABBEY_ISSUES, ...ABBEY_ISSUES, ...ABBEY_ISSUES] : [])]
+        : [...ISSUES, ...own, ...own, ...own];
       ctx.set(T, "politics.issue", r.pick(pool));
       // Officers who owe money are officers who can be leaned on.
       const bribable: { who: Address; office: string; owes: number }[] = [];

@@ -86,7 +86,7 @@ const CONDITIONS = ["sound", "sound", "sound", "weathered", "weathered", "in wan
 
 export const uses: Module = {
   id: "uses",
-  version: "2.0.0",
+  version: "2.1.0",
   requires: ["core"],
   provides: ["buildingUses", "occupations"],
   register(add) {

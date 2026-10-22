@@ -343,7 +343,7 @@ describe("river towns in the generator", () => {
   }, 300000);
 
   test("the layout module is at 2.0", () => {
-    expect(defaultModules.find((m) => m.id === "layout")!.version).toBe("2.0.0");
+    expect(defaultModules.find((m) => m.id === "layout")!.version).toBe("2.1.0");
   });
 });
 

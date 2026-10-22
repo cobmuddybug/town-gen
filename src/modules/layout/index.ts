@@ -26,7 +26,7 @@ export function buildingId(n: number): string {
 /** L1: the map. Places one building per planned use and creates them as stubs. */
 export const layout: Module = {
   id: "layout",
-  version: "2.0.0",
+  version: "2.1.0",
   requires: ["core", "uses"],
   hooks: {
     onSettlementGenerated(ctx, s) {

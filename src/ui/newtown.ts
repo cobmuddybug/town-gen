@@ -54,7 +54,7 @@ export function newTownHtml(): string {
 </div>
 <fieldset id="plan">
   <legend>Street plan</legend>
-  <label class="field"><span>Layout</span><select name="layout">${opt([ANY, ["river", "river town"], ["radial", "radial web"]])}</select></label>
+  <label class="field"><span>Layout</span><select name="layout">${opt([ANY, ["river", "river town"], ["ridge", "ridge, down to a river"], ["castle", "castle gate"], ["street", "one long street"], ["crossroads", "crossroads"], ["abbey", "abbey gate"], ["harbour", "harbour"], ["radial", "radial web"]])}</select></label>
   <label class="field" id="farbank-field"><span>Over the bridge</span><select name="farBank">${opt([ANY, ["village", "old village"], ["bridgend", "bridge-end"], ["abbey", "abbey's side"], ["wharf", "wharf side"]])}</select></label>
   <label class="field"><span>Walls</span><select name="walls">${opt([ANY, ["none", "none, open"], ["palisade", "bank and palisade"], ["wall", "stone wall"]])}</select></label>
   <label class="field"><span>Gates</span><select name="gates">${opt([ANY, ["2", "2"], ["3", "3"], ["4", "4"], ["5", "5"], ["6", "6"]])}</select></label>

@@ -130,9 +130,23 @@ export const civic: Module = {
         };
         const out: string[] = [];
         const placeName = ctx.registry<{ id: string; place(r: Rng): string }>("nameProviders").get("anglo-norman");
+        // Up a ridge town from its bridge: the wards beyond the middle distance are the higher town.
+        const bridge = map.bridges?.[0];
+        const fromBridge = (w: (typeof wards)[number]) => (bridge ? dist(bridge, w.centre) : 0);
+        const midway = [...wards].filter((w) => w.bank !== "far").map(fromBridge).sort((a, b) => a - b)[Math.floor(wards.length / 2)] ?? 0;
+        /** Names a town's form gives its wards, before the usual ones. */
+        const formNames = (w: (typeof wards)[number], cw: string): string[] => {
+          if (w.kind === "suburb") return [];
+          // (Villages have Ends.)
+          if (map.plan === "abbey" && (w.near.includes("abbey") || w.near.includes("market"))) return urban ? ["Abbey Gate", "the Sanctuary"] : ["Abbey End"];
+          if (map.plan === "castle" && w.near.includes("market")) return urban ? ["the Bailey"] : ["Castle End"];
+          if (map.plan === "ridge" && bridge) return [fromBridge(w) > midway ? (urban ? "Higher Town" : "Higher End") : urban ? "Lower Town" : "Lower End"];
+          if (map.plan === "crossroads" && !w.near.includes("market")) return [urban ? `${cw} Street Ward` : `${cw} Street End`];
+          return [];
+        };
         for (const w of wards) {
           const cw = content.compass[w.compass] ?? "North";
-          const cands: string[] = [];
+          const cands: string[] = w.bank === "far" ? [] : formNames(w, cw);
           if (w.bank === "far") {
             // Over the bridge: named for what it is, or for the old village it was.
             if (map.farBank === "village") cands.push(`Old ${placeName.place(r)}`);

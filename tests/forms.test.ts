@@ -114,6 +114,38 @@ describe.each(FORMS)("%s towns", (form: Form) => {
   }, 300000);
 });
 
+describe("the rest of the town follows the form", () => {
+  test.each([["castle", /Castle|Bailey/], ["abbey", /Abbey|Sanctuary/], ["harbour", /Quay|Strand/], ["ridge", /Higher|Lower/], ["crossroads", /Street/]] as const)("a %s town's wards are named for what it is", (form, words) => {
+    for (const pop of [3000, 9000]) {
+      const { t } = town(`wards-${form}-${pop}`, pop, form, {}, form === "harbour" ? "fishing" : "agricultural");
+      const names = t.children(t.root, "ward").map((w) => w.get<string>("name"));
+      expect(names.some((n) => words.test(n)), `${pop}: ${names.join(", ")}`).toBe(true);
+    }
+  }, 600000);
+
+  test.each([["castle", /castle|garrison|constable/], ["abbey", /abbot|abbey/], ["harbour", /harbour|quay|wreck/], ["street", /street|stalls/], ["crossroads", /crossroads|carriers/]] as const)("a %s town quarrels over its own kind of thing", (form, words) => {
+    const issue = (t: Town) => String(t.find(`${t.root}/institution:town`)?.get("politics.issue") ?? "");
+    const towns = Array.from({ length: 20 }, (_, i) => town(`q-${form}-${i}`, 3000, form, {}, form === "harbour" ? "fishing" : "agricultural").t);
+    towns.forEach((t) => t.society());
+    expect(towns.some((t) => words.test(issue(t)))).toBe(true);
+  }, 900000);
+
+  test("a ridge town's far bank keeps its own parish", () => {
+    const { t, map } = town("ridge-parish", 4000, "ridge", { farBank: "village" });
+    t.society();
+    const bankOf = (a: string) => map.wards![t.get(a).get<number>("ward")]?.bank;
+    let far = 0;
+    for (const h of t.allEntities().filter((e) => e.type === "household")) {
+      const parish = h.get<string | null>("parish");
+      if (!parish) continue;
+      const home = bankOf(t.parentOf(h.address)!);
+      expect(bankOf(parish), h.address).toBe(home);
+      if (home === "far") far++;
+    }
+    expect(far).toBeGreaterThan(0);
+  }, 300000);
+});
+
 describe("each form's own shape", () => {
   /** Long side over short side of a cloud of points. */
   const aspect = (pts: Pt[]) => {

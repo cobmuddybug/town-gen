@@ -294,7 +294,9 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
       for (const t of [-0.15, 0, 0.15]) {
         const c = rot(hd, bend + t);
         const p = add(at, mul(c, 22));
-        const cost = Math.abs(site.height(p) - site.height(at)) * 40 + Math.abs(t) * 0.5 + (wet(p, 6) || inAnchor(p, 6) ? 100 : 0);
+        // Round a castle mound the level way is a ring: a road away from a castle-gate town keeps going away.
+        const away = form === "castle" && site.anchor ? (1 - dot(c, norm2(sub(p, site.anchor)))) * 1.5 : 0;
+        const cost = Math.abs(site.height(p) - site.height(at)) * 40 + Math.abs(t) * 0.5 + away + (wet(p, 6) || inAnchor(p, 6) ? 100 : 0);
         if (cost < nb) { nb = cost; next = c; }
       }
       let p = add(at, mul(next, 22));
@@ -414,7 +416,7 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
     // One long, wide, gently curving street that is the market itself (Marlborough, Thame).
     d = dirOf(r.range(0, TAU));
     const side = perp(d);
-    const Lm = R * r.range(1.3, 1.7);
+    const Lm = R * r.range(1.7, 2.1);
     const bendK = r.range(-0.12, 0.12);
     const n2 = 10;
     const mid = (t: number): Pt => add(mul(d, (t * Lm) / 2), mul(side, bendK * Lm * (1 - t * t) * 0.5));
@@ -1041,7 +1043,7 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     return obstacles.some((ob) => convexOverlap(poly, ob, 1) || poly.some((p) => pointInPoly(p, ob)) || ob.some((p) => pointInPoly(p, poly))) ? "obstacle" : undefined;
   };
   let runs = 0;
-  const cutAlong = (line: Pt[], side: 1 | -1, half: number, own: string, kindOf: (mid: Pt) => FrontKind | undefined, far: boolean, d: number) => {
+  const cutAlong = (line: Pt[], side: 1 | -1, half: number, own: string, kindOf: (mid: Pt) => FrontKind | undefined, far: boolean, d: number, widths = plotW) => {
     // Walk the line, laying plots of jittered width; a gap starts a new run.
     const segs = line.slice(1).map((b, i) => ({ a: line[i], b, l: hypot(b[0] - line[i][0], b[1] - line[i][1]) }));
     const total = segs.reduce((t, x) => t + x.l, 0);
@@ -1056,7 +1058,7 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     };
     let run = runs++, idx = 0;
     for (let s = 2; s < total - 2;) {
-      const w = r.range(plotW[0], plotW[1]);
+      const w = r.range(widths[0], widths[1]);
       if (s + w > total - 1) break;
       const A = at(s), B = at(s + w);
       const nA = mul([-A.t[1], A.t[0]], side), nB = mul([-B.t[1], B.t[0]], side);
@@ -1087,7 +1089,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     for (const pts of [market.slice(0, h), market.slice(h)]) {
       const mid = pts[pts.length >> 1], a = pts[(pts.length >> 1) - 1];
       const nrm: Pt = [-(mid[1] - a[1]), mid[0] - a[0]];
-      cutAlong(pts, dot(nrm, sub(mid, mc)) >= 0 ? 1 : -1, 1, "market", () => "market", false, depth);
+      // Narrow frontages along the great street, as in Marlborough or Chipping Campden.
+      cutAlong(pts, dot(nrm, sub(mid, mc)) >= 0 ? 1 : -1, 1, "market", () => "market", false, depth, [5.5, 8]);
     }
   } else for (let i = 0; i + 1 < mClosed.length; i++) {
     const a = mClosed[i], b = mClosed[i + 1];
@@ -1456,8 +1459,10 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const widthOf = (p: Footprint) => (p.value ? p.value[1] - p.value[0] : 9);
   orderIx.sort((a, b) => (farSet.has(a) ? 1 : 0) - (farSet.has(b) ? 1 : 0) || rank(plan[a]) - rank(plan[b]) || plotsFor(plan[b]) - plotsFor(plan[a]) || widthOf(plan[a]) - widthOf(plan[b]) || a - b);
   // The poorest housing spills out beyond the gates (LF p.84): the DM's Suburbs choice says how much.
-  const spillShare = (urban ? 0.12 : 0.06) * (o.suburbs === "few" ? 0.25 : o.suburbs === "many" ? 2.5 : 1);
-  const spillOut = new Set(orderIx.filter((i) => !farSet.has(i) && (!plan[i].site || plan[i].kind === "poor_row") && plotsFor(plan[i]) === 1 && (plan[i].value?.[0] ?? 9) <= 1 && r.chance(Math.min(0.9, spillShare * 2))));
+  const spillShare = (urban ? 0.12 : 0.06) * (o.suburbs === "few" ? (form === "river" ? 0.25 : 0.1) : o.suburbs === "many" ? (form === "river" ? 2.5 : 5) : 1);
+  // (In the forms besides the river, "many" sends the next class of housing out too.)
+  const spillTop = form !== "river" && o.suburbs === "many" ? 2 : 1;
+  const spillOut = new Set(orderIx.filter((i) => !farSet.has(i) && (!plan[i].site || plan[i].kind === "poor_row") && plotsFor(plan[i]) === 1 && (plan[i].value?.[0] ?? 9) <= spillTop && r.chance(Math.min(0.9, spillShare * 2))));
   const spill: number[] = [];
   const overflowOk = form === "river" || (o.room ?? 1) > 1.45;
   for (const i of orderIx) {
@@ -1479,7 +1484,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       for (const fr of [...fronts, ...(overflow ? ["suburb" as FrontKind] : [])]) for (let v = 0; v <= 8; v++) {
         const c = peek(`${far ? 1 : 0}:${fr}:${far ? 0 : v}`);
         if (!c) continue;
-        const cost = c.order + 10 * (v < lo ? lo - v : v > hi ? v - hi : 0) + (fr === "suburb" ? R : 0);
+        // (A street town's houses stand along its great street first, all the way along.)
+        const cost = c.order + 10 * (v < lo ? lo - v : v > hi ? v - hi : 0) + (fr === "suburb" ? R : 0) - (form === "street" && fr === "market" ? R * 0.8 : 0);
         if (cost < bc) { bc = cost; best = c; }
         if (far) break;
       }
@@ -1512,7 +1518,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
           }
           // A river town takes the first kind of street with room; the other forms weigh them all, so a
           // kind of street with few plots doesn't end up a row of one trade.
-          if (best && form === "river") break;
+          // (What spills beyond the gates takes the first suburb it can, in every form.)
+          if (best && (form === "river" || spillOut.has(i))) break;
         }
         got = best;
       }
@@ -1613,8 +1620,10 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const extent = Math.max(outerR + 140, builtReach + 80);
   let coastLine: Pt[] | undefined, sea: Poly | undefined;
   if (site.sea) {
-    const u = perp(site.sea.n), b0 = mul(site.sea.n, site.sea.d);
-    coastLine = [qp(add(b0, mul(u, -extent * 1.5))), qp(add(b0, mul(u, extent * 1.5)))];
+    // The shore beside the town (a river town's is drawn from the map's middle, as it always was).
+    const u = perp(site.sea.n), b0 = form === "river" ? mul(site.sea.n, site.sea.d) : add(mc, mul(site.sea.n, site.sea.d - dot(mc, site.sea.n)));
+    const L = form === "river" ? extent * 1.5 : extent * 2.5;
+    coastLine = [qp(add(b0, mul(u, -L))), qp(add(b0, mul(u, L)))];
     sea = qpoly([coastLine[0], coastLine[1], add(coastLine[1], mul(site.sea.n, extent * 3)), add(coastLine[0], mul(site.sea.n, extent * 3))]);
   }
   const quayLine = net.streets.find((s) => s.kind === "quay")?.points;

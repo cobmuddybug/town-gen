@@ -2,28 +2,27 @@
 
 exports[`street plans > the layout is stable for a seed 1`] = `
 {
-  "buildings": 1264,
+  "buildings": 1263,
   "gates": [
     "Southgate",
     "Northgate",
-    "Aldgate",
-    "Ludgate",
+    "Westgate",
   ],
-  "geometry": "5c5b20bf",
-  "wallPoints": 58,
+  "geometry": "8756d429",
+  "wallPoints": 72,
   "wards": [
+    "North Street Ward",
     "Northgate Ward",
-    "Aldgate Ward",
-    "Holy Trinity Ward",
-    "St Wilfred's Ward",
-    "St Nicholas' Ward",
-    "Ludgate Ward",
-    "North Wool Market",
-    "Southgate Ward",
+    "St Olave's Ward",
+    "North Drapery",
+    "East Street Ward",
+    "South Street Ward",
+    "Westgate Ward",
+    "West Street Ward",
+    "Without Westgate",
     "Without Southgate",
     "Without Northgate",
-    "Without Aldgate",
-    "Abbey Fee",
+    "Beyond Westgate",
   ],
 }
 `;

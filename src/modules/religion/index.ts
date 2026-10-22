@@ -124,8 +124,8 @@ export const religion: Module = {
       if (!isStreetPlan(ctx.town)) return;
       const b = ctx.town.parentOf(h.address)!;
       const map = ctx.town.settlement().get<MapData>("map");
-      if (map.plan === "river") {
-        // A river town: the nearest parish church on your own side of the water. Over the bridge,
+      if (map.farBank) {
+        // A town over a bridge (river or ridge): the nearest parish church on your own side of the water. Over the bridge,
         // an old village or the abbey's tenants keep their own church, however small.
         const bankOf = (a: string) => map.wards?.[ctx.town.get(a).get<number>("ward")]?.bank;
         const mine = bankOf(b);
