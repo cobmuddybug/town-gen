@@ -129,10 +129,17 @@ export const civic: Module = {
           return best >= 0 ? gateNames[best] : undefined;
         };
         const out: string[] = [];
+        const placeName = ctx.registry<{ id: string; place(r: Rng): string }>("nameProviders").get("anglo-norman");
         for (const w of wards) {
           const cw = content.compass[w.compass] ?? "North";
           const cands: string[] = [];
-          if (!urban) {
+          if (w.bank === "far") {
+            // Over the bridge: named for what it is, or for the old village it was.
+            if (map.farBank === "village") cands.push(`Old ${placeName.place(r)}`);
+            if (map.farBank === "abbey") cands.push("Abbey Fee");
+            if (map.farBank === "wharf") cands.push("the Strand");
+            cands.push("Over the Bridge", "Bridge End", "Bridgefoot", "Bridge End Street");
+          } else if (!urban) {
             // Villages have Ends, not wards.
             if (w.kind === "suburb") cands.push(`${cw} Town End`, `Over ${cw} End`, `Far ${cw} End`);
             else if (w.ring === 0) cands.push(w.near.includes("market") ? "Market End" : `${cw} End`, churchIn.has(w.id) ? "Church End" : `${cw} End`, `Cross End`, `Green End`);
@@ -167,6 +174,11 @@ export const civic: Module = {
       wards.forEach((_w, i) => {
         const e = town.peek(`${s.address}/ward:${wardId(i)}`);
         if (e) ctx.set(e, "name", names[i]);
+        // An old village over the bridge is still another lord's.
+        if (e && _w.bank === "far" && map.farBank === "village") {
+          const prov = ctx.registry<{ id: string; given(r: Rng, o: { sex: "m" | "f" }): string; place(r: Rng): string }>("nameProviders").get("anglo-norman");
+          ctx.gen(e, "heldBy", (r) => `Sir ${prov.given(r, { sex: "m" })} of ${prov.place(r)}`);
+        }
       });
 
       // The town's services.
@@ -345,6 +357,8 @@ export const civic: Module = {
     const use = e.get<string>("use");
     switch (use) {
       case "gatehouse": {
+        // A postern stands on the wall where no road goes through: named for the way it faces.
+        if (e.get("road") === "postern") return `The ${content.compass[compassOf(e.get<Pt>("front"))]} postern`;
         const gates = town.settlement().get<MapData>("map").wall?.gates ?? [];
         const i = gates.findIndex((g) => g.road === e.get("road"));
         return town.settlement().get<string[]>("gateNames")?.[i] ?? "The gatehouse";
@@ -410,7 +424,9 @@ export const civic: Module = {
         const idx = w.get<number>("index");
         const value = w.get<number>("valueClass");
         rows.push({ label: "Name", value: w.get<string>("name"), key: "name" });
-        rows.push({ label: "Kind", value: w.get("kind") === "suburb" ? "a suburb outside the walls" : "within the walls" });
+        rows.push({ label: "Kind", value: w.get("bank") === "far" ? "over the bridge, outside the borough" : w.get("kind") === "suburb" ? "a suburb outside the walls" : "within the walls" });
+        const held = w.get<string | undefined>("heldBy");
+        if (held) rows.push({ label: "Held by", value: held, hint: "another lord's land: the borough's rights stop at the bridge" });
         rows.push({ label: "Value", value: VALUE_CLASSES[value], hint: "LF Table 2:20" });
         const quarterNames = town.find(`${town.root}/institution:${WATCH}`)?.get<string[]>("quarterNames");
         if (quarterNames) rows.push({ label: "Quarter", value: quarterNames[w.get<number>("quarter")] });
@@ -475,7 +491,7 @@ export const civic: Module = {
 
 // What makes a building worth naming to a stranger, highest first.
 const NOTABLE: Record<string, number> = {
-  castle: 20, grand_temple: 19, temple: 18, guildhall: 17, market_hall: 16, friary: 15, priory: 15, nunnery: 15, courthouse: 14, gaol: 13,
+  castle: 20, grand_temple: 19, temple: 18, guildhall: 17, market_hall: 16, friary: 15, priory: 15, cell: 12, nunnery: 15, courthouse: 14, gaol: 13,
   inn: 12, hospital: 11, fane: 10, merchant_house: 9, goldsmith: 9, money_changer: 9, wine_merchant: 8, mercer: 8, spicer: 8, tavern: 7,
   bathhouse: 7, school: 7, apothecary: 6, physician: 6, gatehouse: 6, watch_house: 5,
 };

@@ -241,7 +241,11 @@ function lifeTalk(town: Town, year: number): Rumour[] {
     if (e.kind === "flood") t = [`the river is over its banks: ${e.buildings!.length} houses flooded`, "the river came up in the night and took the bridge, nearly", `the river is up, and the cellars by the water are full`];
     if (e.kind === "sickness") t = [`${e.cause} is in the town`, `${e.cause} is in the town, and they're burying them two a day`, `${e.cause} is in the town, brought in by strangers`];
     if (!t) continue;
-    out.push({ id: `life/${e.id}`, kind: "news", topic, start: hourOf(e.date, "evening"), origin: e.at ?? town.root, texts: t, about: e.who, lastToKnow: [], how: e.kind === "death" ? "the passing bell" : e.kind === "fire" ? "the whole town saw the glow" : "the neighbours" });
+    // The same tellings with the names as slots, so the panels can link the people in them.
+    const a = e.who[0], b = e.who[1];
+    const slots = (x: string) => (b ? x.split(name(b)).join("{b}") : x).split(a ? name(a) : "\u0000").join("{a}");
+    const named = a && t.some((x) => x.includes(name(a)));
+    out.push({ id: `life/${e.id}`, kind: "news", topic, start: hourOf(e.date, "evening"), origin: e.at ?? town.root, texts: t, ...(named ? { tpl: t.map(slots) as [string, string, string], who: { a, ...(b ? { b } : {}) } } : {}), about: e.who, lastToKnow: [], how: e.kind === "death" ? "the passing bell" : e.kind === "fire" ? "the whole town saw the glow" : "the neighbours" });
   }
   return out;
 }

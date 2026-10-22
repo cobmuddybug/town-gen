@@ -17,10 +17,15 @@ import {
   add, along, area, centroid, convexOverlap, dist, dot, len, mul, norm, perp, pointInPoly, nearLine, project,
   qp, qpoly, rect, sub, type Poly, type Pt,
 } from "./geom";
-import type { Feature, FieldPiece, Footprint, HamletLayout, PlacedBuilding, Road, Terrain } from "./hamlet";
+import type { Feature, FieldPiece, Footprint, PlacedBuilding, Road, Terrain } from "./hamlet";
+import {
+  CHURCH_SIZE, PRIORITY, blob, boatPoly, building, compassOf, dirOf, insetOutline, isSuburbFp, nearestWard, plotsFor,
+  type Enclosure, type FrontKind, type Plot, type Scale, type TownLayout, type WardGeo,
+} from "./streets";
 
-export type Scale = "thorp" | "village" | "town" | "city";
-export type Enclosure = "wall" | "palisade" | "hedge" | "none";
+export type { Enclosure, FrontKind, Scale, TownLayout, WardGeo } from "./streets";
+export { VALUE_CLASSES } from "./streets";
+
 
 export interface TownOpts {
   scale: Scale;
@@ -36,58 +41,10 @@ export interface TownOpts {
   suburbs?: "few" | "many";
 }
 
-/** What a street front is like. Commercial uses want the first few. */
-export type FrontKind = "market" | "main" | "quay" | "street" | "lane" | "wall" | "suburb";
-const PRIORITY: Record<FrontKind, number> = { market: 6, main: 5, quay: 4, street: 3, lane: 2, wall: 1, suburb: 0 };
 
-export interface WardGeo {
-  id: number;
-  kind: "intramural" | "suburb";
-  /** index into VALUE_CLASSES */
-  value: number;
-  quarter: number;
-  centre: Pt;
-  /** compass point of the ward from the market, "N", "NE", ... */
-  compass: string;
-  sector: number;
-  ring: number;
-  adj: number[];
-  /** features the namer can use */
-  near: string[];
-}
 
-export const VALUE_CLASSES = [
-  "slum", "low residential", "low commercial", "moderate residential", "moderate commercial",
-  "high residential", "high commercial", "prestige residential", "prestige commercial",
-];
 
-export interface TownLayout extends HamletLayout {
-  kind: "town";
-  scale: Scale;
-  enclosure: Enclosure;
-  wall: { line: Pt[]; closed: boolean; towers: Pt[]; gates: { p: Pt; t: Pt; road: string }[] };
-  market: Poly;
-  gardens: Poly[];
-  wards: WardGeo[];
-  bridges: Pt[];
-  quay?: Pt[];
-  castle?: Poly;
-}
 
-interface Plot {
-  id: number;
-  /** front-left, front-right, back-right, back-left */
-  poly: Poly;
-  kind: FrontKind;
-  ward: number;
-  run: number;
-  idx: number;
-  block: string;
-  ring: number;
-  used: boolean;
-  /** sort key: lower is taken first */
-  order: number;
-}
 
 interface Block {
   id: string;
@@ -106,35 +63,13 @@ interface Block {
   area: number;
 }
 
-const COMPASS = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
 
-function compassOf(v: Pt): string {
-  // Screen y runs south. Bin by comparing against the eight directions.
-  let best = 0, bestDot = -Infinity;
-  for (let k = 0; k < 8; k++) {
-    const d = dot(norm(v), [cos((k / 8) * TAU), sin((k / 8) * TAU)]);
-    if (d > bestDot) { bestDot = d; best = k; }
-  }
-  return COMPASS[best];
-}
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const dirOf = (a: number): Pt => [cos(a), sin(a)];
 
-function plotsFor(fp: Footprint): number {
-  if (fp.plots) return fp.plots;
-  switch (fp.size) {
-    case "inn": case "yard": case "farm": case "merchant": case "warehouse": return 2;
-    case "manor": case "hall": return 3;
-    default: return 1;
-  }
-}
 
-const CHURCH_SIZE: Record<string, [number, number]> = {
-  grand_temple: [64, 20], temple: [38, 13], fane: [26, 10], chapel: [16, 7.5], chantry: [11, 6], shrine: [5, 4],
-};
 
-export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
+export function layoutRadial(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   const urban = o.scale === "town" || o.scale === "city";
   const walled = o.enclosure === "wall" || o.enclosure === "palisade";
   const C: Pt = [0, 0];
@@ -422,7 +357,9 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
 
   // ---- river ----------------------------------------------------------------
   const riverW = urban ? r.range(9, 14) : r.range(4, 6);
-  const riverPhi = coast ? seaPhi + PI * r.range(0.6, 1.4) : r.range(0, TAU);
+  // On the coast the river passes beside the town, on either hand, on its way down to the sea.
+  const side = coast ? r.range(-1, 1) : 0;
+  const riverPhi = coast ? seaPhi + (side < 0 ? -PI / 2 : PI / 2) + (Math.abs(side) - 0.5) * 0.7 : r.range(0, TAU);
   // The river runs hard under the wall on one side, as at most river towns: the
   // town grew at the crossing. Clear of its furthest point that way, which for
   // a lobed or long town is not the radius at that angle.
@@ -438,8 +375,18 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
     const lateral = ramp * (sin(s / rwl + rph) - sin(rph));
     riverPts.push(qp(add(add(rv0, mul(ru, s)), mul(dirOf(riverPhi), lateral))));
   }
-  // On the coast the river runs down into the sea and stops there.
-  const river = coast ? riverPts.filter((p) => beyond(p) < seaD + 4) : riverPts;
+  // On the coast the river runs down into the sea, and a little way out, and stops there.
+  let river = riverPts;
+  if (coast) {
+    // It runs seaward along increasing s or decreasing s; keep the landward stretch up to the shore.
+    const pts = beyond(riverPts[riverPts.length - 1]) > beyond(riverPts[0]) ? riverPts : [...riverPts].reverse();
+    const k = pts.findIndex((p) => beyond(p) > seaD);
+    if (k > 0) {
+      const a = pts[k - 1], b = pts[k];
+      const mouth = add(a, mul(sub(b, a), (seaD - beyond(a)) / (beyond(b) - beyond(a))));
+      river = [...pts.slice(0, k), qp(mouth), qp(add(mouth, mul(seaN, riverW)))];
+    } else river = pts.filter((p) => beyond(p) < seaD + 4);
+  }
   const riverS0 = project(river, C);
   const bridges: Pt[] = [];
   for (const rd of roads) {
@@ -1108,6 +1055,7 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
 
   return {
     kind: "town",
+    plan: "radial",
     scale: o.scale,
     enclosure: o.enclosure,
     bounds: [q(C[0] - extent), q(C[1] - extent), q(extent * 2), q(extent * 2)],
@@ -1133,82 +1081,6 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
     ...(quay ? { quay } : {}),
     ...(castle ? { castle } : {}),
   };
-}
-
-function isSuburbFp(p: Footprint, coast: boolean): boolean {
-  return p.site === "suburb" || p.site === "edge" || (p.site === "shore" && !coast);
-}
-
-function nearestWard(wards: WardGeo[], p: Pt): number {
-  let best = 0, bd = Infinity;
-  for (const w of wards) { const d = dist(p, w.centre); if (d < bd) { bd = d; best = w.id; } }
-  return best;
-}
-
-/** A building on one plot or a run of them: on the street front, yard behind. */
-function building(r: Rng, i: number, fp: Footprint, ps: Plot[], urban: boolean): PlacedBuilding {
-  const first = ps[0], last = ps[ps.length - 1];
-  const fl = first.poly[0], fr = last.poly[1], br = last.poly[2], bl = first.poly[3];
-  const plot = qpoly([fl, fr, br, bl]);
-  const plotD = (dist(fl, bl) + dist(fr, br)) / 2;
-  const plotW = (dist(fl, fr) + dist(bl, br)) / 2;
-  const at = (a: Pt, b: Pt, t: number): Pt => add(a, mul(sub(b, a), t));
-  let poly: Poly;
-  const parts: { kind: string; poly: Poly }[] = [];
-  if (urban) {
-    // Walls abutting, fronts on the street, yard behind (LF pp.10-11).
-    const k = Math.min(0.8, Math.max(0.3, r.range(9, 13) / plotD));
-    poly = [fl, fr, at(fr, br, k), at(fl, bl, k)];
-    if (fp.size === "inn" || fp.size === "merchant" || fp.size === "warehouse" || fp.size === "yard") {
-      // A back range down one side of the yard: stables, a warehouse, a workshop.
-      const side = r.chance(0.5);
-      const a0 = side ? fl : at(fl, fr, 0.65), a1 = side ? at(fl, fr, 0.35) : fr;
-      const b0 = side ? bl : at(bl, br, 0.65), b1 = side ? at(bl, br, 0.35) : br;
-      parts.push({ kind: "range", poly: qpoly([at(a0, b0, k + 0.08), at(a1, b1, k + 0.08), at(a1, b1, 0.92), at(a0, b0, 0.92)]) });
-    }
-  } else {
-    // Village crofts: a house set back a little, narrower than its plot.
-    const inset = Math.min(0.25, 2.5 / Math.max(plotW, 1));
-    const k0 = Math.min(0.2, r.range(1, 3) / plotD), k1 = Math.min(0.5, k0 + r.range(5, 7) / plotD);
-    const L = at(fl, fr, inset), R = at(fl, fr, 1 - inset), LB = at(bl, br, inset), RB = at(bl, br, 1 - inset);
-    poly = [at(L, LB, k0), at(R, RB, k0), at(R, RB, k1), at(L, LB, k1)];
-    if (fp.size === "farm" || fp.size === "manor" || fp.size === "yard") {
-      const k2 = Math.min(0.85, k1 + r.range(8, 12) / plotD), k3 = Math.min(0.95, k2 + r.range(5, 7) / plotD);
-      parts.push({ kind: "barn", poly: qpoly([at(L, LB, k2), at(R, RB, k2), at(R, RB, k3), at(L, LB, k3)]) });
-    }
-  }
-  return {
-    planIndex: i, poly: qpoly(poly), parts, plot, plotKind: urban ? "yard" : "croft",
-    front: qp(at(fl, fr, 0.5)), road: first.kind, ward: first.ward, block: first.block,
-  };
-}
-
-/** Shrink a block outline toward its centre by roughly `d` metres. */
-function insetOutline(p: Poly, d: number): Poly {
-  const c = centroid(p);
-  return qpoly(p.map((v) => {
-    const u = sub(v, c);
-    const l = len(u);
-    return l < d * 2 ? v : add(c, mul(u, (l - d) / l));
-  }));
-}
-
-function blob(r: Rng, c: Pt, rad: number): Poly {
-  const n = 14;
-  const out: Poly = [];
-  const ph = r.range(0, TAU), ph2 = r.range(0, TAU);
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * TAU;
-    const kk = 1 + 0.22 * sin(2 * a + ph) + 0.12 * sin(5 * a + ph2) + r.range(-0.08, 0.08);
-    out.push(qp(add(c, mul(dirOf(a), rad * kk))));
-  }
-  return out;
-}
-
-function boatPoly(c: Pt, u: Pt, l: number): Poly {
-  const v = perp(u);
-  return [add(c, mul(u, l / 2)), add(add(c, mul(u, l * 0.2)), mul(v, l * 0.18)), add(add(c, mul(u, -l / 2)), mul(v, l * 0.14)),
-    add(add(c, mul(u, -l / 2)), mul(v, -l * 0.14)), add(add(c, mul(u, l * 0.2)), mul(v, -l * 0.18))];
 }
 
 export { area };

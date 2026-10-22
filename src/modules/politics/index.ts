@@ -9,6 +9,7 @@ import type { Town } from "../../core/town";
 import type { Module, PanelRow, Sifter } from "../../core/types";
 import { isUrban } from "../core";
 import { lsd } from "../households";
+import type { MapData } from "../layout";
 
 const ISSUES = [
   "a new murage, a tax for mending the wall, which falls hardest on the shops",
@@ -20,6 +21,13 @@ const ISSUES = [
   "a stranger merchant let in to trade without paying the town's dues",
   "the common pasture outside the gate, which a rich man has begun to hedge in",
 ];
+// A river town quarrels across its bridge as well.
+const RIVER_ISSUES = [
+  "the bridge toll the far bank pays to come to market, which its people call robbery",
+  "who mends the bridge, the borough or the far bank, now the piers are cracked",
+];
+// With an abbey over the water, the abbot is the town's oldest grievance: it comes up three times as often.
+const ABBEY_ISSUES = ["the abbot's mill over the river, where the town's bakers must grind and pay his multure"];
 
 interface Faction { name: string; leader?: Address; members: Address[]; stands: string }
 export interface Politics { factions: Faction[]; issue: string; election: string; holder?: Address; office?: string; bribable: { who: Address; office: string; owes: number }[] }
@@ -51,7 +59,9 @@ export const politics: Module = {
         { name: "the merchants", leader: merchants, members: memberOf("merchants").slice(0, 60), stands: "low tolls, the town's charter, and the merchant guild's rights" },
         { name: "the crafts", leader: crafts, members: crafty.slice(0, 60), stands: "fair dues, open markets, and a voice on the council for the guilds" },
       ]);
-      ctx.set(T, "politics.issue", r.pick(ISSUES));
+      const map = town.settlement().get<MapData>("map");
+      const pool = map.plan === "river" ? [...ISSUES, ...RIVER_ISSUES, ...(map.farBank === "abbey" ? [...ABBEY_ISSUES, ...ABBEY_ISSUES, ...ABBEY_ISSUES] : [])] : ISSUES;
+      ctx.set(T, "politics.issue", r.pick(pool));
       // Officers who owe money are officers who can be leaned on.
       const bribable: { who: Address; office: string; owes: number }[] = [];
       for (const e of offices) {

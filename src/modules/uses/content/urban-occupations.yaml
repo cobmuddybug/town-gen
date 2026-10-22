@@ -104,6 +104,7 @@
 - { id: friar_warden, label: "warden of the friars", tier: lower_middle, celibate: true, staff: [{ occupation: friar, n: [6, 16], role: cleric }], routine: priest, source: "LF p.85" }
 - { id: friar, label: friar, tier: upper_lower, celibate: true, routine: friar, source: "LF p.62" }
 - { id: prior, label: prior, tier: upper_middle, celibate: true, servants: [2, 5], staff: [{ occupation: monk, n: [8, 20], role: cleric }], routine: priest, source: "LF p.85" }
+- { id: cell_prior, label: prior, tier: middle_middle, celibate: true, servants: [1, 2], staff: [{ occupation: monk, n: [2, 4], role: cleric }], routine: priest, source: "LF p.85" }
 - { id: monk, label: monk, tier: upper_lower, celibate: true, routine: priest, source: "LF p.62" }
 - { id: prioress, label: prioress, tier: upper_middle, celibate: true, female: true, servants: [2, 4], staff: [{ occupation: nun, n: [6, 15], role: cleric, sex: f }], routine: priest, source: "LF p.85" }
 - { id: nun, label: nun, tier: upper_lower, celibate: true, female: true, routine: priest, source: "LF p.62" }

@@ -63,7 +63,7 @@ const DRINK = ["tavern", "town_alehouse", "alehouse", "inn"];
 // Where a parish hears mass. A wayside shrine holds a dozen, not a congregation.
 const PARISH = ["fane", "temple", "grand_temple", "chapel"];
 // Public buildings where somebody may sleep, but nobody receives friends.
-const OFFICIAL = new Set(["watch_house", "gatehouse", "guildhall", "market_hall", "courthouse", "gaol", "castle", "school", "hospital", "lazar_house", "friary", "priory", "nunnery"]);
+const OFFICIAL = new Set(["watch_house", "gatehouse", "guildhall", "market_hall", "courthouse", "gaol", "castle", "school", "hospital", "lazar_house", "friary", "priory", "cell", "nunnery"]);
 // Trades that keep working when everyone else keeps the feast.
 const SERVING = new Set(["alehouse", "innkeeper", "taverner", "bathhouse", "cook"]);
 // Offices that put a man on the streets at night (set by the civic module).

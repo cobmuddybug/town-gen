@@ -301,3 +301,40 @@ describe("review fixes", () => {
     expect(d.rows.every((r) => occ(town.get(r.address!)) === "smith")).toBe(true);
   });
 });
+
+import { designFrom } from "../src/ui/library";
+import { renderMap } from "../src/ui/map";
+
+describe("river towns in the UI", () => {
+  test("designFrom reads the layout and the far bank, and ignores nonsense", () => {
+    const get = (o: Record<string, string>) => (k: string) => o[k] ?? null;
+    expect(designFrom(get({ layout: "river", farBank: "abbey" }))).toEqual({ layout: "river", farBank: "abbey" });
+    expect(designFrom(get({ layout: "radial" }))).toEqual({ layout: "radial" });
+    expect(designFrom(get({ layout: "spiral", farBank: "moon" }))).toBeUndefined();
+  });
+
+  test("designFrom drops the choices the dialog hides for the chosen layout", () => {
+    const get = (o: Record<string, string>) => (k: string) => o[k] ?? null;
+    expect(designFrom(get({ layout: "radial", farBank: "abbey", shape: "oval" }))).toEqual({ layout: "radial", shape: "oval" });
+    expect(designFrom(get({ layout: "river", farBank: "abbey", shape: "oval" }))).toEqual({ layout: "river", farBank: "abbey" });
+    expect(designFrom(get({ farBank: "abbey", shape: "oval" }))).toEqual({ farBank: "abbey", shape: "oval" });
+  });
+
+  test("the new town dialog offers the layout and the far bank", () => {
+    const h = newTownHtml();
+    for (const s of ['name="layout"', 'name="farBank"', "river town", "radial web", "old village", "bridge-end", "abbey's side", "wharf side", 'id="farbank-field"', 'id="shape-field"']) expect(h).toContain(s);
+  });
+
+  test("the map draws a river town's bridge as a deck, and its high ground", () => {
+    const t = generate("draw", { pop: 3000, design: { layout: "river" } });
+    const svg = renderMap(t);
+    expect(svg).toContain('class="m-bridge-deck');
+    expect(svg).toContain('class="m-high');
+  }, 300000);
+
+  test("a radial town's map is drawn as before", () => {
+    const svg = renderMap(generate("draw-r", { pop: 3000, design: { layout: "radial" } }));
+    expect(svg).not.toContain('class="m-bridge-deck"');
+    expect(svg).not.toContain('class="m-high');
+  }, 300000);
+});

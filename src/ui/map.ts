@@ -83,6 +83,8 @@ export const MAP_STYLE = `
 .m-bailey{fill:var(--map-bailey,#cfc9b4);stroke:var(--map-wallstone,#6f6a5c);stroke-width:3.4;stroke-linejoin:round}
 .m-plot-precinct{fill:var(--map-churchyard,#cfd2b0);stroke:var(--map-wallstone,#6f6a5c);stroke-width:1.2}
 .m-bridge{fill:var(--map-stone,#aaa596);stroke:var(--map-ink,#4a3f30);stroke-width:.5}
+.m-bridge-deck{fill:var(--map-stone,#c9bfa3);stroke:var(--map-ink,#4a3f30);stroke-width:.6}
+.m-high{fill:none;stroke:var(--map-ink,#4a3f30);stroke-opacity:.22;stroke-width:1;stroke-dasharray:1.5 3;pointer-events:none}
 .m-quay{fill:none;stroke:var(--map-wallstone,#6f6a5c);stroke-width:2.4}
 .m-ward{font-size:13px;font-style:italic;fill-opacity:.8;paint-order:stroke;stroke:var(--map-halo,#efe8d6);stroke-width:3px;stroke-opacity:.7;cursor:pointer}
 .m-ward:hover{fill:var(--map-sel,#a3341f)}
@@ -144,6 +146,8 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
   const terrain = m.terrain ?? "farmland";
   out.push(`<rect class="m-bg m-bg-${terrain}" x="${f(bx)}" y="${f(by)}" width="${f(bw)}" height="${f(bh)}"/>`);
   for (const c of m.contours ?? []) out.push(`<path class="m-contour" d="${smoothPath(c, true)}"/>`);
+  // A river town's high ground: soft lines of equal height.
+  for (const c of m.high ?? []) out.push(`<path class="m-high" d="${smoothPath(c, false)}"><title>higher ground</title></path>`);
 
   for (const w of m.woods) out.push(`<path class="m-wood" d="${smoothPath(w, true)}"/>`);
   m.fields.forEach((fp, i) => {
@@ -159,6 +163,7 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
     out.push(`<polygon class="m-townground" points="${pts(m.hedge)}"/>`);
     for (const g of m.gardens ?? []) out.push(`<polygon class="m-garden" points="${pts(g)}"/>`);
     out.push(`<polygon class="m-market" points="${pts(m.market!)}"><title>the market place</title></polygon>`);
+    if (m.farGreen) out.push(`<polygon class="m-green m-far-green" points="${pts(m.farGreen)}"><title>the village green</title></polygon>`);
     if (m.castle) out.push(`<polygon class="m-bailey" points="${pts(m.castle)}"><title>the castle bailey</title></polygon>`);
   } else out.push(`<path class="m-toftland" d="${smoothPath(m.hedge, true)}"/>`);
 
@@ -178,7 +183,19 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
   for (const r of m.roads) if (r.kind === "track") out.push(`<path class="m-track" stroke-width="${r.width}" d="${smoothPath(r.points, false)}"/>`);
   for (const r of m.roads) if (r.kind !== "track") out.push(`<path class="m-road-edge" stroke-width="${r.width + 1.2}" d="${smoothPath(r.points, false)}"/>`);
   for (const r of m.roads) if (r.kind !== "track") out.push(`<path class="m-road" stroke-width="${r.width}" d="${smoothPath(r.points, false)}"/>`);
-  for (const b of m.bridges ?? []) {
+  // A river town's bridges: a stone deck across the water, along the road.
+  if (m.plan === "river") for (const b of m.bridges ?? []) {
+    const pts = m.stream.points;
+    let bi = 0, bd = Infinity;
+    pts.forEach((p, i) => { const d = (p[0] - b[0]) ** 2 + (p[1] - b[1]) ** 2; if (d < bd) { bd = d; bi = i; } });
+    const a = pts[Math.max(0, bi - 1)], c = pts[Math.min(pts.length - 1, bi + 1)];
+    const tl = Math.hypot(c[0] - a[0], c[1] - a[1]) || 1;
+    const t = [(c[0] - a[0]) / tl, (c[1] - a[1]) / tl], n = [-t[1], t[0]];
+    const L = m.stream.width / 2 + 4, W = 4.5;
+    const q = [[L, W], [L, -W], [-L, -W], [-L, W]].map(([u, v]) => `${f(b[0] + n[0] * u + t[0] * v)},${f(b[1] + n[1] * u + t[1] * v)}`).join(" ");
+    out.push(`<polygon class="m-bridge-deck" points="${q}"><title>the bridge</title></polygon>`);
+  }
+  if (m.plan !== "river") for (const b of m.bridges ?? []) {
     out.push(`<circle class="m-bridge" cx="${f(b[0])}" cy="${f(b[1])}" r="${f(m.stream.width * 0.75)}"><title>the bridge</title></circle>`);
   }
   if (m.coast && m.sea) {

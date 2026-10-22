@@ -29,12 +29,19 @@ describe("street plans", () => {
   test("a town has walls, gates, wards and suburbs", () => {
     const m = map(town);
     expect(m.kind).toBe("town");
-    expect(m.wall!.closed).toBe(true);
     const gates = m.wall!.gates.length;
-    expect(gates).toBe(town.settlement().get("mainRoads"));
     expect(buildings(town).filter((b) => b.get("use") === "gatehouse")).toHaveLength(gates);
     const wards = town.children(town.root, "ward");
-    expect(wards.filter((w) => w.get("kind") === "suburb")).toHaveLength(gates);
+    if (m.plan === "river") {
+      // A river town's wall runs bank to bank; the river closes it. Over the bridge is a suburb of its own.
+      expect(m.wall!.closed).toBe(false);
+      expect(m.wall!.line.length).toBeGreaterThan(5);
+      expect(wards.some((w) => w.get("bank") === "far" && w.get("kind") === "suburb")).toBe(true);
+    } else {
+      expect(m.wall!.closed).toBe(true);
+      expect(gates).toBe(town.settlement().get("mainRoads"));
+      expect(wards.filter((w) => w.get("kind") === "suburb")).toHaveLength(gates);
+    }
     // Adjacency goes both ways, and every building is in a ward.
     for (const w of wards) for (const a of w.get<string[]>("adjacent")) expect(town.get(a).get<string[]>("adjacent")).toContain(w.address);
     for (const b of buildings(town)) expect(b.get<number>("ward")).toBeLessThan(wards.length);
@@ -72,7 +79,8 @@ describe("street plans", () => {
 
   test("ward values: suburbs are poor; somewhere is rich", () => {
     const wards = town.children(town.root, "ward");
-    for (const w of wards) if (w.get("kind") === "suburb") expect(w.get<number>("valueClass")).toBeLessThanOrEqual(1);
+    // Over a river town's bridge is a place of its own, with its own values; the suburbs along the roads are poor.
+    for (const w of wards) if (w.get("kind") === "suburb" && w.get("bank") !== "far") expect(w.get<number>("valueClass")).toBeLessThanOrEqual(1);
     expect(Math.max(...wards.map((w) => w.get<number>("valueClass")))).toBeGreaterThanOrEqual(5);
   });
 

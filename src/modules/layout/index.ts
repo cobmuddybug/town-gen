@@ -1,14 +1,19 @@
 import type { Module } from "../../core/types";
 import type { BuildingUse } from "../uses";
 import { layoutHamlet, type HamletLayout, type Terrain } from "./hamlet";
-import { layoutTown, type Enclosure, type Scale, type TownLayout } from "./town";
+import { layoutRadial } from "./radial";
+import { layoutRiver } from "./river";
+import type { FarBank } from "../../core/types";
+import type { Enclosure, Scale, TownLayout } from "./streets";
 import { STREET_PLAN_POP } from "../uses";
 
 export type { HamletLayout, PlacedBuilding } from "./hamlet";
-export type { TownLayout, WardGeo } from "./town";
-export { VALUE_CLASSES } from "./town";
+export type { TownLayout, WardGeo } from "./streets";
+export { VALUE_CLASSES } from "./streets";
 
 const cache = new Map<string, HamletLayout>();
+/** Forget every cached layout, so the next town is laid out afresh (tests of determinism need this). */
+export function clearLayoutCache(): void { cache.clear(); }
 
 export function wardId(n: number): string {
   return `w${n.toString().padStart(2, "0")}`;
@@ -21,7 +26,7 @@ export function buildingId(n: number): string {
 /** L1: the map. Places one building per planned use and creates them as stubs. */
 export const layout: Module = {
   id: "layout",
-  version: "1.0.0",
+  version: "2.0.0",
   requires: ["core", "uses"],
   hooks: {
     onSettlementGenerated(ctx, s) {
@@ -41,17 +46,22 @@ export const layout: Module = {
       const terrain = s.get<Terrain>("terrain") ?? "farmland";
       const { shape, market, suburbs } = ctx.town.settings.design ?? {};
       const designed = street ? { ...(shape ? { shape } : {}), ...(market ? { market } : {}), ...(suburbs ? { suburbs } : {}) } : {};
-      const key = `${ctx.town.seed}|${s.address}|${layout.version}|${terrain}|${JSON.stringify(designed)}|${JSON.stringify(footprints)}`;
+      const layoutPlan = s.get<"radial" | "river" | undefined>("layoutPlan") ?? "radial";
+      const farBank = s.get<FarBank | undefined>("farBank") ?? "village";
+      const farUses = s.get<number[] | undefined>("farUses") ?? [];
+      const key = `${ctx.town.seed}|${s.address}|${layout.version}|${terrain}|${layoutPlan}|${farBank}|${JSON.stringify(farUses)}|${JSON.stringify(designed)}|${JSON.stringify(footprints)}`;
       let map = cache.get(key);
       if (!map && street) {
         const encl = s.get<string>("enclosure");
         const enclosure: Enclosure = /wall/.test(encl) ? "wall" : /palisade/.test(encl) ? "palisade" : /hedge|bank/.test(encl) ? "hedge" : "none";
         // The room estimate is rough. When it falls short, buildings find no plot and
         // would be lost, so lay the town out again, roomier, from the same stream.
-        for (let room = 1; ; room += 0.08) {
-          map = layoutTown(ctx.rng(s, "town"), footprints, {
-            scale: s.get<Scale>("sizeClass"), enclosure, roads: s.get<number>("mainRoads"), terrain, ...designed, ...(room > 1 ? { room } : {}),
-          });
+        // A river town grows its streets to fit, so a short one needs a bigger step to come right.
+        for (let room = 1; ; room += layoutPlan === "river" ? 0.15 : 0.08) {
+          const opts = { scale: s.get<Scale>("sizeClass"), enclosure, roads: s.get<number>("mainRoads"), terrain, ...designed, ...(room > 1 ? { room } : {}) };
+          map = layoutPlan === "river"
+            ? layoutRiver(ctx.rng(s, "river"), footprints, { ...opts, farBank, far: farUses, need: 0 })
+            : layoutRadial(ctx.rng(s, "town"), footprints, opts);
           if (map.buildings.length >= footprints.length || room > 1.5) break;
         }
         cache.set(key, map);
@@ -69,7 +79,7 @@ export const layout: Module = {
       if (wards) for (const w of wards) {
         ctx.create("ward", s.address, wardId(w.id), {
           index: w.id, kind: w.kind, valueClass: w.value, quarter: w.quarter, centre: w.centre, compass: w.compass,
-          adjacent: w.adj.map((a) => `${s.address}/ward:${wardId(a)}`), near: w.near,
+          adjacent: w.adj.map((a) => `${s.address}/ward:${wardId(a)}`), near: w.near, ...(w.bank ? { bank: w.bank } : {}),
         });
       }
       // Number buildings in placement order, which is deterministic.
@@ -136,7 +146,7 @@ export function footprint(poly: Poly): number {
 
 // People per square yard of ground floor, standing or sitting, by use.
 const DENSITY: Record<string, number> = {
-  grand_temple: 1.6, temple: 1.6, fane: 1.6, chapel: 1.6, chantry: 0.6, shrine: 0.3, friary: 1, priory: 0.8, nunnery: 0.5,
+  grand_temple: 1.6, temple: 1.6, fane: 1.6, chapel: 1.6, chantry: 0.6, shrine: 0.3, friary: 1, priory: 0.8, cell: 0.4, nunnery: 0.5,
   tavern: 0.9, town_alehouse: 0.9, alehouse: 0.9, inn: 0.7, cookshop: 0.6, bathhouse: 0.4, market_hall: 1.5, guildhall: 1.2, courthouse: 1.4,
 };
 

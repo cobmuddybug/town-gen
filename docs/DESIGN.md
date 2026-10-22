@@ -363,6 +363,8 @@ Anything bigger waits for the officer who comes around to collect taxes and hear
 
 ### 6.8 Towns and cities
 
+**Two street plans.** Above 700 people a settlement is laid out either as the **radial** plan (a market at the centre, roads to the gates, rings of streets: `layout/radial.ts`) or as a **river town** (`layout/river.ts`): lopsided across its river, the town proper on the higher bank with a high street up from the bridge, a triangular or widened-street market, side streets that follow the contours and long burgage plots; over the bridge a smaller place with a character of its own (old village, bridge-end, abbey's side, wharf side). `uses` rolls which (and adds the far bank's signature buildings to the plan); the DM can choose in the New town dialog. Both hand the rest of the generator the same `TownLayout`; river wards carry `bank` and the layout `plan` and `farBank`. Design: `docs/superpowers/specs/2026-10-23-river-town-layout-design.md`.
+
 **Institutions to generate (LF pp.85–104):**
 
 | Institution | Generation notes |
