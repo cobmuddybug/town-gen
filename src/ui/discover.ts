@@ -265,35 +265,41 @@ function crimeLens(town: Town): LensView {
 
 // ---- 3. search and lists ------------------------------------------------
 
-interface Entry { address: Address; text: string; label: string; detail: string }
-const indexMemo = new WeakMap<Town, Entry[]>();
+export type SearchKind = "person" | "building" | "ward" | "institution";
+/** One searchable thing. `detail` is what the DM sees; `plain` leaves out the underworld (a crew alias). */
+export interface SearchEntry { address: Address; kind: SearchKind; text: string; plainText: string; label: string; detail: string; plain: string }
+const indexMemo = new WeakMap<Town, SearchEntry[]>();
 
-function index(town: Town): Entry[] {
+function index(town: Town): SearchEntry[] {
   const hit = indexMemo.get(town);
   if (hit) return hit;
   const occs = town.registry<Occupation>("occupations");
-  const out: Entry[] = [];
-  const push = (address: Address, label: string, detail: string) => out.push({ address, label, detail, text: `${label} ${detail}`.toLowerCase() });
+  const out: SearchEntry[] = [];
+  const push = (address: Address, kind: SearchKind, label: string, plain: string, detail = plain) =>
+    out.push({ address, kind, label, detail, plain, text: `${label} ${detail}`.toLowerCase(), plainText: `${label} ${plain}`.toLowerCase() });
   for (const e of town.allEntities()) {
     if (e.type === "person") {
       const hh = town.get(town.parentOf(e.address)!);
       const occ = occs.find(e.get("occupation"))?.label ?? occs.find(hh.get("occupation"))?.label ?? "";
       const alias = e.get<string | undefined>("crime.alias");
-      push(e.address, town.label(e.address), `${occ}, ${e.get<number>("age")}${alias ? `, "${alias}"` : ""}`);
-    } else if (e.type === "building") push(e.address, town.label(e.address), String(e.get("use")).replace(/_/g, " "));
-    else if (e.type === "ward" || e.type === "institution") push(e.address, town.label(e.address), e.type);
+      const plain = `${occ}, ${e.get<number>("age")}`;
+      push(e.address, "person", town.label(e.address), plain, alias ? `${plain}, "${alias}"` : plain);
+    } else if (e.type === "building") push(e.address, "building", town.label(e.address), String(e.get("use")).replace(/_/g, " "));
+    else if (e.type === "ward" || e.type === "institution") push(e.address, e.type, town.label(e.address), e.type);
   }
   indexMemo.set(town, out);
   return out;
 }
 
-/** Everything whose name or trade matches all the words of the query. */
-export function search(town: Town, query: string, limit = 60): { results: Entry[]; total: number } {
+/** Everything whose name or trade matches all the words of the query. In player view, aliases neither match nor show. */
+export function search(town: Town, query: string, limit = 60, opts: { player?: boolean } = {}): { results: SearchEntry[]; total: number } {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return { results: [], total: 0 };
-  const hits = index(town).filter((x) => words.every((w) => x.text.includes(w)));
+  const key = opts.player ? "plainText" : "text";
+  let hits = index(town).filter((x) => words.every((w) => x[key].includes(w)));
+  if (opts.player) hits = hits.map((x) => ({ ...x, detail: x.plain }));
   // Places first, then people.
-  const rank = (x: Entry) => (/\/person:/.test(x.address) ? 1 : 0);
+  const rank = (x: SearchEntry) => (x.kind === "person" ? 1 : 0);
   hits.sort((a, b) => rank(a) - rank(b) || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0));
   return { results: hits.slice(0, limit), total: hits.length };
 }

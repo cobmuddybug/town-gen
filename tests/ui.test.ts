@@ -104,3 +104,48 @@ describe("top bar", () => {
     for (const s of ['id="plan"', 'id="size-preview"', 'id="reroll-seed"', "Build town", "How many people?", 'name="walls"', 'name="crime"']) expect(h).toContain(s);
   });
 });
+
+import { beforeAll } from "vitest";
+import { generate } from "../src/town-gen";
+import type { Town } from "../src/core/town";
+import { paletteGroups } from "../src/ui/palette";
+import { search } from "../src/ui/discover";
+
+describe("search palette", () => {
+  let town: Town;
+  beforeAll(() => { town = generate("burgh-a", { pop: 8000 }); town.society(); }, 120000);
+
+  test("a surname lands in People and a trade in Trades", () => {
+    const g = paletteGroups(town, "smith");
+    expect(g.map((x) => x.title)).toContain("People");
+    const trades = g.find((x) => x.title === "Trades")!;
+    expect(trades.items[0].list).toMatch(/^trade:/);
+  });
+
+  test("groups keep the fixed order, hold 1 to 8 items, and empty ones are dropped", () => {
+    const order = ["People", "Places", "Trades", "Offices", "Lists"];
+    const g = paletteGroups(town, "a");
+    expect(g.map((x) => order.indexOf(x.title))).toEqual([...g.map((x) => order.indexOf(x.title))].sort((a, b) => a - b));
+    for (const x of g) { expect(x.items.length).toBeGreaterThan(0); expect(x.items.length).toBeLessThanOrEqual(8); }
+    expect(paletteGroups(town, "zzqxv")).toEqual([]);
+  });
+
+  test("lists are offered by title", () => {
+    const lists = paletteGroups(town, "debts").find((x) => x.title === "Lists")!;
+    expect(lists.items.map((i) => i.list)).toContain("debts");
+  });
+
+  test("search entries carry their kind", () => {
+    const r = search(town, "smith").results;
+    expect(r.some((x) => x.kind === "person")).toBe(true);
+  });
+
+  test("player search hides crime aliases", () => {
+    const e = town.allEntities().find((x) => x.type === "person" && x.get("crime.alias"))!;
+    const name = town.label(e.address);
+    const dm = search(town, name).results.find((r) => r.address === e.address)!;
+    const pl = search(town, name, 60, { player: true }).results.find((r) => r.address === e.address)!;
+    expect(dm.detail).toContain('"');
+    expect(pl.detail).not.toContain('"');
+  });
+});

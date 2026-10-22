@@ -13,7 +13,9 @@ import { almanac, dayOf, LENSES, lensView, LISTS, placeName, search, whoKnows, t
 import { fetchKept, forget, keep, listKept, townKey } from "./library";
 import { MANOR_MAX, PLAN_MIN, newTownHtml, settingsFromForm, sizePreview } from "./newtown";
 import { clockLabel, stepClock, townMenuHtml } from "./topbar";
-import { isTypingTarget } from "./history";
+import { History, isTypingTarget } from "./history";
+import { paletteGroups, paletteHtml, paletteItems, type PaletteGroup, type PaletteItem } from "./palette";
+import type { Occupation } from "../modules/uses";
 import { encounter, jobBoard, nearestBuildingTo, partyName, reachOf, report, type Text } from "./party";
 import { lsd } from "../modules/households";
 import { crimeContent, world } from "../modules/crime";
@@ -61,7 +63,8 @@ function setTown(t: Town, keepView = false) {
   town = t;
   town.society();
   if (selected && !town.find(selected)) selected = undefined;
-  if (!keepView) view = undefined;
+  if (!keepView) { view = undefined; hist = new History(); hist.push(town.root); }
+  else hist.prune((a) => !!town.find(a));
   store();
   history.replaceState(null, "", `#${townKey(town.toSave())}`);
   syncForm();
@@ -256,11 +259,23 @@ $("#new-town-cancel").addEventListener("click", () => dialog.close());
 
 function select(a: Address | undefined) {
   selected = a;
+  if (!walking) hist.push(a ?? town.root);
   page = "inspect";
   markMap();
   if (lens === "thread") drawLens();
   drawInspector();
   insp.scrollTop = 0;
+}
+
+// Back and forward through what the inspector has shown.
+let hist = new History();
+let walking = false;
+function walk(step: number) {
+  const a = step < 0 ? hist.back() : hist.forward();
+  if (a === undefined) return;
+  walking = true;
+  try { select(a === town.root ? undefined : a); } finally { walking = false; }
+  if (a !== town.root) focusOn(a);
 }
 
 function edit(address: Address, key: string, value: unknown) {
@@ -425,6 +440,20 @@ function markMap(highlight: Address[] = []) {
       p.classList.toggle("m-hi", hi.has(a));
     });
   });
+}
+
+/** Bring a thing into view: centre its building, close enough to read, gliding there. */
+function focusOn(a: Address) {
+  const svg = mapEl.querySelector("svg");
+  const b = buildingOf(a);
+  const g = b && svg?.querySelector<SVGGElement>(`g[data-address="${CSS.escape(b)}"]`);
+  if (!svg || !g || !view) return;
+  const r = g.getBBox();
+  const w = Math.min(320, view[2]), h = (w * view[3]) / view[2];
+  view = [r.x + r.width / 2 - w / 2, r.y + r.height / 2 - h / 2, w, h];
+  svg.classList.add("glide");
+  previewView(320);
+  setTimeout(() => svg.classList.remove("glide"), 340);
 }
 
 function zoom(factor: number, cx?: number, cy?: number, smooth = false) {
@@ -795,7 +824,7 @@ function drawInspector() {
   const e = selected ?? town.root;
   const ent = town.get(e);
   const h: string[] = [tabsHtml()];
-  if (e !== town.root) h.push(crumbs(e));
+  h.push(`<div class="ihead"><span class="hist"><button data-hist="-1" aria-label="Back" title="Back  (Alt+←)"${hist.canBack ? "" : " disabled"}>◀</button><button data-hist="1" aria-label="Forward" title="Forward  (Alt+→)"${hist.canForward ? "" : " disabled"}>▶</button></span>${e !== town.root ? crumbs(e) : ""}</div>`);
   h.push(`<button class="pin" data-print title="Print this page, with the map around it, as a handout or notes">Print</button>`);
   if (ent.type === "person" || ent.type === "household") {
     const on = !!town.pinned[e];
@@ -844,6 +873,8 @@ insp.addEventListener("click", (ev) => {
   const t = ev.target as HTMLElement;
   const go = t.closest<HTMLElement>("[data-go]");
   if (go) { ev.preventDefault(); select(go.dataset.go === town.root ? undefined : go.dataset.go); return; }
+  const hs = t.closest<HTMLElement>("[data-hist]");
+  if (hs) { walk(Number(hs.dataset.hist)); return; }
   const pg = t.closest<HTMLElement>("[data-page]");
   if (pg) { ev.preventDefault(); page = pg.dataset.page as Page; drawInspector(); insp.scrollTop = 0; return; }
   const fk = t.closest<HTMLElement>("[data-fact]");
@@ -953,11 +984,88 @@ form.addEventListener("submit", (ev) => {
   setTown(fresh(seed ?? randomSeed(), settings));
 });
 
+// ---- search ----------------------------------------------------------------
+
+const searchEl = $<HTMLInputElement>("#search");
+const palEl = $<HTMLElement>("#palette");
+let palGroups: PaletteGroup[] = [];
+let palActive = 0;
+
+function drawPalette() {
+  palGroups = paletteGroups(town, searchEl.value);
+  const n = paletteItems(palGroups).length;
+  palActive = Math.max(0, Math.min(palActive, n - 1));
+  palEl.innerHTML = paletteHtml(palGroups, palActive, searchEl.value);
+  palEl.hidden = false;
+  palEl.querySelector(".pal-item.on")?.scrollIntoView({ block: "nearest" });
+  markMap(paletteItems(palGroups).flatMap((x) => (x.address ? [x.address] : [])));
+}
+
+function closePalette() {
+  if (palEl.hidden) return;
+  palEl.hidden = true;
+  markMap();
+}
+
+function openItem(x: PaletteItem | undefined) {
+  if (!x) return;
+  closePalette();
+  searchEl.blur();
+  if (x.address) { select(x.address === town.root ? undefined : x.address); focusOn(x.address); }
+  else if (x.list) openDirectory(x.list);
+}
+
+/** Open a list (or a trade's people) in the finder. */
+function openDirectory(list: string) {
+  selected = undefined;
+  if (list.startsWith("trade:")) {
+    listId = undefined;
+    query = town.registry<Occupation>("occupations").find(list.slice(6))?.label ?? "";
+  } else listId = list;
+  page = "find";
+  drawInspector();
+  insp.scrollTop = 0;
+}
+
+searchEl.addEventListener("focus", () => { openPop(undefined); drawPalette(); });
+searchEl.addEventListener("input", () => { palActive = 0; drawPalette(); });
+searchEl.addEventListener("keydown", (e) => {
+  const n = paletteItems(palGroups).length;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    if (n) { palActive = (palActive + (e.key === "ArrowDown" ? 1 : n - 1)) % n; drawPalette(); }
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    openItem(paletteItems(palGroups)[palActive]);
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    searchEl.value = "";
+    closePalette();
+    searchEl.blur();
+  }
+});
+palEl.addEventListener("pointerdown", (e) => e.preventDefault()); // keep focus in the box
+palEl.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest<HTMLElement>("[data-pal]");
+  if (b) openItem(paletteItems(palGroups)[Number(b.dataset.pal)]);
+});
+palEl.addEventListener("mousemove", (e) => {
+  const b = (e.target as HTMLElement).closest<HTMLElement>("[data-pal]");
+  if (b && Number(b.dataset.pal) !== palActive) { palActive = Number(b.dataset.pal); palEl.querySelectorAll(".pal-item").forEach((x, i) => x.classList.toggle("on", i === palActive)); }
+});
+document.addEventListener("pointerdown", (e) => {
+  if (!(e.target as Element).closest(".search-wrap")) closePalette();
+});
+
 // ---- keys ----------------------------------------------------------------
 
 document.addEventListener("keydown", (e) => {
-  if (isTypingTarget(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey || dialog.open) return;
-  if (e.key === "[") { e.preventDefault(); stepBy(-1); }
+  if (dialog.open) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); searchEl.focus(); searchEl.select(); return; }
+  if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { e.preventDefault(); walk(e.key === "ArrowLeft" ? -1 : 1); return; }
+  if (isTypingTarget(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "/") { e.preventDefault(); searchEl.focus(); searchEl.select(); }
+  else if (e.key === "[") { e.preventDefault(); stepBy(-1); }
   else if (e.key === "]") { e.preventDefault(); stepBy(1); }
 });
 window.addEventListener("resize", () => { view = undefined; drawMap(); });
