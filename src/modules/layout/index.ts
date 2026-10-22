@@ -2,8 +2,8 @@ import type { Module } from "../../core/types";
 import type { BuildingUse } from "../uses";
 import { layoutHamlet, type HamletLayout, type Terrain } from "./hamlet";
 import { layoutRadial } from "./radial";
-import { layoutRiver } from "./river";
-import type { FarBank } from "../../core/types";
+import { BANKED, layoutGrown } from "./grown";
+import type { FarBank, LayoutPlan } from "../../core/types";
 import type { Enclosure, Scale, TownLayout } from "./streets";
 import { STREET_PLAN_POP } from "../uses";
 
@@ -46,7 +46,7 @@ export const layout: Module = {
       const terrain = s.get<Terrain>("terrain") ?? "farmland";
       const { shape, market, suburbs } = ctx.town.settings.design ?? {};
       const designed = street ? { ...(shape ? { shape } : {}), ...(market ? { market } : {}), ...(suburbs ? { suburbs } : {}) } : {};
-      const layoutPlan = s.get<"radial" | "river" | undefined>("layoutPlan") ?? "radial";
+      const layoutPlan = s.get<LayoutPlan | undefined>("layoutPlan") ?? "radial";
       const farBank = s.get<FarBank | undefined>("farBank") ?? "village";
       const farUses = s.get<number[] | undefined>("farUses") ?? [];
       const key = `${ctx.town.seed}|${s.address}|${layout.version}|${terrain}|${layoutPlan}|${farBank}|${JSON.stringify(farUses)}|${JSON.stringify(designed)}|${JSON.stringify(footprints)}`;
@@ -56,12 +56,12 @@ export const layout: Module = {
         const enclosure: Enclosure = /wall/.test(encl) ? "wall" : /palisade/.test(encl) ? "palisade" : /hedge|bank/.test(encl) ? "hedge" : "none";
         // The room estimate is rough. When it falls short, buildings find no plot and
         // would be lost, so lay the town out again, roomier, from the same stream.
-        // A river town grows its streets to fit, so a short one needs a bigger step to come right.
-        for (let room = 1; ; room += layoutPlan === "river" ? 0.15 : 0.08) {
+        // A grown town grows its streets to fit, so a short one needs a bigger step to come right.
+        for (let room = 1; ; room += layoutPlan === "radial" ? 0.08 : 0.15) {
           const opts = { scale: s.get<Scale>("sizeClass"), enclosure, roads: s.get<number>("mainRoads"), terrain, ...designed, ...(room > 1 ? { room } : {}) };
-          map = layoutPlan === "river"
-            ? layoutRiver(ctx.rng(s, "river"), footprints, { ...opts, farBank, far: farUses, need: 0 })
-            : layoutRadial(ctx.rng(s, "town"), footprints, opts);
+          map = layoutPlan === "radial"
+            ? layoutRadial(ctx.rng(s, "town"), footprints, opts)
+            : layoutGrown(ctx.rng(s, "river"), footprints, { ...opts, form: layoutPlan, ...(BANKED.includes(layoutPlan) ? { farBank } : {}), far: farUses, need: 0 });
           if (map.buildings.length >= footprints.length || room > 1.5) break;
         }
         cache.set(key, map);
@@ -146,7 +146,7 @@ export function footprint(poly: Poly): number {
 
 // People per square yard of ground floor, standing or sitting, by use.
 const DENSITY: Record<string, number> = {
-  grand_temple: 1.6, temple: 1.6, fane: 1.6, chapel: 1.6, chantry: 0.6, shrine: 0.3, friary: 1, priory: 0.8, cell: 0.4, nunnery: 0.5,
+  grand_temple: 1.6, temple: 1.6, fane: 1.6, chapel: 1.6, chantry: 0.6, shrine: 0.3, friary: 1, priory: 0.8, cell: 0.4, abbey: 1, nunnery: 0.5,
   tavern: 0.9, town_alehouse: 0.9, alehouse: 0.9, inn: 0.7, cookshop: 0.6, bathhouse: 0.4, market_hall: 1.5, guildhall: 1.2, courthouse: 1.4,
 };
 

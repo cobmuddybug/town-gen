@@ -121,6 +121,7 @@
 - { id: chantry, label: "chantry chapel", category: smaller_urban, size: chantry, site: church, households: 1, occupations: { chantry_priest: 1 }, congregation: 100, look: worship, source: "LF p.85" }
 - { id: friary, label: friary, category: other_large, size: precinct, site: precinct, households: 1, occupations: { friar_warden: 1 }, look: worship, source: "LF p.85" }
 - { id: priory, label: priory, category: other_large, size: precinct, site: precinct, households: 1, occupations: { prior: 1 }, look: worship, source: "LF p.85" }
+- { id: abbey, label: abbey, category: other_large, size: precinct, site: precinct, households: 1, occupations: { abbot: 1 }, look: worship, source: "LF p.85" }
 - { id: cell, label: "priory cell", category: other_large, size: precinct, site: precinct, households: 1, occupations: { cell_prior: 1 }, look: worship, source: "LF p.85" }
 - { id: nunnery, label: nunnery, category: other_large, size: precinct, site: precinct, households: 1, occupations: { prioress: 1 }, look: worship, source: "LF p.85" }
 - { id: hospital, label: "hospital of the poor", category: other_large, size: hall, site: suburb, plots: 3, households: 1, occupations: { hospital_master: 1 }, look: worship, source: "LF pp.10, 94" }

@@ -4,7 +4,7 @@
 
 import { TAU, cos, sin } from "../../core/dmath";
 import type { Rng } from "../../core/rng";
-import type { FarBank } from "../../core/types";
+import type { FarBank, LayoutPlan } from "../../core/types";
 import { add, centroid, dist, dot, len, mul, norm, perp, qp, qpoly, sub, type Poly, type Pt } from "./geom";
 import type { Footprint, HamletLayout, PlacedBuilding } from "./hamlet";
 
@@ -46,7 +46,7 @@ export interface TownLayout extends HamletLayout {
   quay?: Pt[];
   castle?: Poly;
   /** how the streets were laid out */
-  plan?: "radial" | "river";
+  plan?: LayoutPlan;
   /** a river town: what lies over the bridge */
   farBank?: FarBank;
   /** a river town: the high ground, for shading */

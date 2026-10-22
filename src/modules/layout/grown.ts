@@ -1,7 +1,9 @@
-// River towns (L1): a town grown at a bridge, lopsided across its river. Our
-// own generator, written from scratch.
+// Grown towns (L1): every street plan but the radial web. Our own generator,
+// written from scratch. One engine: a site, a spine of streets laid on it, side
+// streets grown until there is frontage enough, then plots, wards and buildings.
+// Each `form` changes the site and the spine; the rest is shared.
 //
-// The model: the town proper sits on the higher bank. A high street climbs
+// The river town, the first form: the town proper sits on the higher bank. A high street climbs
 // from the bridge to a market where the roads in meet, a triangle or a
 // widened street, never a central square. Main roads wander out from it along
 // the easy ground; back lanes run behind the plots and water lanes drop to the
@@ -17,8 +19,16 @@ import { CHURCH_SIZE, blob, building, compassOf, insetOutline, marketSize, neare
 import { heightField } from "./height";
 import type { TownOpts } from "./radial";
 
+/** The shapes a grown town takes. */
+export type Form = "river" | "ridge" | "castle" | "street" | "crossroads" | "abbey" | "harbour";
+/** Forms with a far bank over their bridge. */
+export const BANKED: Form[] = ["river", "ridge"];
+
 export interface RiverOpts extends TownOpts {
-  farBank: FarBank;
+  /** the town's shape; a river town when absent */
+  form?: Form;
+  /** what lies over the bridge, for the forms that have one */
+  farBank?: FarBank;
   /** plots the dominant bank needs */
   need: number;
   /** plots the far bank needs */
@@ -41,6 +51,12 @@ export interface RiverSite {
   radius: number;
   /** on the coast: the sea is everything with p·n > d */
   sea?: { n: Pt; d: number };
+  /** castle-gate and abbey-gate towns: the castle's mound or the abbey precinct's middle */
+  anchor?: Pt;
+  /** the castle bailey's radius, for a castle-gate town */
+  anchorR?: number;
+  /** a ridge town's crest: from its foot by the river, up along `dir` */
+  ridge?: { foot: Pt; dir: Pt; half: number };
 }
 
 const dirOf = (a: number): Pt => [cos(a), sin(a)];
@@ -67,9 +83,13 @@ export function sideOf(line: Pt[], p: Pt): 1 | -1 {
 
 /** The river, the lie of the land, the bridge and the high point. */
 export function riverSite(r: Rng, o: RiverOpts): RiverSite {
-  const R = townRadius(o, o.need);
+  const form = o.form ?? "river";
+  // A harbour loses half its round of ground to the sea, a ridge town both its flanks: give them more.
+  const R = townRadius(o, o.need) * (form === "harbour" ? 1.45 : form === "ridge" ? 1.15 : 1);
   const extent = R * 2.6 + 200;
-  const width = urbanOf(o) ? r.range(12, 18) : r.range(7, 10);
+  // Towns at a crossing stand on a river; the others have a stream passing clear of them, for the mills.
+  const crossing = BANKED.includes(form) || form === "harbour";
+  const width = (urbanOf(o) ? r.range(12, 18) : r.range(7, 10)) * (crossing ? 1 : 0.6);
   const theta = r.range(0, TAU);
   const u = dirOf(theta), n = perp(u);
   // Meanders: three sine terms along the river's course.
@@ -77,7 +97,8 @@ export function riverSite(r: Rng, o: RiverOpts): RiverSite {
   const waves = [0.55, 0.3, 0.15].map((w) => ({ a: amp * w, l: extent * r.range(0.25, 0.6) * (w + 0.5), p: r.range(0, TAU) }));
   const wob = (t: number) => waves.reduce((s, w) => s + w.a * sin(t / w.l + w.p), 0);
   // The river passes the town proper at a little distance: the town is on the -n side of the line.
-  const off = Math.max(R * r.range(0.3, 0.42), amp * 1.4 + width * 3);
+  const off0 = Math.max(R * r.range(0.3, 0.42), amp * 1.4 + width * 3);
+  const off = crossing ? off0 : Math.max(off0, R * 1.2 + amp);
   const river: Pt[] = [];
   const step = extent / 40;
   for (let t = -extent * 1.1; t <= extent * 1.1 + 1e-6; t += step) river.push(add(mul(u, t), mul(n, off + wob(t) - wob(0))));
@@ -86,8 +107,35 @@ export function riverSite(r: Rng, o: RiverOpts): RiverSite {
   const base = heightField(r, R * 1.4);
   // The land rises from the river towards the town and falls away beyond it.
   const tilt = r.range(0.18, 0.3);
-  const height = (p: Pt) => base(p) * 0.6 + tilt * Math.max(-1, Math.min(1, -dot(p, n) / (extent * 0.6)));
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  const slope = (p: Pt) => tilt * clamp(-dot(p, n) / (extent * 0.6), -1, 1);
+  let height = (p: Pt) => base(p) * 0.6 + slope(p);
   const near = sideOf(river, [0, 0]);
+  // The anchor of a castle-gate or abbey-gate town: off to one side of the middle, away from the stream.
+  let anchor: Pt | undefined, anchorR: number | undefined;
+  if (form === "castle" || form === "abbey") {
+    let phi = r.range(0, TAU);
+    for (let k = 0; k < 8 && dot(dirOf(phi), n) > 0.2; k++) phi = r.range(0, TAU);
+    anchor = mul(dirOf(phi), R * (form === "castle" ? 0.38 : 0.42));
+  }
+  if (form === "castle") {
+    // The castle's mound: the ground falls away from it on every side, so the streets that keep
+    // to the level go round it in arcs, as Devizes' streets follow the castle's ditches.
+    anchorR = urbanOf(o) ? r.range(55, 72) : r.range(38, 48);
+    const C = anchor!;
+    height = (p: Pt) => base(p) * 0.3 + slope(p) * 0.5 + 1.1 * Math.max(0, 1 - hypot(p[0] - C[0], p[1] - C[1]) / (R * 1.4));
+  }
+  // A ridge: one long back of high ground rising from the crossing into the town.
+  let ridgeAlong = 0;
+  if (form === "ridge") {
+    const a = mul(n, -1);
+    height = (p: Pt) => {
+      const rel = sub(p, mul(n, off));
+      const up = clamp(dot(rel, a) / (R * 1.8), 0, 1.15);
+      const across = (dot(p, u) - ridgeAlong) / (R * 0.42);
+      return base(p) * 0.2 + 1.2 * up / ((1 + across * across) * (1 + across * across));
+    };
+  }
   // The high point: the highest ground on the near bank within reach of the river and the market.
   let high: Pt = mul(n, off * 0.5), hBest = -Infinity;
   for (let i = 0; i < 64; i++) {
@@ -98,6 +146,7 @@ export function riverSite(r: Rng, o: RiverOpts): RiverSite {
   }
   // The bridge: where the river comes closest to the town, nudged up or down stream.
   const along = r.range(-0.2, 0.2) * R;
+  ridgeAlong = along;
   let bi = 0, bd = Infinity;
   const aim = add(mul(u, along), mul(n, off));
   river.forEach((p, i) => { const d = (p[0] - aim[0]) ** 2 + (p[1] - aim[1]) ** 2; if (d < bd) { bd = d; bi = i; } });
@@ -107,12 +156,20 @@ export function riverSite(r: Rng, o: RiverOpts): RiverSite {
   const bridge = { p: river[bi], t: [t[0] / tl, t[1] / tl] as Pt };
   let sea: RiverSite["sea"];
   let line = river;
-  if (o.terrain === "coast") {
-    // The sea beyond the river's mouth, downstream.
+  if (o.terrain === "coast" || form === "harbour") {
+    // The sea beyond the river's mouth, downstream; a harbour town stands right on its shore.
     const down = sub(river[river.length - 1], river[0]);
     const dl = hypot(down[0], down[1]) || 1;
     const sn: Pt = [down[0] / dl, down[1] / dl];
-    sea = { n: sn, d: Math.max(R * 1.3, dot(bridge.p, sn) + R * 0.9) };
+    sea = { n: sn, d: form === "harbour" ? R * 0.35 : Math.max(R * 1.3, dot(bridge.p, sn) + R * 0.9) };
+    if (form === "harbour") {
+      // The land climbs steeply from the shore.
+      const d0 = sea.d;
+      // Coombes and spurs run down to the water, so the streets that keep to the level bend.
+      const tq = perp(sn), l1 = R * r.range(0.7, 1.1), l2 = R * r.range(0.3, 0.5), p1 = r.range(0, TAU), p2 = r.range(0, TAU);
+      const spur = (p: Pt) => R * (0.22 * sin(dot(p, tq) / l1 + p1) + 0.1 * sin(dot(p, tq) / l2 + p2));
+      height = (p: Pt) => base(p) * 0.8 + 1.3 * clamp((d0 - dot(p, sn) + spur(p) * clamp((d0 - dot(p, sn)) / (R * 0.3), 0, 1)) / (R * 1.1), 0, 1.3);
+    }
     // The river runs on until it meets the shore, and a little way out, so its mouth opens into the sea.
     const k = river.findIndex((p) => dot(p, sn) > sea!.d);
     if (k > 0) {
@@ -122,7 +179,11 @@ export function riverSite(r: Rng, o: RiverOpts): RiverSite {
       line = [...river.slice(0, k), mouth, add(mouth, mul(sn, width))];
     }
   }
-  return { height, river: line, width, near, bridge, high, extent, radius: R, sea };
+  // A ridge town's high point is the top of its ridge; a castle-gate town's is the castle mound.
+  if (form === "ridge") high = add(add(mul(u, along), mul(n, off)), mul(n, -R * 1.45));
+  const ridge = form === "ridge" ? { foot: add(mul(u, along), mul(n, off)), dir: mul(n, -1), half: R * 0.34 } : undefined;
+  if (form === "castle" && anchor) high = anchor;
+  return { height, river: line, width, near, bridge, high, extent, radius: R, sea, ...(anchor ? { anchor } : {}), ...(anchorR ? { anchorR } : {}), ...(ridge ? { ridge } : {}) };
 }
 
 // ---- streets ------------------------------------------------------------------
@@ -142,6 +203,8 @@ export interface StreetNet {
   plotDepth: number;
   /** river crossings: the first is the town's bridge */
   bridges: Pt[];
+  /** an abbey-gate town's precinct */
+  anchorPoly?: Pt[];
 }
 
 const norm2 = (v: Pt): Pt => { const l = hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
@@ -168,6 +231,8 @@ function offsetLine(line: Pt[], d: number): Pt[] {
 /** Grow the town's streets from its bridge, over its ground. */
 export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   const urban = urbanOf(o);
+  const form = o.form ?? "river";
+  const hasFar = !!o.farBank && BANKED.includes(form);
   const walled = o.enclosure === "wall" || o.enclosure === "palisade";
   const R = site.radius;
   // Burgage plots: long and narrow, longer than in the crowded radial towns.
@@ -188,68 +253,40 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   // A lane between two points that stays out of the water.
   const dry = (a: Pt, b: Pt) => !wet(b, 0) && !wet(mul(add(a, b), 0.5), 0) && bank(a) === bank(b);
   // Which way is "into town" from the bridge: away from the river, on the near side.
-  const into = norm2(sub([0, 0], site.bridge.p));
+  // A ridge town climbs its crest; a river town heads for the middle of its bank.
+  const into = site.ridge ? site.ridge.dir : norm2(sub([0, 0], site.bridge.p));
   const foot = add(site.bridge.p, mul(into, site.width / 2 + 3));
 
-  // 1. The high street climbs from the bridge foot, by the easiest rise that still heads into town.
-  const high: Pt[] = [site.bridge.p, foot];
-  let h = into;
-  const want = hypot(foot[0], foot[1]) * r.range(0.8, 1.05);
-  for (let walked = 0; walked < want; walked += 18) {
-    const at = high[high.length - 1];
-    let best = h, bs = -Infinity;
-    for (let k = -3; k <= 3; k++) {
-      const c = rot(h, (k * 35 * PI) / 180 / 3);
-      const p = add(at, mul(c, 18));
-      if (wet(p, 4)) continue;
-      const s = site.height(p) * 4 + dot(c, into) * 0.6 + r.range(-0.15, 0.15);
-      if (s > bs) { bs = s; best = c; }
-    }
-    h = norm2(add(mul(h, 0.5), mul(best, 0.5)));
-    high.push(add(at, mul(h, 18)));
-  }
-  const M = high[high.length - 1];
-  const d = norm2(sub(M, high[Math.max(0, high.length - 4)]));
-  const side = perp(d);
-  streets.push({ id: "high", kind: "high", width: mainW + 1, points: high, bank: "near" });
-
-  // 2. The market: a long triangle opening from the high street, or the street itself widened.
+  // 1–3. The spine: each form lays its own high street, market and main roads.
   const S = marketSize(o, o.need) * 1.35;
-  let market: Pt[];
-  let exits: Pt[];
-  if (r.chance(0.5)) {
-    const L = S * r.range(1.9, 2.4), Wd = S * r.range(0.55, 0.75), skew = r.range(-0.25, 0.25);
-    const a = M, b = add(add(M, mul(d, L)), mul(side, Wd * (1 + skew))), c = add(add(M, mul(d, L * r.range(0.85, 1))), mul(side, -Wd * (1 - skew)));
-    market = [a, b, c];
-    exits = [b, c, add(mul(add(b, c), 0.5), mul(d, 2))];
-  } else {
-    const L = S * r.range(2.4, 3), w0 = S * 0.35, w1 = S * r.range(0.55, 0.8);
-    const e = add(M, mul(d, L));
-    market = [add(M, mul(side, w0)), add(add(M, mul(d, L * 0.5)), mul(side, w1)), add(e, mul(side, w0 * 0.9)), add(e, mul(side, -w0 * 0.9)), add(add(M, mul(d, L * 0.5)), mul(side, -w1)), add(M, mul(side, -w0))];
-    exits = [e, market[1], market[4]];
-  }
-  const centre = mul(market.reduce((s, p) => add(s, p), [0, 0] as Pt), 1 / market.length);
-
-  // 3. Main roads: unevenly spaced bearings in the arc away from the bridge, wandering along the easy ground.
-  const k = Math.max(1, o.roads - 1);
-  const back = angleOf(mul(d, -1));
-  const free = TAU - (80 * PI) / 180, minGap = (35 * PI) / 180;
-  const w = Array.from({ length: k + 1 }, () => r.range(0.3, 1.7));
-  const wt = w.reduce((a, b) => a + b, 0);
-  const spare = Math.max(0, free - (k + 1) * minGap);
-  const bearings: number[] = [];
-  let acc = back + (40 * PI) / 180;
-  for (let i = 0; i < k; i++) { acc += minGap + (spare * w[i]) / wt; bearings.push(acc); }
+  const plotW = urban ? 6.75 : o.scale === "village" ? 8.75 : 13.5;
+  let M: Pt = [0, 0], d: Pt = [1, 0], market: Pt[] = [], exits: Pt[] = [];
+  let anchorPoly: Pt[] | undefined;
   // The roads run out as far as the suburbs along them: the DM's "many" sends them further.
   const reach = R * (walled ? 1.75 : 1.6) * (o.suburbs === "many" ? 1.45 : o.suburbs === "few" ? 0.85 : 1);
-  bearings.forEach((b, i) => {
+  const centreOf = (pts: Pt[]) => mul(pts.reduce((t, p) => add(t, p), [0, 0] as Pt), 1 / pts.length);
+  // Where a form's town doesn't go: off a ridge's flanks, or round behind a castle-gate town's castle.
+  const offSite = (p: Pt) => {
+    if (site.ridge) {
+      // A ridge town is long and narrow: along the crest from the river up, never far down its flanks.
+      const rel = sub(p, site.ridge.foot), up = dot(rel, site.ridge.dir);
+      return Math.abs(dot(rel, perp(site.ridge.dir))) > site.ridge.half || up < site.width || up > R * 2.2;
+    }
+    if ((form === "castle" || form === "abbey") && site.anchor) return dot(norm2(sub(p, site.anchor)), d) < -0.3;
+    return false;
+  };
+  // A castle's bailey or an abbey's precinct: no street goes through it.
+  const inAnchor = (p: Pt, margin = 0) => (form === "castle" && site.anchor ? hypot(p[0] - site.anchor[0], p[1] - site.anchor[1]) < (site.anchorR ?? 40) + margin : false)
+    || (!!anchorPoly && (pointInPoly(p, anchorPoly) || lineDist([...anchorPoly, anchorPoly[0]], p) < margin));
+  /** A main road out along bearing `b` from `start`, wandering along the easy ground. */
+  const growRoad = (id: string, b: number, start: Pt, reachK = 1, straight = 0, kind: StreetKind = "main") => {
     const dir0 = rot([1, 0], b);
-    // Leave from the market exit nearest this bearing.
-    let start = exits[0], sb = -Infinity;
-    for (const x of exits) { const s = dot(norm2(sub(x, centre)), dir0); if (s > sb) { sb = s; start = x; } }
     const pts: Pt[] = [start];
+    // A road leaving along a market's side runs straight beside it first.
+    for (let s0 = 22; s0 <= straight; s0 += 22) pts.push(add(start, mul(dir0, s0)));
+    const c0 = centreOf(market);
     let hd = dir0, bend = r.range(-0.05, 0.05);
-    while (d2(pts[pts.length - 1], centre) < reach * reach && pts.length < 200) {
+    while (d2(pts[pts.length - 1], c0) < (reach * reachK) ** 2 && pts.length < 200) {
       const at = pts[pts.length - 1];
       bend = Math.max(-0.12, Math.min(0.12, bend + r.range(-0.04, 0.04)));
       // Of three headings, the one that climbs least.
@@ -257,30 +294,211 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
       for (const t of [-0.15, 0, 0.15]) {
         const c = rot(hd, bend + t);
         const p = add(at, mul(c, 22));
-        const cost = Math.abs(site.height(p) - site.height(at)) * 40 + Math.abs(t) * 0.5 + (wet(p, 6) ? 100 : 0);
+        const cost = Math.abs(site.height(p) - site.height(at)) * 40 + Math.abs(t) * 0.5 + (wet(p, 6) || inAnchor(p, 6) ? 100 : 0);
         if (cost < nb) { nb = cost; next = c; }
       }
       let p = add(at, mul(next, 22));
       // Never into the river: turn along the bank instead.
-      for (let tries = 0; wet(p, 6) && tries < 8; tries++) {
+      for (let tries = 0; (wet(p, 6) || inAnchor(p, 6)) && tries < 8; tries++) {
         next = rot(next, (tries % 2 ? -1 : 1) * 0.25 * (tries + 1));
         p = add(at, mul(next, 22));
       }
-      if (wet(p, 6)) break;
+      if (wet(p, 6) || inAnchor(p, 6)) break;
       hd = norm2(add(mul(hd, 0.6), mul(next, 0.4)));
       pts.push(p);
     }
-    if (pts.length > 2) streets.push({ id: `main${i}`, kind: "main", width: mainW, points: pts, bank: "near" });
-  });
+    if (pts.length > 2) streets.push({ id, kind, width: mainW, points: pts, bank: "near" });
+  };
+  /** Start from whichever of the market's exits faces bearing `b` best. */
+  const exitFor = (b: number) => {
+    const dir0 = rot([1, 0], b), c0 = centreOf(market);
+    let start = exits[0], sb = -Infinity;
+    for (const x of exits) { const sc = dot(norm2(sub(x, c0)), dir0); if (sc > sb) { sb = sc; start = x; } }
+    return start;
+  };
+  /** `k` bearings fanned unevenly across `spread` radians, centred on `mid`. */
+  const fan = (mid: number, spread: number, k: number) => {
+    const w = Array.from({ length: k }, () => r.range(0.5, 1.5));
+    const tot = w.reduce((x, y) => x + y, 0);
+    let acc = 0;
+    return w.map((wi) => { const t = (acc + wi / 2) / tot; acc += wi; return mid - spread / 2 + t * spread; });
+  };
+
+  if (form === "river" || form === "ridge") {
+    // 1. The high street climbs from the bridge foot, by the easiest rise that still heads into town.
+    const high: Pt[] = [site.bridge.p, foot];
+    let h = into;
+    // A ridge town's high street climbs the whole crest; a river town's only to its market.
+    const want = form === "ridge" ? R * 0.8 : hypot(foot[0], foot[1]) * r.range(0.8, 1.05);
+    for (let walked = 0; walked < want; walked += 18) {
+      const at = high[high.length - 1];
+      let best = h, bs = -Infinity;
+      for (let k = -3; k <= 3; k++) {
+        const c = rot(h, (k * 35 * PI) / 180 / 3);
+        const p = add(at, mul(c, 18));
+        if (wet(p, 4)) continue;
+        const s = site.height(p) * 4 + dot(c, into) * 0.6 + r.range(-0.15, 0.15);
+        if (s > bs) { bs = s; best = c; }
+      }
+      h = norm2(add(mul(h, 0.5), mul(best, 0.5)));
+      high.push(add(at, mul(h, 18)));
+    }
+    M = high[high.length - 1];
+    d = norm2(sub(M, high[Math.max(0, high.length - 4)]));
+    const side = perp(d);
+    streets.push({ id: "high", kind: "high", width: mainW + 1, points: high, bank: "near" });
+
+    // 2. The market: a long triangle opening from the high street, or the street itself widened
+    // (always widened on a ridge, where there is no room for a triangle).
+    if (form !== "ridge" && r.chance(0.5)) {
+      const L = S * r.range(1.9, 2.4), Wd = S * r.range(0.55, 0.75), skew = r.range(-0.25, 0.25);
+      const a = M, b = add(add(M, mul(d, L)), mul(side, Wd * (1 + skew))), c = add(add(M, mul(d, L * r.range(0.85, 1))), mul(side, -Wd * (1 - skew)));
+      market = [a, b, c];
+      exits = [b, c, add(mul(add(b, c), 0.5), mul(d, 2))];
+    } else {
+      const L = S * r.range(2.4, 3), w0 = S * 0.35, w1 = S * r.range(0.55, 0.8);
+      const e = add(M, mul(d, L));
+      market = [add(M, mul(side, w0)), add(add(M, mul(d, L * 0.5)), mul(side, w1)), add(e, mul(side, w0 * 0.9)), add(e, mul(side, -w0 * 0.9)), add(add(M, mul(d, L * 0.5)), mul(side, -w1)), add(M, mul(side, -w0))];
+      exits = [e, market[1], market[4]];
+    }
+
+    // 3. Main roads: unevenly spaced bearings in the arc away from the bridge, wandering along the easy ground.
+    const k = Math.max(1, o.roads - 1);
+    let bearings: number[];
+    if (form === "ridge") {
+      // On up the crest beyond the market, and off down either flank.
+      const up = angleOf(d);
+      bearings = [up + r.range(-0.2, 0.2), up + PI / 2 + r.range(-0.3, 0.3), up - PI / 2 + r.range(-0.3, 0.3), up + PI * 0.3 + r.range(-0.1, 0.1), up - PI * 0.3 + r.range(-0.1, 0.1)].slice(0, k);
+    } else {
+      const back = angleOf(mul(d, -1));
+      const free = TAU - (80 * PI) / 180, minGap = (35 * PI) / 180;
+      const w = Array.from({ length: k + 1 }, () => r.range(0.3, 1.7));
+      const wt = w.reduce((a, b) => a + b, 0);
+      const spare = Math.max(0, free - (k + 1) * minGap);
+      bearings = [];
+      let acc = back + (40 * PI) / 180;
+      for (let i = 0; i < k; i++) { acc += minGap + (spare * w[i]) / wt; bearings.push(acc); }
+    }
+    // A ridge town's road on up the crest is its backbone: it runs to the top whatever the suburbs.
+  bearings.forEach((b, i) => growRoad(`main${i}`, b, exitFor(b), form === "ridge" && i === 0 ? (R * 1.6) / reach : 1));
+  } else if (form === "castle" || form === "abbey") {
+    // The town grows outside the gate: of a castle (Devizes, Ludlow) or an abbey precinct (St Albans, Peterborough).
+    const C = site.anchor!;
+    d = norm2(sub([0, 0], C));
+    const tang = perp(d);
+    let gate: Pt;
+    if (form === "castle") {
+      const cr = site.anchorR ?? 40;
+      gate = add(C, mul(d, cr + 2));
+      // The market: a broad space in the old outer bailey, bending round the castle.
+      M = add(C, mul(d, cr + S * 0.95));
+      const L = S * r.range(1.3, 1.6), Wd = S * r.range(0.5, 0.65), bow = S * 0.3;
+      market = [add(add(M, mul(tang, -L)), mul(d, -bow)), add(add(M, mul(tang, -L * 0.5)), mul(d, -Wd)), add(add(M, mul(tang, L * 0.5)), mul(d, -Wd)),
+        add(add(M, mul(tang, L)), mul(d, -bow)), add(add(M, mul(tang, L * 0.55)), mul(d, Wd)), add(add(M, mul(tang, -L * 0.55)), mul(d, Wd))];
+      exits = [market[0], market[3], add(mul(add(market[4], market[5]), 0.5), mul(d, 2))];
+      streets.push({ id: "high", kind: "high", width: mainW + 1, points: [gate, add(M, mul(d, -Wd + 1))], bank: "near" });
+    } else {
+      // The precinct: a great walled block, its gatehouse facing the town.
+      const A = R * r.range(0.5, 0.65), B = R * r.range(0.32, 0.42);
+      anchorPoly = [add(add(C, mul(tang, -A / 2)), mul(d, -B / 2)), add(add(C, mul(tang, A / 2)), mul(d, -B / 2)), add(add(C, mul(tang, A / 2)), mul(d, B / 2)), add(add(C, mul(tang, -A / 2)), mul(d, B / 2))];
+      gate = add(C, mul(d, B / 2));
+      // The market: a broad funnel before the gatehouse, where pilgrims and townsfolk met.
+      M = add(gate, mul(d, S));
+      const W0 = S * r.range(1.1, 1.4), W1 = S * r.range(0.55, 0.8), Dp = S * r.range(1.8, 2.3);
+      market = [add(add(gate, mul(tang, -W0)), mul(d, 5)), add(add(gate, mul(tang, W0)), mul(d, 5)), add(add(gate, mul(tang, W1)), mul(d, Dp)), add(add(gate, mul(tang, -W1)), mul(d, Dp))];
+      exits = [market[0], market[1], market[2], market[3], add(mul(add(market[2], market[3]), 0.5), mul(d, 2))];
+    }
+    // Main roads fan out from the market, away from the castle or the abbey.
+    fan(angleOf(d), form === "castle" ? PI * 0.95 : PI * 1.3, Math.max(2, o.roads)).forEach((b, i) => growRoad(i === 0 ? "high" : `main${i}`, b, exitFor(b), 1, 0, i === 0 && form === "abbey" ? "high" : "main"));
+  } else if (form === "street") {
+    // One long, wide, gently curving street that is the market itself (Marlborough, Thame).
+    d = dirOf(r.range(0, TAU));
+    const side = perp(d);
+    const Lm = R * r.range(1.3, 1.7);
+    const bendK = r.range(-0.12, 0.12);
+    const n2 = 10;
+    const mid = (t: number): Pt => add(mul(d, (t * Lm) / 2), mul(side, bendK * Lm * (1 - t * t) * 0.5));
+    const half = (t: number) => S * (0.2 + 0.18 * (1 - t * t));
+    const left: Pt[] = [], right: Pt[] = [];
+    for (let j = 0; j <= n2; j++) {
+      const t = -1 + (2 * j) / n2;
+      const tn = norm2(sub(mid(Math.min(1, t + 0.05)), mid(Math.max(-1, t - 0.05))));
+      left.push(add(mid(t), mul(perp(tn), half(t))));
+      right.push(add(mid(t), mul(perp(tn), -half(t))));
+    }
+    market = [...left, ...right.reverse()];
+    M = mid(0);
+    exits = [mid(-1), mid(1)];
+    growRoad("high", angleOf(mul(d, -1)), mid(-1), 1, 0, "high");
+    growRoad("main0", angleOf(d), mid(1));
+    // At most one or two side roads off the middle of the street.
+    for (let i = 1; i < Math.min(2, o.roads - 1); i++) {
+      const sd = i % 2 ? 1 : -1, at = (i === 1 ? 0.15 : -0.3) * sd;
+      const tn = norm2(sub(mid(at + 0.05), mid(at - 0.05)));
+      growRoad(`main${i}`, angleOf(mul(perp(tn), sd)) + r.range(-0.3, 0.3), add(mid(at), mul(perp(tn), sd * half(at))));
+    }
+  } else if (form === "crossroads") {
+    // Two through-roads crossing, their arms bending and unequal (Banbury, Abingdon); the market in one angle.
+    const b0 = r.range(0, TAU);
+    const arms = [b0, b0 + PI + r.range(-0.35, 0.35), b0 + PI / 2 + r.range(-0.45, 0.45), b0 - PI / 2 + r.range(-0.45, 0.45)];
+    for (let i = 4; i < o.roads; i++) arms.push(b0 + PI * (i % 2 ? 0.25 : 1.25) + r.range(-0.2, 0.2));
+    d = dirOf(b0);
+    const a1 = dirOf(arms[0]), a2 = dirOf(arms[2]);
+    const n1 = mul(perp(a1), dot(perp(a1), a2) >= 0 ? 1 : -1), n2 = mul(perp(a2), dot(perp(a2), a1) >= 0 ? 1 : -1);
+    const off = mainW / 2 + 3;
+    market = [add(mul(n1, off), mul(n2, off)), add(mul(a1, S * 2.3), mul(n1, off)), add(mul(a2, S * 2), mul(n2, off))];
+    M = [0, 0];
+    exits = [[0, 0]];
+    arms.forEach((b, i) => growRoad(i === 0 ? "high" : `main${i}`, b, [0, 0], r.range(0.65, 1.3), i === 0 ? S * 2.3 : i === 2 ? S * 2 : 0, i === 0 ? "high" : "main"));
+  } else {
+    // A harbour: the quay along the shore, the market at the quayside, lanes climbing the hill behind (Dartmouth, Fowey).
+    const sea = site.sea!;
+    const t0 = perp(sea.n);
+    const mouth = site.river[Math.max(0, site.river.length - 2)];
+    const away: Pt = dot(sub([0, 0], mouth), t0) >= 0 ? t0 : mul(t0, -1);
+    const s0 = dot(mouth, away) + site.width * 1.5 + 8;
+    const Lq = Math.max(R * 0.9, Math.min(R * 2.2, o.need * plotW * 0.45));
+    const line0 = mul(sea.n, sea.d - 9);
+    const quay: Pt[] = [];
+    for (let sq = s0; sq <= s0 + Lq; sq += 18) quay.push(add(line0, mul(away, sq)));
+    streets.push({ id: "quay", kind: "quay", width: mainW, points: quay, bank: "near" });
+    d = mul(sea.n, -1);
+    M = add(line0, mul(away, s0 + Lq * 0.35));
+    const qa = mainW / 2 + 2;
+    market = [add(add(M, mul(away, -S * 1.1)), mul(d, qa)), add(add(M, mul(away, S * 1.1)), mul(d, qa)), add(add(M, mul(away, S * 0.9)), mul(d, qa + S)), add(add(M, mul(away, -S * 0.9)), mul(d, qa + S))];
+    exits = [market[2], market[3], add(mul(add(market[2], market[3]), 0.5), mul(d, 2))];
+    // On along the shore beyond the quay, and up the hill inland.
+    growRoad("main0", angleOf(away), quay[quay.length - 1]);
+    const inland = angleOf(d);
+    [inland + r.range(-0.4, 0.4), inland + 0.9 + r.range(-0.2, 0.2), inland - 0.9 + r.range(-0.2, 0.2)].slice(0, Math.max(1, o.roads - 2)).forEach((b, i) => growRoad(i === 0 ? "high" : `main${i + 1}`, b, exitFor(b), 1, 0, i === 0 ? "high" : "main"));
+  }
+  const centre = centreOf(market);
 
   // 3b. Side streets: branch off the streets already there, bend a little, and
   // join the next street they meet, until there is frontage enough for the town.
   const streetW = urban ? 4.5 : 5;
-  const plotW = urban ? 6.75 : o.scale === "village" ? 8.75 : 13.5;
   // Only the inner reach of a main road counts: its outer length becomes ribbons along the road,
   // and a town that counted it would be three spokes from a market with nothing between.
   const inner2 = (R * 0.55) ** 2;
   let frontSum = streets.filter((x) => x.kind !== "far").reduce((t, x) => t + polyLen(x.points.filter((p) => d2(p, centre) < inner2)), 0) * 2;
+  // A street town's market is its main frontage; a harbour's quay fronts the water on one side only.
+  if (form === "street") frontSum += polyLen([...market, market[0]]);
+  // A street town's market sides, a little outside it, as streets its lanes can leave from.
+  const marketSides: Street[] = [];
+  if (form === "street") {
+    const h = market.length / 2;
+    const out = (pts: Pt[], sgn: number) => pts.map((p, j) => { const a2 = pts[Math.max(0, j - 1)], b2 = pts[Math.min(pts.length - 1, j + 1)]; return add(p, mul(perp(norm2(sub(b2, a2))), sgn * 2)); });
+    for (const [pts, sgn] of [[market.slice(0, h), 1], [market.slice(h), 1]] as [Pt[], number][]) {
+      const side = out(pts, sgn);
+      // Whichever way is out of the market.
+      const pts2 = pointInPoly(side[side.length >> 1], market) ? out(pts, -sgn) : side;
+      marketSides.push({ id: "market-side", kind: "street", width: 0, points: pts2, bank: "near" });
+    }
+  }
+  // How many side streets a street town allows itself: few, it is one street.
+  const maxSide = form === "street" ? 2 + Math.round(o.need / 40) : Infinity;
+  // The share of side streets that keep to the level: a ridge's run down its flanks instead.
+  const levelShare = form === "ridge" ? 0.7 : form === "castle" ? 0.9 : form === "harbour" ? 0.85 : 0.85;
   const frontage = () => frontSum;
   // Junctions, lanes and corners lose plots: only about two-fifths of a street's frontage ends up built on.
   const wantFront = o.need * plotW * 2.6 * (o.room ?? 1) ** 2;
@@ -294,21 +512,23 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
     const c = norm2(perp(g));
     return dot(c, prefer) >= 0 ? c : mul(c, -1);
   };
-  for (let tries = 0; frontage() < wantFront && tries < 300 + o.need * 2; tries++) {
+  for (let tries = 0; frontage() < wantFront && sn < maxSide && tries < 300 + o.need * 2; tries++) {
     // Mostly off the main streets; now and then off a side street, for a second row.
-    const parents = streets.filter((x) => x.kind === "main" || x.kind === "high" || (x.kind === "street" && r.chance(0.25)));
+    // A street town's lanes leave from its one great street, both sides.
+    const parents = form === "street" ? [...marketSides, ...(o.need > 600 ? streets.filter((x) => x.kind === "street" && r.chance(0.25)) : [])] : streets.filter((x) => x.kind === "main" || x.kind === "high" || (form === "harbour" && x.kind === "quay") || (x.kind === "street" && r.chance(0.25)));
     const par = r.pick(parents);
     if (par.points.length < 4) continue;
     const i = r.int(1, par.points.length - 2);
     const at = par.points[i];
-    if (!at || d2(at, centre) > (R * 0.92) ** 2 || pointInPoly(at, market) || lineDist(market, at) < S * 0.5) continue;
+    const offMarket = form === "street" ? false : pointInPoly(at, market) || lineDist(market, at) < S * 0.5;
+    if (!at || (!site.ridge && d2(at, centre) > (R * 0.92) ** 2) || offMarket || inAnchor(at, depth) || offSite(at)) continue;
     // Not too close to another side street leaving the same street.
     if (streets.some((x) => x.kind === "street" && d2(x.points[0], at) < (block * 0.7) ** 2)) continue;
     const t = norm2(sub(par.points[i + 1], par.points[i - 1]));
     // Most side streets run along the slope; some go straight down it, which ties the rows together.
     // Off a road that itself runs along the slope, a level street would only shadow it: go down the slope instead.
     const t0 = norm2(sub(par.points[Math.min(par.points.length - 1, i + 1)], par.points[i - 1]));
-    let level = r.chance(0.85);
+    let level = r.chance(form === "river" ? 0.85 : levelShare);
     if (level && Math.abs(dot(contour(at, t0), t0)) > 0.8) level = false;
     const along = (p: Pt, prefer: Pt) => (level ? contour(p, prefer) : (() => { const c = contour(p, prefer); const d0 = perp(c); return dot(d0, prefer) >= 0 ? d0 : mul(d0, -1); })());
     let hd = along(at, rot(perp(t), r.chance(0.5) ? 0 : PI));
@@ -316,12 +536,12 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
     if (Math.abs(dot(hd, t)) > 0.8) continue;
     const pts: Pt[] = [at];
     let joined = false;
-    for (let step = 0; step < 60; step++) {
+    for (let step = 0; step < (form === "street" ? (o.need > 600 ? 14 : 9) : 60); step++) {
       const cur = pts[pts.length - 1];
       hd = norm2(add(mul(hd, 0.6), mul(along(cur, hd), 0.4)));
       hd = rot(hd, r.range(-0.03, 0.03));
       const p = add(cur, mul(hd, 18));
-      if (wet(p, depth) || d2(p, centre) > (R * 0.98) ** 2 || pointInPoly(p, market)) break;
+      if (wet(p, depth) || (!site.ridge && d2(p, centre) > (R * 0.98) ** 2) || pointInPoly(p, market) || inAnchor(p, depth) || offSite(p)) break;
       // Close enough to another street to make one block between: join it.
       let hit: Pt | undefined;
       for (const sg of sGrid.near(p, block)) {
@@ -345,6 +565,11 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   // The wall goes round what was built, close about it, not round the room the town might have had.
   // What was built: the side streets, and only the inner reach of the main roads (their outer stretches are ribbons outside the gates).
   const built = streets.filter((x) => x.kind !== "far").flatMap((x) => x.kind === "main" || x.kind === "high" ? x.points.filter((p) => d2(p, centre) < inner2) : x.points.filter((p) => d2(p, centre) < R * R));
+  // The market is in the town (a river town's lies well inside it anyway).
+  if (form !== "river") built.push(...market);
+  // An abbey's precinct, and a castle, stand within the town's wall.
+  if (anchorPoly) built.push(...anchorPoly);
+  if (form === "castle" && site.anchor) for (let j = 0; j < 12; j++) built.push(add(site.anchor, mul(dirOf((j / 12) * TAU), site.anchorR ?? 40)));
   const reachAt = Array.from({ length: 72 }, () => 0);
   for (const p of built) {
     const k = Math.round(((atan2(p[1] - centre[1], p[0] - centre[0]) + TAU) % TAU) / TAU * 72) % 72;
@@ -395,7 +620,8 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   // An open town has roads in, not gates.
   if (walled && wallLine) for (const st of streets) if (st.kind === "main") { const g = crossing(st.points); if (g) gates.push({ ...g, road: st.id }); }
   // The bridge gate stands back from the water, at the head of the bridge.
-  if (walled && wallLine) gates.push({ p: add(foot, mul(into, 6)), t: into, road: "high" });
+  const hasBridge = BANKED.includes(form);
+  if (walled && wallLine && hasBridge) gates.push({ p: add(foot, mul(into, 6)), t: into, road: "high" });
 
   // 5. Back lanes: a plot's depth behind every street front in town, both sides.
   const inTown = (p: Pt) => d2(p, centre) < (R * 1.02) ** 2;
@@ -406,7 +632,7 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
     let run: Pt[] = [];
     const flush = () => { if (run.length >= 3) backs.push({ id: `back${backs.length}`, kind: "back", width: laneW, points: run, bank: "near" }); run = []; };
     for (const p of off) {
-      const clear = inTown(p) && !wet(p, 3) && !pointInPoly(p, market) && lineDist(market, p) > depth * 0.6
+      const clear = inTown(p) && !wet(p, 3) && !pointInPoly(p, market) && lineDist(market, p) > depth * (form === "river" ? 0.6 : 1.1) && !inAnchor(p, 4)
         && sGrid.near(p, depth + 6).every((sg) => sg.tag === st || !fronts.includes(sg.tag) || segPointDist(p, sg.a, sg.b) > depth + sg.tag.width / 2);
       if (clear) run.push(p); else flush();
     }
@@ -463,87 +689,89 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
     }
   }
 
-  // 8. The far bank: the road over the bridge, and the far side's own pattern.
-  const out = mul(into, -1);
-  const farFoot = add(site.bridge.p, mul(out, site.width / 2 + 3));
-  const farPts: Pt[] = [foot, site.bridge.p, farFoot];
-  let fh = out;
-  const farNeed = o.farNeed ?? 0;
-  // The road over the bridge runs on far enough to carry its share; a bridge-end is all road.
-  const farLen = o.farBank === "bridgend" ? Math.max(R * 1.2, farNeed * plotW * 0.7) : Math.max(R * 1.2, farNeed * plotW * 0.35);
-  for (let i = 0; i < 200; i++) {
-    const at = farPts[farPts.length - 1];
-    fh = norm2(rot(fh, r.range(-0.08, 0.08)));
-    const p = add(at, mul(fh, 22));
-    if (bank(p) === site.near || lineDist(site.river, p) < site.width / 2 + 3) break;
-    farPts.push(p);
-    if (d2(p, farFoot) > farLen ** 2) break;
-  }
-  streets.push({ id: "far", kind: "far", width: mainW, points: farPts, bank: "far" });
+  // 8. The far bank, for the forms that have one: the road over the bridge, and the far side's own pattern.
   let farPlace: Pt[] | undefined;
-  const onFar = (t: number) => {
-    const L = Math.min(t, farPts.length - 1);
-    return farPts[Math.max(3, Math.floor(L))] ?? farFoot;
-  };
-  if (o.farBank === "village" && farPts.length > 4) {
-    // A green beside the road, a lane round it.
-    const c = add(onFar(farPts.length * 0.45), mul(perp(fh), r.chance(0.5) ? 28 : -28));
-    const a = r.range(30, 50), b = r.range(18, 30), rotA = r.range(0, TAU);
-    farPlace = Array.from({ length: 16 }, (_, i) => add(c, rot([cos((i / 16) * TAU) * a, sin((i / 16) * TAU) * b], rotA)));
-    const loop = farPlace.map((p) => add(c, mul(sub(p, c), 1 + (laneW + 2) / Math.min(a, b))));
-    const join = nearestOn(farPts, loop[0]);
-    streets.push({ id: "far-green", kind: "far", width: laneW, points: [join, ...loop, loop[0]], bank: "far" });
-  } else if (o.farBank === "abbey" && farPts.length > 4) {
-    // The precinct: a walled block beside the road.
-    const c = add(onFar(farPts.length * 0.4), mul(perp(fh), 40 + depth));
-    const u = fh, v = perp(fh), A = r.range(50, 80), B = r.range(40, 60);
-    farPlace = [add(add(c, mul(u, -A / 2)), mul(v, -B / 2)), add(add(c, mul(u, A / 2)), mul(v, -B / 2)), add(add(c, mul(u, A / 2)), mul(v, B / 2)), add(add(c, mul(u, -A / 2)), mul(v, B / 2))];
-  } else if (o.farBank === "wharf") {
-    // A strand along the far bank, both ways from the bridge.
-    const s1 = offsetLine(site.river, (site.near === 1 ? -1 : 1) * (site.width / 2 + 8));
-    const bi = s1.reduce((bi, p, i) => (d2(p, farFoot) < d2(s1[bi], farFoot) ? i : bi), 0);
-    const span = Math.max(3, Math.round(R / 2 / (site.extent / 40)));
-    const strand = s1.slice(Math.max(0, bi - span), bi + span + 1).filter((p) => bank(p) !== site.near);
-    if (strand.length >= 3) streets.push({ id: "far-strand", kind: "far", width: laneW + 1, points: [farFoot, ...strand.slice(strand.length >> 1)], bank: "far" },
-      { id: "far-strand2", kind: "far", width: laneW + 1, points: [farFoot, ...strand.slice(0, (strand.length >> 1) + 1).reverse()], bank: "far" });
-  }
-  // The far bank grows side streets of its own until it has frontage for its share.
-  const farWet = (p: Pt, margin = 2) => inSea(p, margin) || riverDist(p, site.width / 2 + margin + 1) < site.width / 2 + margin || bank(p) === site.near;
-  let farSum = streets.filter((x) => x.bank === "far").reduce((t, x) => t + polyLen(x.points), 0) * 2;
-  const farFront = () => farSum;
-  const farWant = farNeed * plotW * 3.4 * (o.room ?? 1) ** 2;
-  let fn = 0;
-  for (let tries = 0; farFront() < farWant && tries < 400 + farNeed * 4; tries++) {
-    const parents = streets.filter((x) => x.bank === "far" && x.points.length >= 4);
-    if (!parents.length) break;
-    const par = r.pick(parents);
-    const i = r.int(2, par.points.length - 2);
-    const at = par.points[i];
-    if (!at || farWet(at, depth) || (farPlace && pointInPoly(at, farPlace))) continue;
-    if (streets.some((x) => x.id.startsWith("farside") && d2(x.points[0], at) < block * block)) continue;
-    const t = norm2(sub(par.points[Math.min(par.points.length - 1, i + 1)], par.points[i - 1]));
-    let hd = contour(at, rot(perp(t), r.chance(0.5) ? 0 : PI));
-    if (Math.abs(dot(hd, t)) > 0.8) hd = rot(perp(t), r.chance(0.5) ? 0 : PI);
-    const pts: Pt[] = [at];
-    for (let step = 0; step < 40; step++) {
-      const cur = pts[pts.length - 1];
-      hd = norm2(rot(add(mul(hd, 0.7), mul(contour(cur, hd), 0.3)), r.range(-0.04, 0.04)));
-      const p = add(cur, mul(hd, 18));
-      if (farWet(p, depth) || d2(p, farFoot) > (R * 1.9) ** 2 || (farPlace && pointInPoly(p, farPlace))) break;
-      let hit: Pt | undefined;
-      for (const sg of sGrid.near(p, block)) {
-        const x = sg.tag;
-        if (x.bank !== "far" || (x === par && step < 3)) continue;
-        if (segPointDist(p, sg.a, sg.b) < block) { hit = nearestOn(x.points, p); break; }
-      }
-      if (hit) { if (step >= 2) pts.push(hit); break; }
-      pts.push(p);
+  if (hasFar) {
+    const out = mul(into, -1);
+    const farFoot = add(site.bridge.p, mul(out, site.width / 2 + 3));
+    const farPts: Pt[] = [foot, site.bridge.p, farFoot];
+    let fh = out;
+    const farNeed = o.farNeed ?? 0;
+    // The road over the bridge runs on far enough to carry its share; a bridge-end is all road.
+    const farLen = o.farBank === "bridgend" ? Math.max(R * 1.2, farNeed * plotW * 0.7) : Math.max(R * 1.2, farNeed * plotW * 0.35);
+    for (let i = 0; i < 200; i++) {
+      const at = farPts[farPts.length - 1];
+      fh = norm2(rot(fh, r.range(-0.08, 0.08)));
+      const p = add(at, mul(fh, 22));
+      if (bank(p) === site.near || lineDist(site.river, p) < site.width / 2 + 3) break;
+      farPts.push(p);
+      if (d2(p, farFoot) > farLen ** 2) break;
     }
-    if (polyLen(pts) >= depth * 2.5) { streets.push({ id: `farside${fn++}`, kind: "far", width: streetW, points: pts, bank: "far" }); farSum += polyLen(pts) * 2; }
+    streets.push({ id: "far", kind: "far", width: mainW, points: farPts, bank: "far" });
+    const onFar = (t: number) => {
+      const L = Math.min(t, farPts.length - 1);
+      return farPts[Math.max(3, Math.floor(L))] ?? farFoot;
+    };
+    if (o.farBank === "village" && farPts.length > 4) {
+      // A green beside the road, a lane round it.
+      const c = add(onFar(farPts.length * 0.45), mul(perp(fh), r.chance(0.5) ? 28 : -28));
+      const a = r.range(30, 50), b = r.range(18, 30), rotA = r.range(0, TAU);
+      farPlace = Array.from({ length: 16 }, (_, i) => add(c, rot([cos((i / 16) * TAU) * a, sin((i / 16) * TAU) * b], rotA)));
+      const loop = farPlace.map((p) => add(c, mul(sub(p, c), 1 + (laneW + 2) / Math.min(a, b))));
+      const join = nearestOn(farPts, loop[0]);
+      streets.push({ id: "far-green", kind: "far", width: laneW, points: [join, ...loop, loop[0]], bank: "far" });
+    } else if (o.farBank === "abbey" && farPts.length > 4) {
+      // The precinct: a walled block beside the road.
+      const c = add(onFar(farPts.length * 0.4), mul(perp(fh), 40 + depth));
+      const u = fh, v = perp(fh), A = r.range(50, 80), B = r.range(40, 60);
+      farPlace = [add(add(c, mul(u, -A / 2)), mul(v, -B / 2)), add(add(c, mul(u, A / 2)), mul(v, -B / 2)), add(add(c, mul(u, A / 2)), mul(v, B / 2)), add(add(c, mul(u, -A / 2)), mul(v, B / 2))];
+    } else if (o.farBank === "wharf") {
+      // A strand along the far bank, both ways from the bridge.
+      const s1 = offsetLine(site.river, (site.near === 1 ? -1 : 1) * (site.width / 2 + 8));
+      const bi = s1.reduce((bi, p, i) => (d2(p, farFoot) < d2(s1[bi], farFoot) ? i : bi), 0);
+      const span = Math.max(3, Math.round(R / 2 / (site.extent / 40)));
+      const strand = s1.slice(Math.max(0, bi - span), bi + span + 1).filter((p) => bank(p) !== site.near);
+      if (strand.length >= 3) streets.push({ id: "far-strand", kind: "far", width: laneW + 1, points: [farFoot, ...strand.slice(strand.length >> 1)], bank: "far" },
+        { id: "far-strand2", kind: "far", width: laneW + 1, points: [farFoot, ...strand.slice(0, (strand.length >> 1) + 1).reverse()], bank: "far" });
+    }
+    // The far bank grows side streets of its own until it has frontage for its share.
+    const farWet = (p: Pt, margin = 2) => inSea(p, margin) || riverDist(p, site.width / 2 + margin + 1) < site.width / 2 + margin || bank(p) === site.near;
+    let farSum = streets.filter((x) => x.bank === "far").reduce((t, x) => t + polyLen(x.points), 0) * 2;
+    const farFront = () => farSum;
+    const farWant = farNeed * plotW * 3.4 * (o.room ?? 1) ** 2;
+    let fn = 0;
+    for (let tries = 0; farFront() < farWant && tries < 400 + farNeed * 4; tries++) {
+      const parents = streets.filter((x) => x.bank === "far" && x.points.length >= 4);
+      if (!parents.length) break;
+      const par = r.pick(parents);
+      const i = r.int(2, par.points.length - 2);
+      const at = par.points[i];
+      if (!at || farWet(at, depth) || (farPlace && pointInPoly(at, farPlace))) continue;
+      if (streets.some((x) => x.id.startsWith("farside") && d2(x.points[0], at) < block * block)) continue;
+      const t = norm2(sub(par.points[Math.min(par.points.length - 1, i + 1)], par.points[i - 1]));
+      let hd = contour(at, rot(perp(t), r.chance(0.5) ? 0 : PI));
+      if (Math.abs(dot(hd, t)) > 0.8) hd = rot(perp(t), r.chance(0.5) ? 0 : PI);
+      const pts: Pt[] = [at];
+      for (let step = 0; step < 40; step++) {
+        const cur = pts[pts.length - 1];
+        hd = norm2(rot(add(mul(hd, 0.7), mul(contour(cur, hd), 0.3)), r.range(-0.04, 0.04)));
+        const p = add(cur, mul(hd, 18));
+        if (farWet(p, depth) || d2(p, farFoot) > (R * 1.9) ** 2 || (farPlace && pointInPoly(p, farPlace))) break;
+        let hit: Pt | undefined;
+        for (const sg of sGrid.near(p, block)) {
+          const x = sg.tag;
+          if (x.bank !== "far" || (x === par && step < 3)) continue;
+          if (segPointDist(p, sg.a, sg.b) < block) { hit = nearestOn(x.points, p); break; }
+        }
+        if (hit) { if (step >= 2) pts.push(hit); break; }
+        pts.push(p);
+      }
+      if (polyLen(pts) >= depth * 2.5) { streets.push({ id: `farside${fn++}`, kind: "far", width: streetW, points: pts, bank: "far" }); farSum += polyLen(pts) * 2; }
+    }
   }
 
-  // On the coast, a quay along the near bank, from the bridge down to the sea.
-  if (site.sea) {
+  // On the coast, a quay along the near bank, from the bridge down to the sea (a harbour has its own).
+  if (site.sea && hasBridge) {
     const sideSign = site.near === 1 ? 1 : -1;
     const qline = offsetLine(site.river, sideSign * (site.width / 2 + 6));
     const bi = qline.reduce((bi, p, i) => (d2(p, foot) < d2(qline[bi], foot) ? i : bi), 0);
@@ -552,8 +780,8 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   }
 
   // A city needs a second crossing, downstream or up.
-  const bridges: Pt[] = [site.bridge.p];
-  if (o.scale === "city") {
+  const bridges: Pt[] = hasBridge ? [site.bridge.p] : [];
+  if (o.scale === "city" && hasBridge) {
     const ri = site.river.reduce((bi, p, i) => (d2(p, site.bridge.p) < d2(site.river[bi], site.bridge.p) ? i : bi), 0);
     const span = Math.max(4, Math.round((R * 0.7) / (site.extent / 40)));
     for (const j of [ri + span, ri - span, ri + span * 1.4, ri - span * 1.4].map(Math.round)) {
@@ -574,7 +802,7 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
       break;
     }
   }
-  return { streets, market, gates, wallLine, farPlace, marketAt: M, plotDepth: depth, bridges };
+  return { streets, market, gates, wallLine, farPlace, marketAt: M, plotDepth: depth, bridges, ...(anchorPoly ? { anchorPoly } : {}) };
 }
 
 /** Line segments in a grid of square cells, so "what passes near here" looks at a few cells, not the whole town. */
@@ -658,28 +886,37 @@ interface RPlot extends Plot { far: boolean; suburb: boolean; street: string }
 
 /** A river town: the town proper on its higher bank, a far bank over the bridge. */
 export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: number[] }): TownLayout {
+  return layoutGrown(r, plan, { ...o, form: "river" });
+}
+
+/** A grown town of any form. */
+export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: number[] }): TownLayout {
   const urban = urbanOf(o);
+  const form = o.form ?? "river";
+  const hasFar = !!o.farBank && BANKED.includes(form);
   const walled = o.enclosure === "wall" || o.enclosure === "palisade";
   const coastTerrain = o.terrain === "coast";
 
   // ---- who stands where ------------------------------------------------------
   // The far bank's signature buildings, and enough ordinary housing beside them for its share.
-  const farSet = new Set(o.far);
+  const farSet = new Set(hasFar ? o.far : []);
   const n = plan.length;
-  const want = Math.round(n * r.range(0.17, 0.22));
-  const homesFirst = o.farBank === "village" ? ["cottage", "farmhouse", "fisher_house", "tenement", "poor_row"] : o.farBank === "bridgend" ? ["poor_row", "tenement", "cottage"] : ["tenement", "cottage", "poor_row", "journeyman_house", "farmhouse", "fisher_house"];
-  // Its own kind of people first, but never all of them: the town proper keeps some of every kind.
-  for (const kind of [...homesFirst, ...HOUSING]) {
-    let left = Math.ceil(plan.filter((p) => p.kind === kind).length * 0.6);
-    for (let i = n - 1; i >= 0 && farSet.size < want && left > 0; i--) if (!farSet.has(i) && plan[i].kind === kind) { farSet.add(i); left--; }
-  }
-  // Never more than a quarter: the town proper keeps the rest.
-  const cap = Math.floor(n * 0.23);
-  if (farSet.size > cap) {
-    // Drop ordinary housing first, the far bank's own signature buildings never.
-    const extra = [...farSet].filter((i) => HOUSING.has(plan[i].kind ?? "")).sort((a, b) => (o.far.includes(a) ? 1 : 0) - (o.far.includes(b) ? 1 : 0) || b - a);
-    extra.reverse();
-    while (farSet.size > cap && extra.length) farSet.delete(extra.pop()!);
+  if (hasFar) {
+    const want = Math.round(n * r.range(0.17, 0.22));
+    const homesFirst = o.farBank === "village" ? ["cottage", "farmhouse", "fisher_house", "tenement", "poor_row"] : o.farBank === "bridgend" ? ["poor_row", "tenement", "cottage"] : ["tenement", "cottage", "poor_row", "journeyman_house", "farmhouse", "fisher_house"];
+    // Its own kind of people first, but never all of them: the town proper keeps some of every kind.
+    for (const kind of [...homesFirst, ...HOUSING]) {
+      let left = Math.ceil(plan.filter((p) => p.kind === kind).length * 0.6);
+      for (let i = n - 1; i >= 0 && farSet.size < want && left > 0; i--) if (!farSet.has(i) && plan[i].kind === kind) { farSet.add(i); left--; }
+    }
+    // Never more than a quarter: the town proper keeps the rest.
+    const cap = Math.floor(n * 0.23);
+    if (farSet.size > cap) {
+      // Drop ordinary housing first, the far bank's own signature buildings never.
+      const extra = [...farSet].filter((i) => HOUSING.has(plan[i].kind ?? "")).sort((a, b) => (o.far.includes(a) ? 1 : 0) - (o.far.includes(b) ? 1 : 0) || b - a);
+      extra.reverse();
+      while (farSet.size > cap && extra.length) farSet.delete(extra.pop()!);
+    }
   }
   const siteOf = (p: Footprint) => (p.site === "edge" ? "suburb" : p.site);
   let needNear = 0, needFar = 0;
@@ -720,13 +957,21 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   // ---- the castle, on the high ground ------------------------------------------------
   const castleIdx = plan.findIndex((p) => p.site === "castle");
   let castle: Poly | undefined, castleAt: Pt | undefined;
-  const cr = urban ? r.range(38, 55) : 28;
-  if (castleIdx >= 0) {
+  let cr = urban ? r.range(38, 55) : 28;
+  if (castleIdx >= 0 && form === "castle" && site.anchor) {
+    // A castle-gate town's castle is where the town began: on its mound, already chosen.
+    cr = site.anchorR ?? cr;
+    castleAt = site.anchor;
+    castle = qpoly(Array.from({ length: 9 }, (_, s2) => add(site.anchor!, mul(dirOf((s2 / 9) * TAU + r.range(-0.1, 0.1)), cr * r.range(0.92, 1.02)))));
+    const bailey = castle;
+    net.streets = net.streets.filter((st) => !((st.kind === "back" || st.kind === "cross" || st.kind === "water") && polylinePolyDist(st.points, bailey, st.width + 2) < st.width / 2 + 2));
+  } else if (castleIdx >= 0) {
     let best: Pt | undefined, bs = -Infinity;
     for (let relax = 0; relax < 3 && !best; relax++) for (let k = 0; k < 60; k++) {
       const c = add(site.high, [r.range(-0.5, 0.5) * R, r.range(-0.5, 0.5) * R]);
       if (bank(c) !== site.near || lineDist(site.river, c) < site.width / 2 + cr * 0.6) continue;
       if (hypot(c[0] - mc[0], c[1] - mc[1]) < S + cr) continue;
+      if (net.anchorPoly && (pointInPoly(c, net.anchorPoly) || lineDist([...net.anchorPoly, net.anchorPoly[0]], c) < cr + 6)) continue;
       const clear = net.streets.every((st) => st.kind === "back" || st.kind === "cross" || st.kind === "water" || lineDist(st.points, c) > cr * (1 - relax * 0.3) + st.width / 2);
       if (!clear) continue;
       const sc = site.height(c) * 5 - hypot(c[0] - mc[0], c[1] - mc[1]) / R;
@@ -742,7 +987,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   }
 
   // ---- plots along every street front ------------------------------------------------
-  const obstacles: Poly[] = [market, ...(castle ? [castle] : []), ...(net.farPlace ? [net.farPlace] : [])];
+  const obstacles: Poly[] = [market, ...(castle ? [castle] : []), ...(net.farPlace ? [net.farPlace] : []), ...(net.anchorPoly ? [net.anchorPoly] : [])];
   const plots: RPlot[] = [];
   const CELL = 40;
   const pgrid = new Map<string, number[]>();
@@ -788,6 +1033,11 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       // The plot before it on the street shares a side with it: touching is fine, crossing isn't.
       if (convexOverlap(poly, plots[j].poly, j === prev ? -0.2 : 0.15)) return "plot";
     }
+    // A street town's market bends, and a bent shape is no convex one: test it by its edge.
+    if (form === "street") {
+      if (polylinePolyDist([...market, market[0]], poly, 1) < 0.5 || poly.some((p) => pointInPoly(p, market))) return "obstacle";
+      return obstacles.slice(1).some((ob) => convexOverlap(poly, ob, 1) || poly.some((p) => pointInPoly(p, ob)) || ob.some((p) => pointInPoly(p, poly))) ? "obstacle" : undefined;
+    }
     return obstacles.some((ob) => convexOverlap(poly, ob, 1) || poly.some((p) => pointInPoly(p, ob)) || ob.some((p) => pointInPoly(p, poly))) ? "obstacle" : undefined;
   };
   let runs = 0;
@@ -831,7 +1081,15 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   };
   // The market's own frontage first: the best addresses in town.
   const mClosed = [...market, market[0]];
-  for (let i = 0; i + 1 < mClosed.length; i++) {
+  if (form === "street") {
+    // A street town's market is one long street: cut each side as one frontage, not edge by edge.
+    const h = market.length / 2;
+    for (const pts of [market.slice(0, h), market.slice(h)]) {
+      const mid = pts[pts.length >> 1], a = pts[(pts.length >> 1) - 1];
+      const nrm: Pt = [-(mid[1] - a[1]), mid[0] - a[0]];
+      cutAlong(pts, dot(nrm, sub(mid, mc)) >= 0 ? 1 : -1, 1, "market", () => "market", false, depth);
+    }
+  } else for (let i = 0; i + 1 < mClosed.length; i++) {
     const a = mClosed[i], b = mClosed[i + 1];
     const nrm: Pt = [-(b[1] - a[1]), b[0] - a[0]];
     const side: 1 | -1 = dot(nrm, sub(mul(add(a, b), 0.5), mc)) >= 0 ? 1 : -1;
@@ -893,7 +1151,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   for (const [, members] of [...subBy].sort((a, b) => (a[0] < b[0] ? -1 : 1))) mkWard("suburb", "near", members, []);
   // Over the bridge: one ward, or two in a city.
   const farPlots = plots.filter((p) => p.far);
-  const farNear = ["bridge", "river", o.farBank];
+  const farNear = ["bridge", "river", o.farBank ?? "village"];
   if (farPlots.length) {
     if (o.scale === "city" && farPlots.length > 60) {
       const farRoad = net.streets.find((s) => s.id === "far")!.points;
@@ -1041,7 +1299,22 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     }
     if (best) placeYard(i, best, "church");
   }
-  // Religious houses: the abbey's precinct over the bridge, others on a long run of plots.
+  // Religious houses: an abbey-gate town's abbey in its great precinct, the abbey's precinct over the
+  // bridge, others on a long run of plots.
+  const abbeyAt = form === "abbey" && net.anchorPoly ? plan.findIndex((p) => p.kind === "abbey") : -1;
+  if (abbeyAt >= 0 && net.anchorPoly) {
+    const yard = qpoly(net.anchorPoly);
+    const c = centroid(yard);
+    const u = norm2(sub(net.anchorPoly[1], net.anchorPoly[0])), v = perp(u);
+    // The abbey church along the precinct, its cloister beside it, the gatehouse facing the town.
+    const k2 = Math.max(1.2, hypot(net.anchorPoly[1][0] - net.anchorPoly[0][0], net.anchorPoly[1][1] - net.anchorPoly[0][1]) / 110);
+    result[abbeyAt] = {
+      planIndex: abbeyAt, poly: qpoly(rect(add(c, mul(v, -10 * k2)), u, 48 * k2, 13 * k2)),
+      parts: [{ kind: "cloister", poly: qpoly(rect(add(c, mul(v, 10 * k2)), u, 26 * k2, 22 * k2)) }, { kind: "tower", poly: qpoly(rect(add(c, add(mul(v, -10 * k2), mul(u, -27 * k2))), u, 8 * k2, 8 * k2)) }],
+      plot: yard, plotKind: "precinct", front: qp(c), road: "high", ward: nearestWard(wards, c), block: "precinct",
+    };
+    wards[result[abbeyAt]!.ward!].near.push("abbey");
+  }
   plan.forEach((p, i) => {
     if (p.site !== "precinct" || result[i]) return;
     if (farSet.has(i) && net.farPlace && o.farBank === "abbey") {
@@ -1145,7 +1418,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   }
   const FAR_VALUES: Record<FarBank, [number, number]> = { village: [1, 3], bridgend: [0, 2], abbey: [1, 3], wharf: [2, 4] };
   for (const w of wards) {
-    if (w.bank === "far") w.value = r.pick(FAR_VALUES[o.farBank]);
+    if (w.bank === "far") w.value = r.pick(FAR_VALUES[o.farBank ?? "village"]);
     else if (w.kind === "suburb") w.value = r.chance(0.55) ? 0 : 1;
     if (w.bank === "near") {
       if (hypot(w.centre[0] - mc[0], w.centre[1] - mc[1]) < S + depth * 3 && w.kind === "intramural") w.near.push("market");
@@ -1186,18 +1459,24 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const spillShare = (urban ? 0.12 : 0.06) * (o.suburbs === "few" ? 0.25 : o.suburbs === "many" ? 2.5 : 1);
   const spillOut = new Set(orderIx.filter((i) => !farSet.has(i) && (!plan[i].site || plan[i].kind === "poor_row") && plotsFor(plan[i]) === 1 && (plan[i].value?.[0] ?? 9) <= 1 && r.chance(Math.min(0.9, spillShare * 2))));
   const spill: number[] = [];
+  const overflowOk = form === "river" || (o.room ?? 1) > 1.45;
   for (const i of orderIx) {
     const p = plan[i];
     const far = farSet.has(i);
     const m = plotsFor(p);
     const housing = !p.site && m === 1 && !spillOut.has(i);
-    const fronts: FrontKind[] = far ? (p.site === "quay" || p.site === "shore" ? ["quay", "main", "street"] : ["main", "street", "quay"]) : isSub(p) || spillOut.has(i) ? ["suburb", "street", "main"] : FRONTS[p.site ?? "housing"] ?? FRONTS.housing;
+    let fronts: FrontKind[] = far ? (p.site === "quay" || p.site === "shore" ? ["quay", "main", "street"] : ["main", "street", "quay"]) : isSub(p) || spillOut.has(i) ? ["suburb", "street", "main"] : FRONTS[p.site ?? "housing"] ?? FRONTS.housing;
+    // A street town's great street is where its trades are.
+    if (form === "street" && !fronts.includes("market") && !fronts.includes("suburb")) fronts = [...fronts, "market"];
     const lo = far ? 0 : p.value?.[0] ?? 0, hi = far ? 8 : p.value?.[1] ?? 8;
     let got: RPlot[] | undefined;
     if (housing) {
-      // Ordinary houses fill from the middle out, trading distance against a class of value.
+      // Ordinary houses fill from the middle out, trading distance against a class of value. In the forms
+      // besides the river, a town that can't house its people inside is laid out again roomier, and only
+      // the last try lets them overflow to the roads outside.
       let best: RPlot | undefined, bc = Infinity;
-      for (const fr of [...fronts, "suburb" as FrontKind]) for (let v = 0; v <= 8; v++) {
+      const overflow = form === "river" || (o.room ?? 1) > 1.45;
+      for (const fr of [...fronts, ...(overflow ? ["suburb" as FrontKind] : [])]) for (let v = 0; v <= 8; v++) {
         const c = peek(`${far ? 1 : 0}:${fr}:${far ? 0 : v}`);
         if (!c) continue;
         const cost = c.order + 10 * (v < lo ? lo - v : v > hi ? v - hi : 0) + (fr === "suburb" ? R : 0);
@@ -1227,18 +1506,20 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
               let nearest = Infinity;
               // The latest few of its kind are enough to keep apart from (or close to).
               for (const q2 of (prior ?? []).slice(-40)) nearest = Math.min(nearest, hypot(cc[0] - q2[0], cc[1] - q2[1]));
-              const sc = (prior?.length ? (p.cluster ? -nearest : Math.min(nearest, 500)) : 0) - c.order * 0.5 - fronts.indexOf(fr) * 40;
+              const sc = (prior?.length ? (p.cluster ? -nearest : Math.min(nearest, 500)) : 0) - c.order * 0.5 - fronts.indexOf(fr) * (form === "river" ? 40 : 120);
               if (sc > bs) { bs = sc; best = seq; }
             }
           }
-          if (best) break;
+          // A river town takes the first kind of street with room; the other forms weigh them all, so a
+          // kind of street with few plots doesn't end up a row of one trade.
+          if (best && form === "river") break;
         }
         got = best;
       }
       if (!got && m > 1) for (const fr of fronts) { const c = peek(`${far ? 1 : 0}:${fr}:0`) ?? [...plots].find((x) => !x.used && x.far === far); if (c) { got = [c]; break; } }
     }
     // Out of room on this bank: say so (the layout is tried again roomier), unless this is the last try.
-    if (!got) { const c = plots.find((x) => !x.used && x.far === far) ?? ((o.room ?? 1) > 1.45 ? plots.find((x) => !x.used) : undefined); if (c) got = [c]; }
+    if (!got) { const c = plots.find((x) => !x.used && x.far === far && (overflowOk || !housing || !x.suburb)) ?? ((o.room ?? 1) > 1.45 ? plots.find((x) => !x.used) : undefined); if (c) got = [c]; }
     if (!got) { spill.push(i); continue; }
     for (const x of got) x.used = true;
     if (p.kind) { const kk = familyOf(p.kind); const l = placedAt.get(kk) ?? []; l.push(centroid(got[0].poly)); placedAt.set(kk, l); }
@@ -1316,7 +1597,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   features.push({ kind: "well", p: inMarket(-0.3, 0.2) });
   features.push({ kind: "stocks", p: inMarket(0.35, 0.2) });
   for (const b of net.bridges) features.push({ kind: "bridge", p: qp(b) });
-  if (r.chance(0.6)) features.push({ kind: "bridge_chapel", p: qp(site.bridge.p) });
+  if (net.bridges.length && r.chance(0.6)) features.push({ kind: "bridge_chapel", p: qp(site.bridge.p) });
   if (marketTown) {
     features.push({ kind: "pillory", p: inMarket(-0.1, -0.4) });
     if (urban) features.push({ kind: "conduit", p: inMarket(0.3, -0.35) });
@@ -1341,6 +1622,8 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   // The wall was fitted to the streets before anything was built on them: pull it in to what was,
   // bearing by bearing, so it doesn't loop round empty ground. Gatehouses count as built, so the
   // wall stays put at its gates, and its ends stay on the river.
+  // A wall with no river to close it is a ring: its last point is its first.
+  const ring = !!net.wallLine && net.wallLine.length > 6 && net.wallLine[0] === net.wallLine[net.wallLine.length - 1];
   if (net.wallLine && net.wallLine.length > 6) {
     const NB = 72;
     const binOf = (p: Pt) => Math.round(((atan2(p[1] - mc[1], p[0] - mc[0]) + TAU) % TAU) / TAU * NB) % NB;
@@ -1349,7 +1632,14 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     for (const p of plots) if (!p.far && !p.suburb) p.poly.forEach(mark);
     market.forEach(mark);
     castle?.forEach(mark);
-    for (const b of result) if (b && wards[b.ward ?? -1]?.kind === "intramural") (b.plot ?? b.poly).forEach(mark);
+    // The precinct's whole edge, not just its corners: a bearing between two corners must clear its side too.
+    if (form !== "river" && net.anchorPoly) for (let j = 0; j < net.anchorPoly.length; j++) {
+      const a = net.anchorPoly[j], b = net.anchorPoly[(j + 1) % net.anchorPoly.length];
+      for (let s2 = 0; s2 <= 1; s2 += 0.05) mark(add(a, mul(sub(b, a), s2)));
+    }
+    // Buildings of the town's wards; for the forms besides the river, only those that stood within the wall
+    // (a mill out on the stream belongs to its nearest ward, but the wall needn't go out to it).
+    for (const b of result) if (b && wards[b.ward ?? -1]?.kind === "intramural" && (form === "river" || inside(centroid(b.poly)))) (b.plot ?? b.poly).forEach(mark);
     // Bearings with nothing on them take the line between their built neighbours.
     const known = reachAt.map((v, k) => (v > 0 ? k : -1)).filter((k) => k >= 0);
     if (known.length) {
@@ -1358,15 +1648,22 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
         let lo = k, hi = k;
         while (reachAt[(lo + NB) % NB] === 0) lo--;
         while (reachAt[hi % NB] === 0) hi++;
-        return reachAt[(lo + NB) % NB] + ((reachAt[hi % NB] - reachAt[(lo + NB) % NB]) * (k - lo)) / (hi - lo);
+        const r0 = reachAt[(lo + NB) % NB], r1 = reachAt[hi % NB];
+        if (form === "river") return r0 + ((r1 - r0) * (k - lo)) / (hi - lo);
+        // Straight across from one built bearing to the next: where this bearing's ray meets that chord.
+        const a0 = (lo / NB) * TAU, a1 = (hi / NB) * TAU, ak = (k / NB) * TAU;
+        const P0 = mul(dirOf(a0), r0), P1 = mul(dirOf(a1), r1), u = dirOf(ak), e = sub(P1, P0);
+        const den = u[0] * e[1] - u[1] * e[0];
+        return Math.abs(den) < 1e-9 ? Math.min(r0, r1) : Math.max(0, (P0[0] * e[1] - P0[1] * e[0]) / den);
       });
       // Clear of the back lanes and a little more, and never notched between neighbours.
-      const want = filled.map((_, k) => Math.max(filled[(k + NB - 1) % NB], filled[k], filled[(k + 1) % NB]) + 10);
+      const tight = filled.map((_, k) => Math.max(filled[(k + NB - 1) % NB], filled[k], filled[(k + 1) % NB]) + 10);
+      const want = tight;
       const line = net.wallLine;
-      // Towards its ends the wall eases back out to meet the river where it did.
+      // Towards its ends the wall eases back out to meet the river where it did (a ring has no ends).
       const K = 6;
       net.wallLine = line.map((p, j) => {
-        const ease = Math.min(1, Math.min(j, line.length - 1 - j) / K);
+        const ease = ring ? 1 : Math.min(1, Math.min(j, line.length - 1 - j) / K);
         const d = hypot(p[0] - mc[0], p[1] - mc[1]);
         const w = want[binOf(p)];
         return w < d ? add(mc, mul(sub(p, mc), (d - (d - w) * ease) / d)) : p;
@@ -1381,8 +1678,8 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
 
   return {
     kind: "town",
-    plan: "river",
-    farBank: o.farBank,
+    plan: form,
+    ...(hasFar ? { farBank: o.farBank } : {}),
     ...(o.farBank === "village" && net.farPlace ? { farGreen: qpoly(net.farPlace) } : {}),
     scale: o.scale,
     enclosure: o.enclosure,
@@ -1400,7 +1697,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     terrain: o.terrain,
     ...(coastLine ? { coast: coastLine, sea } : {}),
     buildings,
-    wall: { line: (net.wallLine ?? []).map(qp), closed: false, towers, gates: net.gates.map((g) => ({ p: qp(g.p), t: qp(g.t), road: g.road })) },
+    wall: { line: (ring ? net.wallLine!.slice(0, -1) : net.wallLine ?? []).map(qp), closed: ring, towers, gates: net.gates.map((g) => ({ p: qp(g.p), t: qp(g.t), road: g.road })) },
     market: qpoly(market),
     gardens,
     wards,

@@ -7,7 +7,7 @@ import { Rng } from "../src/core/rng";
 import { generate } from "../src/town-gen";
 import type { BuildingUse } from "../src/modules/uses";
 import type { Footprint } from "../src/modules/layout/hamlet";
-import { layoutRiver } from "../src/modules/layout/river";
+import { layoutRiver } from "../src/modules/layout/grown";
 import type { FarBank } from "../src/core/types";
 
 const CASES: [string, number, "thorp" | "village" | "town" | "city", number, FarBank, "wall" | "none" | "hedge", string][] = [
