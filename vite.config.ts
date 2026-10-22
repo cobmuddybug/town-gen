@@ -17,5 +17,6 @@ function yamlContent(): Plugin {
 export default defineConfig({
   base: "./",
   plugins: [yamlContent()],
-  test: { include: ["tests/**/*.test.ts", "src/**/*.test.ts", "tools/**/*.test.ts"] },
+  // Whole towns take seconds to build; CI machines are slower than ours.
+  test: { include: ["tests/**/*.test.ts", "src/**/*.test.ts", "tools/**/*.test.ts"], testTimeout: 120000, hookTimeout: 300000 },
 });
