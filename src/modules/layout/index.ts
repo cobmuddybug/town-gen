@@ -12,6 +12,8 @@ export type { TownLayout, WardGeo } from "./streets";
 export { VALUE_CLASSES } from "./streets";
 
 const cache = new Map<string, HamletLayout>();
+/** Forget every cached layout, so the next town is laid out afresh (tests of determinism need this). */
+export function clearLayoutCache(): void { cache.clear(); }
 
 export function wardId(n: number): string {
   return `w${n.toString().padStart(2, "0")}`;

@@ -8,6 +8,7 @@ import type { MapData } from "../src/modules/layout";
 import type { Town } from "../src/core/town";
 import { defaultModules, generate } from "../src/town-gen";
 import { withEdit } from "../src/core/save";
+import { clearLayoutCache } from "../src/modules/layout";
 import type { Design, FarBank, LayoutPlan } from "../src/core/types";
 
 const settlement = (seed: string, pop: number, design?: Design, base = "agricultural") =>
@@ -285,8 +286,10 @@ describe("whole river towns", () => {
     expect(map.coast?.length).toBeGreaterThan(0);
   }, 300000);
 
-  test("same seed, same map", () => {
-    expect(JSON.stringify(riverTown("det", 5000).map)).toBe(JSON.stringify(riverTown("det", 5000).map));
+  test("same seed, same map, laid out afresh", () => {
+    const a = JSON.stringify(riverTown("det", 5000).map);
+    clearLayoutCache();
+    expect(JSON.stringify(riverTown("det", 5000).map)).toBe(a);
   }, 300000);
 });
 
@@ -366,4 +369,61 @@ describe("the rest of the town follows the banks", () => {
     radial.forEach((t) => t.society());
     expect(radial.every((t) => !issue(t).includes("abbot") && !issue(t).includes("far bank"))).toBe(true);
   }, 600000);
+});
+
+// ---- review fixes ------------------------------------------------------------
+const segX = (a: Pt, b: Pt, c: Pt, d: Pt) => {
+  const r = [b[0] - a[0], b[1] - a[1]], s2 = [d[0] - c[0], d[1] - c[1]], den = r[0] * s2[1] - r[1] * s2[0];
+  if (Math.abs(den) < 1e-9) return false;
+  const t = ((c[0] - a[0]) * s2[1] - (c[1] - a[1]) * s2[0]) / den, u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den;
+  return t > 0 && t < 1 && u > 0 && u < 1;
+};
+const crossesLine = (poly: Pt[], line: Pt[]) => poly.some((p, i) => { const q = poly[(i + 1) % poly.length]; return line.slice(1).some((b, j) => segX(p, q, line[j], b)); });
+
+describe("river towns: review fixes", () => {
+  test("a river town forced onto the coast places everything, and nothing in the sea", () => {
+    for (const [seed, pop] of [["sea1", 9000], ["sea2", 9000], ["sea3", 900], ["sea4", 900]] as const) {
+      const { t, map } = riverTown(seed, pop, pop > 1000 ? "wharf" : "village", "fishing");
+      expect(t.children(t.root, "building").length, seed).toBe(t.settlement().get<string[]>("plan").length);
+      const sea = (map as MapData & { sea?: Pt[] }).sea!;
+      for (const b of t.children(t.root, "building")) expect(b.get<Pt[]>("poly").some((p) => pointInPoly(p, sea)), `${seed} ${b.get("use")}`).toBe(false);
+    }
+  }, 600000);
+
+  test("no house is built through the town wall", () => {
+    for (const seed of ["wall1", "wall2", "wall3", "wall4"]) for (const pop of [3000, 8000]) {
+      const t = generate(seed, { pop, design: { layout: "river", walls: "wall" } });
+      const map = t.settlement().get<MapData>("map");
+      const bad = t.children(t.root, "building").filter((b) => b.get("use") !== "gatehouse" && crossesLine(b.get<Pt[]>("poly"), map.wall!.line));
+      expect(bad.map((b) => b.get("use")), `${seed} ${pop}`).toEqual([]);
+    }
+  }, 600000);
+
+  test("an open river town has no gates", () => {
+    for (const seed of ["open1", "open2"]) {
+      const t = generate(seed, { pop: 2000, design: { layout: "river", walls: "none" } });
+      const map = t.settlement().get<MapData>("map");
+      expect(map.wall!.gates, seed).toEqual([]);
+      expect(t.children(t.root, "ward").some((w) => /gate/i.test(w.get<string>("name"))), seed).toBe(false);
+    }
+  }, 300000);
+
+  test("the Suburbs choice changes how much lies beyond the gates", () => {
+    const outside = (choice: "few" | "many") => {
+      const t = generate("subs", { pop: 6000, design: { layout: "river", suburbs: choice } });
+      const map = t.settlement().get<MapData>("map");
+      return t.children(t.root, "building").filter((b) => { const w = map.wards![b.get<number>("ward")]; return w?.kind === "suburb" && w.bank === "near"; }).length;
+    };
+    expect(outside("many")).toBeGreaterThan(outside("few") * 1.5);
+  }, 600000);
+
+  test("no castle or church stands on a street or lane", () => {
+    const onRoad = (t: Town) => {
+      const map = t.settlement().get<MapData>("map");
+      return t.children(t.root, "building").filter((b) => ["castle", "fane", "temple", "grand_temple", "chapel", "priory", "friary"].includes(b.get<string>("use")))
+        .filter((b) => map.roads.some((rd) => polylinePolyDist(rd.points, b.get<Pt[]>("poly")) < rd.width / 2 - 0.5)).map((b) => b.get<string>("use"));
+    };
+    for (let i = 0; i < 8; i++) expect(onRoad(generate(`cast${i}`, { pop: 3000, design: { layout: "river", castle: true } })), `cast${i}`).toEqual([]);
+    expect(onRoad(riverTown("place30000", 30000).t)).toEqual([]);
+  }, 900000);
 });

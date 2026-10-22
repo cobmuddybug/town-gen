@@ -173,7 +173,9 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   const riverGrid = new SegGrid<0>(60);
   riverGrid.addLine(site.river, 0);
   const riverDist = (p: Pt, within: number) => riverGrid.dist(p, within);
-  const wet = (p: Pt, margin = 2) => riverDist(p, site.width / 2 + margin + 1) < site.width / 2 + margin || bank(p) !== site.near;
+  // The sea, on the coast: everything beyond the river's mouth.
+  const inSea = (p: Pt, margin = 0) => !!site.sea && dot(p, site.sea.n) > site.sea.d - margin;
+  const wet = (p: Pt, margin = 2) => inSea(p, margin) || riverDist(p, site.width / 2 + margin + 1) < site.width / 2 + margin || bank(p) !== site.near;
   // Every street, as it is laid, in a grid: the growing streets ask what is near.
   const sGrid = new SegGrid<Street>(40);
   // A lane between two points that stays out of the water.
@@ -231,7 +233,8 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   const bearings: number[] = [];
   let acc = back + (40 * PI) / 180;
   for (let i = 0; i < k; i++) { acc += minGap + (spare * w[i]) / wt; bearings.push(acc); }
-  const reach = R * (walled ? 1.75 : 1.6);
+  // The roads run out as far as the suburbs along them: the DM's "many" sends them further.
+  const reach = R * (walled ? 1.75 : 1.6) * (o.suburbs === "many" ? 1.45 : o.suburbs === "few" ? 0.85 : 1);
   bearings.forEach((b, i) => {
     const dir0 = rot([1, 0], b);
     // Leave from the market exit nearest this bearing.
@@ -381,9 +384,10 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
     }
     return undefined;
   };
-  for (const st of streets) if (st.kind === "main") { const g = crossing(st.points); if (g) gates.push({ ...g, road: st.id }); }
+  // An open town has roads in, not gates.
+  if (walled && wallLine) for (const st of streets) if (st.kind === "main") { const g = crossing(st.points); if (g) gates.push({ ...g, road: st.id }); }
   // The bridge gate stands back from the water, at the head of the bridge.
-  gates.push({ p: add(foot, mul(into, 6)), t: into, road: "high" });
+  if (walled && wallLine) gates.push({ p: add(foot, mul(into, 6)), t: into, road: "high" });
 
   // 5. Back lanes: a plot's depth behind every street front in town, both sides.
   const inTown = (p: Pt) => d2(p, centre) < (R * 1.02) ** 2;
@@ -496,7 +500,7 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
       { id: "far-strand2", kind: "far", width: laneW + 1, points: [farFoot, ...strand.slice(0, (strand.length >> 1) + 1).reverse()], bank: "far" });
   }
   // The far bank grows side streets of its own until it has frontage for its share.
-  const farWet = (p: Pt, margin = 2) => riverDist(p, site.width / 2 + margin + 1) < site.width / 2 + margin || bank(p) === site.near;
+  const farWet = (p: Pt, margin = 2) => inSea(p, margin) || riverDist(p, site.width / 2 + margin + 1) < site.width / 2 + margin || bank(p) === site.near;
   let farSum = streets.filter((x) => x.bank === "far").reduce((t, x) => t + polyLen(x.points), 0) * 2;
   const farFront = () => farSum;
   const farWant = farNeed * plotW * 3.4 * (o.room ?? 1) ** 2;
@@ -688,7 +692,8 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const bank = (p: Pt) => sideOf(site.river, p);
   const riverGrid = new SegGrid<0>(60);
   riverGrid.addLine(site.river, 0);
-  const riverClear = (p: Pt, margin: number) => riverGrid.dist(p, site.width / 2 + margin + 1) > site.width / 2 + margin;
+  const inSea = (p: Pt, margin = 0) => !!site.sea && dot(p, site.sea.n) > site.sea.d - margin;
+  const riverClear = (p: Pt, margin: number) => !inSea(p, margin) && riverGrid.dist(p, site.width / 2 + margin + 1) > site.width / 2 + margin;
 
   // The wall's reach, by bearing from the market: what lies within it is the town proper.
   const wallBin = Array.from({ length: 36 }, () => 0);
@@ -720,6 +725,9 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     if (best) {
       castleAt = best;
       castle = qpoly(Array.from({ length: 9 }, (_, s) => add(best!, mul(dirOf((s / 9) * TAU + r.range(-0.1, 0.1)), cr * r.range(0.85, 1.1)))));
+      // The castle's bailey was there first: lanes that would run through it are not made.
+      const bailey = castle;
+      net.streets = net.streets.filter((st) => !((st.kind === "back" || st.kind === "cross" || st.kind === "water") && polylinePolyDist(st.points, bailey, st.width + 2) < st.width / 2 + 2));
     }
   }
 
@@ -737,7 +745,9 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   };
   // Street segments in a grid too, so a plot can check what passes near it.
   const sgrid = new Map<string, { a: Pt; b: Pt; w: number; id: string }[]>();
-  for (const st of net.streets) for (let i = 0; i + 1 < st.points.length; i++) {
+  // The wall is in the grid too, as a street no plot may cross.
+  const segLines: { points: Pt[]; width: number; id: string }[] = [...net.streets, ...(net.wallLine ? [{ points: net.wallLine, width: 5, id: "wall" }] : [])];
+  for (const st of segLines) for (let i = 0; i + 1 < st.points.length; i++) {
     const seg = { a: st.points[i], b: st.points[i + 1], w: st.width, id: st.id };
     for (const k of keysOf([seg.a, seg.b], st.width)) { const l = sgrid.get(k); if (l) l.push(seg); else sgrid.set(k, [seg]); }
   }
@@ -984,7 +994,8 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     let kk = 1;
     if (kind === "church") {
       const [cw0, cd0] = CHURCH_SIZE[p.size] ?? [16, 7.5];
-      for (; kk > 0.35; kk -= 0.08) if (fits([rect(add(c, [-cw0 * kk * 0.12, 0]), [1, 0], cw0 * kk * 0.76, cd0 * kk)])) break;
+      // Shrink to fit the yard: a church never stands over the street.
+      for (; kk > 0.12; kk -= 0.04) if (fits([rect(add(c, [-cw0 * kk * 0.12, 0]), [1, 0], cw0 * kk * 0.76, cd0 * kk), rect(add(c, [cw0 * kk * 0.38, 0]), [1, 0], cw0 * kk * 0.24, cd0 * kk * 0.72)])) break;
       const cw = cw0 * kk, cd = cd0 * kk;
       const parts = [{ kind: "chancel", poly: qpoly(rect(add(c, [cw * 0.38, 0]), [1, 0], cw * 0.24, cd * 0.72)) }];
       if (p.size === "grand_temple" || p.size === "temple") {
@@ -995,7 +1006,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       if (!wards[first.ward].near.includes(p.size)) wards[first.ward].near.push(p.size);
       churchAt.push(c);
     } else {
-      for (; kk > 0.3; kk -= 0.07) if (fits([rect(add(c, [0, -9 * kk]), [1, 0], 30 * kk, 9 * kk)])) break;
+      for (; kk > 0.12; kk -= 0.04) if (fits([rect(add(c, [0, -9 * kk]), [1, 0], 30 * kk, 9 * kk), rect(add(c, [0, 8 * kk]), [1, 0], 20 * kk, 16 * kk)])) break;
       result[i] = { planIndex: i, poly: qpoly(rect(add(c, [0, -9 * kk]), [1, 0], 30 * kk, 9 * kk)), parts: [{ kind: "cloister", poly: qpoly(rect(add(c, [0, 8 * kk]), [1, 0], 20 * kk, 16 * kk)) }], plot: yard, plotKind: "precinct", front: qp(c), road: first.street, ward: first.ward, block: first.block };
     }
   };
@@ -1045,10 +1056,14 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   // Mills, tanneries and dyehouses on the river: upstream for mills, downstream for the stink.
   const downDir = norm2(sub(site.river[site.river.length - 1], site.river[0]));
   const riverObstacles: Poly[] = [];
-  const byRiver = (i: number, downstream: boolean, wheel: boolean, onFar: boolean): PlacedBuilding | undefined => {
+  const byRiver = (i: number, downstream: boolean, wheel: boolean, onFarWanted: boolean): PlacedBuilding | undefined => {
+    let onFar = onFarWanted;
     const bi = site.river.reduce((bi, p, j) => (d2(p, site.bridge.p) < d2(site.river[bi], site.bridge.p) ? j : bi), 0);
-    for (let tries = 0; tries < 60; tries++) {
-      const off = (downstream ? 1 : tries % 2 ? -1 : 1) * (2 + tries) * (dot(sub(site.river[Math.min(site.river.length - 1, bi + 1)], site.river[bi]), downDir) >= 0 ? 1 : -1);
+    for (let tries = 0; tries < 120; tries++) {
+      // Downstream first for the smelly trades; if the river runs out (into the sea), upstream; then over the bridge.
+      const k = tries % 60, side = downstream && tries < 30 ? 1 : k % 2 ? -1 : 1;
+      if (tries === 60) onFar = !onFar;
+      const off = side * (2 + (tries < 30 ? tries : k)) * (dot(sub(site.river[Math.min(site.river.length - 1, bi + 1)], site.river[bi]), downDir) >= 0 ? 1 : -1);
       const j = bi + off;
       const a = site.river[j], b = site.river[j + 1];
       if (!a || !b) continue;
@@ -1070,6 +1085,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     return undefined;
   };
   const clearAllWhy = (poly: Poly, river = true): string | undefined => {
+    if (poly.some((p) => inSea(p, 1))) return "sea";
     if (river && poly.some((p) => !riverClear(p, 0.5))) return "wet";
     if (!river && poly.some((p) => bank(p) !== bank(centroid(poly)))) return "across";
     for (const k of keysOf(poly, 8)) for (const sg of sgrid.get(k) ?? []) if (polylinePolyDist([sg.a, sg.b], poly, sg.w) < sg.w / 2) return "street";
@@ -1154,13 +1170,16 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const rank = (p: Footprint) => (p.site && !isSub(p) ? 0 : 1);
   const widthOf = (p: Footprint) => (p.value ? p.value[1] - p.value[0] : 9);
   orderIx.sort((a, b) => (farSet.has(a) ? 1 : 0) - (farSet.has(b) ? 1 : 0) || rank(plan[a]) - rank(plan[b]) || plotsFor(plan[b]) - plotsFor(plan[a]) || widthOf(plan[a]) - widthOf(plan[b]) || a - b);
+  // The poorest housing spills out beyond the gates (LF p.84): the DM's Suburbs choice says how much.
+  const spillShare = (urban ? 0.12 : 0.06) * (o.suburbs === "few" ? 0.25 : o.suburbs === "many" ? 2.5 : 1);
+  const spillOut = new Set(orderIx.filter((i) => !farSet.has(i) && !plan[i].site && plotsFor(plan[i]) === 1 && (plan[i].value?.[0] ?? 9) <= 1 && r.chance(Math.min(0.9, spillShare * 2))));
   const spill: number[] = [];
   for (const i of orderIx) {
     const p = plan[i];
     const far = farSet.has(i);
     const m = plotsFor(p);
-    const housing = !p.site && m === 1;
-    const fronts: FrontKind[] = far ? (p.site === "quay" || p.site === "shore" ? ["quay", "main", "street"] : ["main", "street", "quay"]) : isSub(p) ? ["suburb", "street", "main"] : FRONTS[p.site ?? "housing"] ?? FRONTS.housing;
+    const housing = !p.site && m === 1 && !spillOut.has(i);
+    const fronts: FrontKind[] = far ? (p.site === "quay" || p.site === "shore" ? ["quay", "main", "street"] : ["main", "street", "quay"]) : isSub(p) || spillOut.has(i) ? ["suburb", "street", "main"] : FRONTS[p.site ?? "housing"] ?? FRONTS.housing;
     const lo = far ? 0 : p.value?.[0] ?? 0, hi = far ? 8 : p.value?.[1] ?? 8;
     let got: RPlot[] | undefined;
     if (housing) {
@@ -1247,7 +1266,6 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const band = (open ? r.range(120, 170) : r.range(70, 100)) * (urban ? 1.2 : 1);
   const fields: FieldPiece[] = [];
   const greatFields: { crop: string; label: Pt }[] = [];
-  const inSea = (p: Pt) => !!site.sea && dot(p, site.sea.n) > site.sea.d;
   const lerpA = (a: number, b: number, t2: number) => a + (b - a) * t2;
   for (let fi = 0; fi < nFields; fi++) {
     const a0 = cuts[fi], a1 = fi === nFields - 1 ? cuts[0] + TAU : cuts[fi + 1];
