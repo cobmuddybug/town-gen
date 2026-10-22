@@ -6,7 +6,8 @@ import { riverSite, riverStreets, sideOf, type RiverOpts, type RiverSite, type S
 import { convexOverlap, pointInPoly, polylinePolyDist } from "../src/modules/layout/geom";
 import type { MapData } from "../src/modules/layout";
 import type { Town } from "../src/core/town";
-import { generate } from "../src/town-gen";
+import { defaultModules, generate } from "../src/town-gen";
+import { withEdit } from "../src/core/save";
 import type { Design, FarBank, LayoutPlan } from "../src/core/types";
 
 const settlement = (seed: string, pop: number, design?: Design, base = "agricultural") =>
@@ -298,4 +299,25 @@ describe("river towns and the rest of the generator", () => {
       for (let q = 0; q < quarters; q++) expect(have.has(q), `${seed} quarter ${q}`).toBe(true);
     }
   }, 300000);
+});
+
+describe("river towns in the generator", () => {
+  test("an edit keeps the river layout and ward ids", () => {
+    const { t, map } = riverTown("edit", 3000, "bridgend");
+    t.society();
+    const p = t.allEntities().find((e) => e.type === "person")!.address;
+    const t2 = withEdit(t, defaultModules, p, "name.given", "Wat");
+    expect(JSON.stringify(t2.settlement().get("map"))).toBe(JSON.stringify(map));
+    expect(t2.children(t2.root, "ward").map((w) => w.address)).toEqual(t.children(t.root, "ward").map((w) => w.address));
+  }, 300000);
+
+  test("ward entities carry their bank", () => {
+    const { t } = riverTown("bank", 3000);
+    expect(t.children(t.root, "ward").some((w) => w.get("bank") === "far")).toBe(true);
+    expect(t.children(t.root, "ward").some((w) => w.get("bank") === "near")).toBe(true);
+  }, 300000);
+
+  test("the layout module is at 2.0", () => {
+    expect(defaultModules.find((m) => m.id === "layout")!.version).toBe("2.0.0");
+  });
 });

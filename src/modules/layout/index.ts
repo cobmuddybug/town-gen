@@ -24,7 +24,7 @@ export function buildingId(n: number): string {
 /** L1: the map. Places one building per planned use and creates them as stubs. */
 export const layout: Module = {
   id: "layout",
-  version: "1.0.0",
+  version: "2.0.0",
   requires: ["core", "uses"],
   hooks: {
     onSettlementGenerated(ctx, s) {
@@ -54,7 +54,8 @@ export const layout: Module = {
         const enclosure: Enclosure = /wall/.test(encl) ? "wall" : /palisade/.test(encl) ? "palisade" : /hedge|bank/.test(encl) ? "hedge" : "none";
         // The room estimate is rough. When it falls short, buildings find no plot and
         // would be lost, so lay the town out again, roomier, from the same stream.
-        for (let room = 1; ; room += 0.08) {
+        // A river town grows its streets to fit, so a short one needs a bigger step to come right.
+        for (let room = 1; ; room += layoutPlan === "river" ? 0.15 : 0.08) {
           const opts = { scale: s.get<Scale>("sizeClass"), enclosure, roads: s.get<number>("mainRoads"), terrain, ...designed, ...(room > 1 ? { room } : {}) };
           map = layoutPlan === "river"
             ? layoutRiver(ctx.rng(s, "river"), footprints, { ...opts, farBank, far: farUses, need: 0 })
