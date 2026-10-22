@@ -1,8 +1,10 @@
+import { poss } from "../../core/text";
+import { addDays, feastOn, weekday, WEEKDAYS } from "../../core/calendar";
 import { data } from "../../core/content";
 import type { Rng } from "../../core/rng";
 import type { Entity, Town } from "../../core/town";
 import type { Era, Module, PanelLink, PanelRow, Sifter } from "../../core/types";
-import type { Tier } from "../core";
+import { isUrban, type Tier } from "../core";
 import { lsd } from "../households";
 import { isStreetPlan, VALUE_CLASSES, wardId, type MapData } from "../layout";
 import { centroid, dist, type Poly, type Pt } from "../layout/geom";
@@ -29,7 +31,34 @@ export const TOWN = "town";
 export const WATCH = "watch";
 export const JUSTICE = "justice";
 
-const urbanOf = (town: Town) => /town|city/.test(town.settlement().get<string>("sizeClass"));
+// A market town of 1,001 or more governs itself like any town: a reeve or a
+// mayor, a watch and a court. Only places too small for that have an elder.
+const urbanOf = (town: Town) => isUrban(town);
+
+/** Who sits in judgement, by era. Justices of the peace and magistrates are
+ * 14th-century and later; before that a borough court under its steward heard
+ * debts and nuisances, and the coroner held felonies for the king's justices. */
+export function benchOf(era: Era): { petty: string; felony: string; suits: string; ladder: string } {
+  return era === "late_medieval" || era === "early_modern"
+    ? { petty: "justice of the peace", felony: "magistrate", suits: "magistrate", ladder: "justices of the peace for petty matters; the magistrate for felonies and suits; the king's justices at the assizes for the rest; clergy only before the bishop's court (LF pp.86-89)" }
+    : { petty: "steward of the borough court", felony: "coroner", suits: "steward of the borough court", ladder: "the borough court for debts, trespass and nuisances; the coroner holds felonies for the king's justices at the assizes; clergy only before the bishop's court (LF pp.86-89)" };
+}
+/** Every bench title in any era: for anything that asks "is this a judge?" */
+export const BENCH = ["justice of the peace", "magistrate", "steward of the borough court", "coroner"];
+
+/** The first ordinary working day on or after `from`, a market day if the place
+ * has one: where a new town opens, so the DM sees it busy, not shut for a feast. */
+export function ordinaryDay(town: Town, from = "1203-10-01"): string {
+  const market = town.settlement().get<string[] | undefined>("marketDays") ?? [];
+  let fallback: string | undefined;
+  for (let i = 0; i < 28; i++) {
+    const d = addDays(from, i);
+    if (feastOn(d)?.holy) continue;
+    fallback ??= d;
+    if (!market.length || market.includes(WEEKDAYS[weekday(d)])) return d;
+  }
+  return fallback ?? from;
+}
 
 interface Head { p: Entity; h: Entity; b: Entity; rank: number; ward: number; quarter: number; occ: string; age: number; male: boolean; wealth: number }
 
@@ -53,7 +82,7 @@ function gatherHeads(town: Town): Head[] {
 
 export const civic: Module = {
   id: "civic",
-  version: "1.0.0",
+  version: "2.0.0",
   requires: ["core", "uses", "layout", "households", "names", "people", "society", "religion"],
   register(add) {
     add<Sifter>("sifters", [whoWatchesTheWatch, townAirMakesFree, interestedBench]);
@@ -120,7 +149,7 @@ export const civic: Module = {
             if (w.near.includes("castle")) cands.push("Castle Ward");
             const ch = churchIn.get(w.id);
             const g = gateFor(w);
-            const chWard = ch && (ch === "All Saints" || ch === "Holy Trinity" ? `${ch} Ward` : `${ch}'s Ward`);
+            const chWard = ch && (ch === "All Saints" || ch === "Holy Trinity" ? `${ch} Ward` : `${poss(ch)} Ward`);
             if (chWard && r.chance(0.5)) cands.push(chWard);
             if (g) cands.push(`${g} Ward`);
             if (w.near.includes("bridge")) cands.push("Bridge Ward");
@@ -263,33 +292,33 @@ export const civic: Module = {
         if (c) office(c, T, "town crier");
       }
 
-      // Justice (LF pp.86-89): justices of the peace for petty matters, a
-      // magistrate for felonies and civil suits, the clergy's own court.
+      // Justice (LF pp.86-89), in the forms of the era: see benchOf.
+      const bench = benchOf(ctx.era);
       for (let k = 0, n = Math.max(1, Math.round(s.get<number>("targetPop") / 7000)); k < n; k++) {
         const j = choose(all, (x) => (male(35, 75)(x) && x.rank === 7 ? 1 : 0));
-        if (j) office(j, J, "justice of the peace");
+        if (j) office(j, J, bench.petty);
       }
-      const mag = choose(all, (x) => (male(35, 75)(x) && x.rank >= 8 ? (x.occ === "lawyer" ? 6 : 1) : 0));
-      if (mag) office(mag, J, "magistrate");
+      const mag = choose(all, (x) => (male(35, 75)(x) && x.rank >= 7 ? (x.occ === "lawyer" ? 6 : 1) * x.rank : 0));
+      if (mag) office(mag, J, bench.felony);
 
       // The docket.
       const docket: { court: string; matter: string; parties: string[] }[] = [];
       const debts = town.edges({ kind: "debtor_of" }).filter((e) => (e.facts?.amount as number) >= 200);
       for (const e of r.shuffle(debts).slice(0, 2)) {
-        docket.push({ court: "magistrate", matter: `a suit for ${lsd(e.facts!.amount as number)} owed, for ${e.facts?.reason ?? "a debt"}`, parties: [e.to, e.from] });
+        docket.push({ court: bench.suits, matter: `a suit for ${lsd(e.facts!.amount as number)} owed, for ${e.facts?.reason ?? "a debt"}`, parties: [e.to, e.from] });
       }
       const rogues = all.filter((x) => ["cutpurse", "vagrant", "pauper"].includes(x.occ));
       for (let k = 0, n = r.int(1, 2); k < n; k++) {
         const accuser = r.pick(all);
         const accused = rogues.length ? r.pick(rogues) : r.pick(all);
-        if (accuser !== accused) docket.push({ court: "magistrate", matter: r.pick(content.felonies), parties: [accuser.p.address, accused.p.address] });
+        if (accuser !== accused) docket.push({ court: bench.felony, matter: r.pick(content.felonies), parties: [accuser.p.address, accused.p.address] });
       }
       // Town air makes free: a runaway villein, here less than a year and a day.
       const runaway = r.chance(0.4) ? choose(all, (x) => (["journeyman", "labourer", "porter"].includes(x.occ) && male(18, 35)(x) ? 1 : 0)) : undefined;
       if (runaway) {
         const months = r.int(3, 11);
         ctx.set(runaway.h, "civic.fledVillein", { months, lord: r.pick(["a knight", "an abbey", "a baron"]) });
-        docket.push({ court: "magistrate", matter: `leaving villeinage: his lord's bailiff claims him back; he has been here ${months} months`, parties: [runaway.p.address] });
+        docket.push({ court: bench.suits, matter: `leaving villeinage: his lord's bailiff claims him back; he has been here ${months} months`, parties: [runaway.p.address] });
       }
       const taverns = all.filter((x) => ["tavern_keeper", "alehouse_keeper", "alewife", "innkeeper"].includes(x.occ));
       for (let k = 0, n = r.int(2, 3); k < n; k++) {
@@ -298,7 +327,7 @@ export const civic: Module = {
         const y = near.length ? r.pick(near) : r.pick(all);
         const tv = taverns.length ? town.label(r.pick(taverns).b.address).replace(/^The /, "the ") : "a tavern";
         const matter = r.pick(content.petty).replace("{tavern}", tv).replace("{house}", town.label(y.b.address).replace(/^The /, "the "));
-        docket.push({ court: "justice of the peace", matter, parties: [x.p.address, y.p.address] });
+        docket.push({ court: bench.petty, matter, parties: [x.p.address, y.p.address] });
       }
       ctx.set(town.get(J), "docket", docket);
     },
@@ -386,17 +415,19 @@ export const civic: Module = {
         const quarterNames = town.find(`${town.root}/institution:${WATCH}`)?.get<string[]>("quarterNames");
         if (quarterNames) rows.push({ label: "Quarter", value: quarterNames[w.get<number>("quarter")] });
         let hh = 0, people = 0;
-        const notable: PanelLink[] = [];
+        const notable: { link: PanelLink; rank: number }[] = [];
         for (const b of town.children(town.root, "building")) {
           if (b.get("ward") !== idx) continue;
           for (const h of town.children(b.address, "household")) { hh++; people += h.get<number>("size") ?? 0; }
           const use = b.get<string>("use");
-          if (!["tenement", "poor_row", "journeyman_house", "townhouse", "cottage", "farmhouse", "empty"].includes(use) && notable.length < 24) {
-            notable.push({ text: town.label(b.address), address: b.address });
+          if (!["tenement", "poor_row", "journeyman_house", "townhouse", "cottage", "farmhouse", "empty"].includes(use)) {
+            notable.push({ link: { text: town.label(b.address), address: b.address }, rank: NOTABLE[use] ?? (b.get<number>("storeys") ?? 1) });
           }
         }
         rows.push({ label: "Living here", value: `${hh} households, ${people} people` });
-        if (notable.length) rows.push({ label: "Notable", value: notable.flatMap((n, i) => [...(i ? [", "] : []), n]) });
+        // The handful worth a visit: public buildings and rare trades first, then the grandest.
+        const top = [...notable].sort((a, b) => b.rank - a.rank || (a.link.text < b.link.text ? -1 : 1)).slice(0, 8).map((n) => n.link);
+        if (top.length) rows.push({ label: "Notable", value: top.flatMap((n, i) => [...(i ? [", "] : []), n]), hint: notable.length > 8 ? `and ${notable.length - 8} more shops and workshops` : undefined });
         for (const e of town.edges({ kind: "office_in" })) {
           if (e.facts?.ward !== idx) continue;
           rows.push({ label: String(e.facts.office), value: { text: town.label(e.from), address: e.from } });
@@ -431,7 +462,7 @@ export const civic: Module = {
           rows.push({ label: String(e.facts?.office), value: [{ text: town.label(e.from), address: e.from }, where] });
         }
         if (k === JUSTICE) {
-          rows.push({ label: "Ladder", value: "justices of the peace for petty matters; the magistrate for felonies and suits; the king's justices at the assizes for the rest; clergy only before the bishop's court (LF pp.86-89)" });
+          rows.push({ label: "Ladder", value: benchOf(town.settings.era).ladder });
           for (const d of inst.get<{ court: string; matter: string; parties: string[] }[]>("docket") ?? []) {
             rows.push({ label: `before the ${d.court}`, value: [d.matter + " — ", ...d.parties.flatMap((p, i) => [...(i ? [" against "] : []), { text: town.label(p), address: p }])] });
           }
@@ -442,10 +473,17 @@ export const civic: Module = {
   ],
 };
 
+// What makes a building worth naming to a stranger, highest first.
+const NOTABLE: Record<string, number> = {
+  castle: 20, grand_temple: 19, temple: 18, guildhall: 17, market_hall: 16, friary: 15, priory: 15, nunnery: 15, courthouse: 14, gaol: 13,
+  inn: 12, hospital: 11, fane: 10, merchant_house: 9, goldsmith: 9, money_changer: 9, wine_merchant: 8, mercer: 8, spicer: 8, tavern: 7,
+  bathhouse: 7, school: 7, apothecary: 6, physician: 6, gatehouse: 6, watch_house: 5,
+};
+
 const QUARTER: Record<string, string> = { N: "north", NE: "north-east", E: "east", SE: "south-east", S: "south", SW: "south-west", W: "west", NW: "north-west" };
 const OFFICE_ORDER = ["mayor", "the lord's bailiff of the town", "portreeve", "alderman", "common councilman", "burgess of the portmoot", "recorder", "town clerk",
   "chamberlain, keeper of the town's purse", "marshal", "deputy marshal", "constable", "beadle", "town crier", "sergeant of the watch", "officer of the watch",
-  "gate guard", "magistrate", "justice of the peace"];
+  "gate guard", "magistrate", "coroner", "justice of the peace", "steward of the borough court"];
 const officeRank = (o: unknown) => { const i = OFFICE_ORDER.indexOf(String(o)); return i < 0 ? 99 : i; };
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -500,7 +538,7 @@ export const townAirMakesFree: Sifter = {
       if (!head) continue;
       out.push({
         title: this.title,
-        summary: `${town.label(head.address)} ran from ${f.lord}'s manor ${f.months} months ago. If he lasts a year and a day in ${town.label(town.root)} he is free; his lord's bailiff has found him first, and the case is before the magistrate.`,
+        summary: `${town.label(head.address)} ran from ${poss(f.lord)} manor ${f.months} months ago. If he lasts a year and a day in ${town.label(town.root)} he is free; his lord's bailiff has found him first, and the case is before the ${benchOf(town.settings.era).suits}.`,
         involves: [head.address],
       });
     }
@@ -514,7 +552,7 @@ export const interestedBench: Sifter = {
   source: "LF p.86 (the magistrate hears suits for debt)",
   match(town) {
     const out = [];
-    const bench = town.edges({ kind: "office_in" }).filter((e) => e.facts?.office === "magistrate" || e.facts?.office === "justice of the peace" || e.facts?.office === "mayor");
+    const bench = town.edges({ kind: "office_in" }).filter((e) => BENCH.includes(String(e.facts?.office)) || e.facts?.office === "mayor");
     for (const b of bench) {
       for (const d of town.edges({ touching: b.from, kind: "debtor_of" })) {
         const other = d.from === b.from ? d.to : d.from;

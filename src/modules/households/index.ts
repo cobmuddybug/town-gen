@@ -127,6 +127,12 @@ export const households: Module = {
       ctx.gen(h, "income", (r) => {
         let v = tier.income * r.range(0.75, 1.3) + (land as number) * 14;
         if (isRichest) v *= settlement.get("richestRuleHolds") ? 1.9 : 0.6;
+        // In a town, fortunes run to a long tail: most merchants get by, a few
+        // are rich enough to lend to the king (LFP: a great house for every 450 or so).
+        if (tier.rank >= 7 && settlement.get<{ kind?: string }>("map")?.kind === "town") {
+          const u = r.next();
+          v *= u < 0.7 ? 1 : u < 0.93 ? r.range(1.5, 3) : r.range(3, 9);
+        }
         return Math.round(v);
       });
       ctx.gen(h, "savings", (r) => Math.round((h.get<number>("income")) * r.range(0.05, isRichest && settlement.get("richestRuleHolds") ? 2.5 : 0.8)));

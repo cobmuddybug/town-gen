@@ -7,6 +7,52 @@ import type { BuildingUse, Occupation } from "../uses";
 // Buildings there is usually only one of are named for what they are.
 const UNIQUE = new Set(["mill", "chapel", "shrine", "alehouse", "trader", "smithy", "bakehouse"]);
 import anglo from "./content/anglo-norman.yaml";
+import type { Town } from "../../core/town";
+
+const countMemo = new WeakMap<Town, Map<string, number>>();
+function countOf(town: Town, use: string): number {
+  let m = countMemo.get(town);
+  if (!m) {
+    m = new Map();
+    for (const b of town.children(town.root, "building")) { const u = b.get<string>("use"); m.set(u, (m.get(u) ?? 0) + 1); }
+    countMemo.set(town, m);
+  }
+  return m.get(use) ?? 0;
+}
+
+// Inns and taverns hang a sign; a good many alehouses too. Each name once in a town.
+const SIGNED = new Set(["inn", "tavern", "town_alehouse", "hostel"]);
+const SIGNS = ["the Bell", "the Swan", "the Saracen's Head", "the Chequers", "the Star", "the Green Man", "the Bull", "the Cock",
+  "the Angel", "the Crown", "the Ship", "the Plough", "the Lamb", "the Mitre", "the Pilgrim", "the Three Cups", "the Rose",
+  "the Pelican", "the Dolphin", "the Boar's Head", "the Hart", "the Sun", "the Bush", "the Hoop", "the Wheatsheaf", "the Woolpack",
+  "the Cross Keys", "the Bear", "the Fleece", "the George", "the Lion", "the Ram", "the Horseshoe", "the Bell and Book", "the Old Cock",
+  "the Pied Bull", "the Unicorn", "the Antelope", "the Griffin", "the Mermaid", "the Salutation", "the Tabard", "the Eagle", "the Falcon",
+  "the Castle", "the Gate", "the Two Brewers", "the Barley Mow", "the Sheaf", "the Pope's Head", "the Moon", "the Black Boy", "the Cardinal's Hat"];
+const signMemo = new WeakMap<Town, Map<string, string>>();
+/** The sign over a drinking house's door, if it has one. */
+function signOf(town: Town, b: string): string | undefined {
+  let m = signMemo.get(town);
+  if (!m) {
+    m = new Map();
+    const street = town.settlement().get<{ kind?: string }>("map")?.kind === "town";
+    if (street) {
+      const pool = [...SIGNS];
+      let seed = 0;
+      for (const ch of town.seed) seed = (seed * 31 + ch.charCodeAt(0)) | 0;
+      for (const x of town.children(town.root, "building")) {
+        const use = x.get<string>("use");
+        if (!SIGNED.has(use) || !pool.length) continue;
+        seed = (seed * 1103515245 + 12345) | 0;
+        const k = Math.abs(seed) % 100;
+        if (use === "town_alehouse" && k < 45) continue;
+        const name = pool.splice(Math.abs(seed >> 7) % pool.length, 1)[0];
+        m.set(x.address, name[0].toUpperCase() + name.slice(1));
+      }
+    }
+    signMemo.set(town, m);
+  }
+  return m.get(b);
+}
 
 export interface NameProvider extends Row {
   cultures: string[];
@@ -52,8 +98,17 @@ export const angloNorman: NameProvider = {
     }
     if (kind === "father") {
       const father = weighted(rng, d.male);
+      const suffix = rng.pick(d.patronym_suffix);
+      // -kin and -cock go on a short pet name (Wilcock, Simkin, Hobkin), never on
+      // a full name or one that already has an ending: no Bartholomewcock.
+      if (suffix === "kin" || suffix === "cock") {
+        const pets = (d.called[father] ?? []).filter((n) => n.length <= 5 && !/(kin|cock|on|ie|y)$/.test(n));
+        const base = pets.length ? rng.pick(pets) : father.length <= 5 && !/(kin|cock)$/.test(father) ? father : undefined;
+        if (base) return { name: base + suffix, kind: "a forefather's name" };
+        return { name: father + (rng.chance(0.6) ? "son" : "s"), kind: "a forefather's name" };
+      }
       const base = rng.chance(0.5) ? (d.called[father] ? rng.pick(d.called[father]) : father) : father;
-      return { name: base + rng.pick(d.patronym_suffix), kind: "a forefather's name" };
+      return { name: base + (base.endsWith("s") && suffix === "s" ? "on" : suffix), kind: "a forefather's name" };
     }
     return { name: rng.pick(d.nickname), kind: "a forefather's nickname" };
   },
@@ -66,7 +121,7 @@ export const angloNorman: NameProvider = {
 
 export const names: Module = {
   id: "names",
-  version: "1.0.0",
+  version: "2.0.0",
   requires: ["core", "households"],
   register(add) {
     add("nameProviders", [angloNorman]);
@@ -128,12 +183,25 @@ export const names: Module = {
     if (e.type === "building") {
       const use = town.registry<BuildingUse>("buildingUses").find(e.get("use"));
       if (!use) return undefined;
+      const sign = signOf(town, e.address);
+      if (sign) return sign;
       const h = town.children(e.address, "household")[0];
-      if (UNIQUE.has(use.id) || !h) return `The ${use.label}`;
-      const sur = h.get<{ name: string }>("surname").name.replace(/^of /, "");
+      // "The alehouse" only where there is just the one.
+      if ((UNIQUE.has(use.id) && countOf(town, use.id) === 1) || !h) return `The ${use.label}`;
+      const raw = h.get<{ name: string }>("surname").name;
+      const poss = (n: string) => `${n}${n.endsWith("s") ? "'" : "'s"}`;
+      // "of Kingsbridge" is where they came from, not a name to hang a house on:
+      // it's John of Kingsbridge's house.
+      const head = town.children(h.address, "person")[0];
+      const sur = raw.startsWith("of ") && head ? personName(town, head.address) : raw;
+      // A shop goes by its master and his trade: "Ford the cordwainer's";
       // "fisher's house" becomes "Grove's house", not "Grove's fisher's house".
-      const what = use.label.includes("'s ") ? use.label.split("'s ")[1] : use.label;
-      return `${sur}${sur.endsWith("s") ? "'" : "'s"} ${what}`;
+      if (use.label.includes("'s ")) {
+        const [trade, what] = use.label.split("'s ");
+        if (/shop|stall/.test(what) && sur.toLowerCase() !== trade.toLowerCase()) return `${sur} the ${trade}'s`;
+        return `${poss(sur)} ${what}`;
+      }
+      return `${poss(sur)} ${use.label}`;
     }
     return undefined;
   },

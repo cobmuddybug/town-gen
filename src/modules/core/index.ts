@@ -16,6 +16,12 @@ export interface Base extends Row {
 export interface SizeClass extends Row { label: string; min: number; max: number }
 export interface Material extends Row { kind: "wall" | "roof"; cost: number; label: string }
 
+/** A market town or bigger (LF's "village" of 1,001 and up has walls, wards, guilds and a market):
+ * it gets town ways of life, town institutions and town talk. */
+export function isUrban(town: { settlement(): { get<T>(k: string): T } }): boolean {
+  return !/^(hamlet|thorp)$/.test(town.settlement().get<string>("sizeClass"));
+}
+
 const edgeKinds: EdgeKind[] = [
   { id: "kin", label: "kin of" },
   { id: "spouse", label: "spouse of", symmetric: true },
@@ -58,7 +64,8 @@ export const core: Module = {
       ctx.set(s, "base", b.id);
       ctx.set(s, "era", era);
       ctx.set(s, "targetPop", pop);
-      ctx.set(s, "fuel", b.fuel);
+      // A market town buys its fuel: nobody burns dung inside the walls.
+      ctx.set(s, "fuel", pop > 1000 ? (b.id === "mining" ? "sea-coal for the smiths, wood and charcoal for everyone else" : "wood and charcoal, bought by the cartload from the woodmongers; turf for the poor") : b.fuel);
       ctx.set(s, "terrain", b.terrain);
       // "Usually richest" (LF p.73): most of the time the rule holds.
       ctx.gen(s, "richestRuleHolds", (r) => r.chance(0.8));

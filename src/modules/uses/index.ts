@@ -53,9 +53,30 @@ export const STREET_PLAN_POP = 700;
 /** Above this many the building plan is urban (trades by population, housing by composition). */
 export const URBAN_PLAN_POP = 1000;
 
-// Wall and roof ladders, cheapest first (LF p.79), for street plans.
-const WALL_LADDER = ["wattle_and_daub", "timber_and_board", "timber_and_plaster", "timber_and_brick", "timber_and_stone", "brick", "stone"];
-const ROOF_LADDER = ["thatch", "plank", "shingle", "tile", "slate", "lead"];
+// Wall and roof ladders, cheapest first (LF p.79), for street plans, by era.
+// Brick returns to England only late; plank roofs were never usual; chimneys
+// belong to the rich and the stone-built before the 14th century.
+const WALL_LADDERS: Record<string, string[]> = {
+  early_medieval: ["wattle_and_daub", "timber_and_board", "timber_and_plaster", "timber_and_stone", "stone"],
+  high_medieval: ["wattle_and_daub", "timber_and_board", "timber_and_plaster", "timber_and_plaster", "timber_and_stone", "stone"],
+  late_medieval: ["wattle_and_daub", "timber_and_plaster", "timber_and_brick", "timber_and_stone", "brick", "stone"],
+  early_modern: ["wattle_and_daub", "timber_and_board", "timber_and_plaster", "timber_and_brick", "timber_and_stone", "brick", "stone"],
+};
+const ROOF_LADDERS: Record<string, string[]> = {
+  early_medieval: ["thatch", "thatch", "shingle", "slate", "lead"],
+  high_medieval: ["thatch", "shingle", "tile", "slate", "lead"],
+  late_medieval: ["thatch", "tile", "tile", "slate", "lead"],
+  early_modern: ["thatch", "tile", "tile", "slate", "lead"],
+};
+// Chance of a chimney by ward value (0-8), per era.
+const CHIMNEY: Record<string, (value: number) => number> = {
+  early_medieval: () => 0,
+  high_medieval: (v) => (v >= 6 ? 0.45 : v >= 4 ? 0.08 : 0),
+  late_medieval: (v) => (v >= 5 ? 0.8 : v >= 3 ? 0.35 : 0.05),
+  early_modern: (v) => (v >= 3 ? 0.85 : 0.4),
+};
+// Streets that make a frontage worth building up.
+const MAIN = new Set(["market", "road", "street", "quay"]);
 
 // Average size of a household in a special building, used only to budget
 // how many ordinary houses to plan.
@@ -139,7 +160,8 @@ export const uses: Module = {
       ctx.gen(b, "hearth", (r) => {
         if (use?.id === "chapel" || use?.id === "shrine") return "none";
         if (use?.id === "smithy") return "a forge, and an open hearth behind";
-        return r.chance(0.85) ? "open hearth, smoke out through the thatch" : "hearth against a stone fire-back";
+        const roof = b.get<string>("roof");
+        return r.chance(0.85) ? `open hearth, smoke out through ${roof === "thatch" ? "the thatch" : roof === "turf" ? "a hole in the turf" : "a louvre in the roof"}` : "hearth against a stone fire-back";
       });
     },
   },
@@ -180,23 +202,31 @@ function streetPlanConstruction(ctx: import("../../core/types").Ctx, b: import("
   const value = map.wards?.[b.get<number>("ward")]?.value ?? 2;
   const urban = /town|city/.test(s.get<string>("sizeClass"));
   const id = use?.id ?? "empty";
+  const era = ctx.era;
+  const WALL_LADDER = WALL_LADDERS[era] ?? WALL_LADDERS.high_medieval, ROOF_LADDER = ROOF_LADDERS[era] ?? ROOF_LADDERS.high_medieval;
   ctx.gen(b, "walls", (r) => {
     if (STONE.has(id)) return id === "chapel" && r.chance(0.4) ? "timber_and_stone" : "stone";
     // Up the ladder with the ward's value, a step either way.
-    const k = Math.round((value / 8) * (urban ? 5 : 3) + r.range(-1, 1));
+    const k = Math.round((value / 8) * (urban ? WALL_LADDER.length - 2 : 3) + r.range(-1, 1));
     return WALL_LADDER[Math.max(0, Math.min(WALL_LADDER.length - 2, k))];
   });
   ctx.gen(b, "roof", (r) => {
     if (id === "grand_temple" || id === "temple") return "lead";
     if (STONE.has(id)) return r.pick(["tile", "slate", "lead"]);
     // Towns forbid thatch where they can, for fear of fire.
-    const k = Math.round((value / 8) * (urban ? 4 : 2) + r.range(-1, 1) + (urban ? 1 : 0));
+    const k = Math.round((value / 8) * (urban ? 3 : 2) + r.range(-1, 1) + (urban ? 1 : 0));
     return ROOF_LADDER[Math.max(0, Math.min(ROOF_LADDER.length - 2, k))];
   });
+  // Storeys follow the plot: a cottage stays low; houses on the main street
+  // and the market build up, the more so where ground is dear.
+  const main = MAIN.has(b.get<string>("road") ?? "");
   ctx.gen(b, "storeys", (r) => {
     if (!urban) return use?.size === "inn" || use?.size === "merchant" ? 2 : r.chance(0.25) ? 2 : 1;
     if (STONE.has(id) || id === "market_hall") return id === "gatehouse" ? 2 : 1;
-    return Math.max(1, Math.min(4, Math.round(1.6 + value / 3.5 + r.range(-0.6, 0.8))));
+    if (id === "cottage" || id === "farmhouse" || id === "poor_row") return r.chance(value >= 3 ? 0.4 : 0.15) ? 2 : 1;
+    const top = id === "tenement" || id === "townhouse" || id === "merchant_house" ? 4 : 3;
+    const n = 1.2 + value / 4 + (main ? 0.8 : 0) + (s.get<string>("sizeClass") === "city" ? 0.4 : 0) + r.range(-0.6, 0.6);
+    return Math.max(1, Math.min(top, Math.round(n)));
   });
   ctx.gen(b, "condition", (r) => (id === "empty" ? r.pick(["ruinous", "shut up", "half pulled down"]) : value <= 1 && r.chance(0.4) ? r.pick(["sagging", "patched and leaning", "damp through"]) : r.pick(CONDITIONS)));
   ctx.gen(b, "hearth", (r) => {
@@ -204,7 +234,7 @@ function streetPlanConstruction(ctx: import("../../core/types").Ctx, b: import("
     if (id === "town_smithy" || id === "armourer" || id === "cutler") return "a forge, and a hearth behind";
     if (id === "cookshop" || id === "bakehouse" || id === "inn" || id === "tavern") return "great ovens and a kitchen hearth";
     // Lower-class town households often have no hearth fit for cooking (LF p.63).
-    if (value <= 2 && r.chance(0.6)) return "a brazier only; food goes to the cookshop or bakehouse";
-    return r.chance(0.6) ? "a chimneyed hearth" : "an open hearth, smoke out through a louvre";
+    if (value <= 2 && r.chance(0.6) && !["farmhouse", "cottage"].includes(id)) return "a brazier only; food goes to the cookshop or bakehouse";
+    return r.chance((CHIMNEY[era] ?? CHIMNEY.high_medieval)(value)) ? "a chimneyed hearth" : r.chance(0.5) ? "an open hearth, smoke out through a louvre" : "a hearth with a smoke hood, and a stone fire-back";
   });
 }

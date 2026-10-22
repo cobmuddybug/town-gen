@@ -14,7 +14,7 @@
   fill: { farmhouse: 0.45, cottage: 0.55 }
   extras: [bakehouse, smithy, carpenter, carter, thatcher, weaver]
   walls: [wattle_and_daub, wattle_and_daub, timber_and_board, sod]
-  roofs: [thatch, thatch, thatch, plank]
+  roofs: [thatch, thatch, thatch, shingle]
   fuel: "wood, charcoal and dried dung"
   stake: acres
   richest: [miller]
@@ -29,7 +29,7 @@
   fill: { fisher_house: 0.8, cottage: 0.2 }
   extras: [smithy, ropewalk, mason, carter, slater, netmaker]
   walls: [timber_and_board, fieldstone]
-  roofs: [plank, slate]
+  roofs: [thatch, slate]
   fuel: driftwood
   stake: boats
   richest: [boatwright]
@@ -44,7 +44,7 @@
   fill: { herder_house: 0.7, cottage: 0.3 }
   extras: [carder, carpenter, tannery, thatcher, weaver, smithy]
   walls: [wattle_and_daub, sod, timber_and_board, fieldstone]
-  roofs: [thatch, turf, plank]
+  roofs: [thatch, turf, slate]
   fuel: "peat and dung"
   stake: sheep
   richest: [carter, tanner]
@@ -59,7 +59,7 @@
   fill: { miner_house: 0.8, cottage: 0.2 }
   extras: [freighter, smithy, carpenter, slater]
   walls: [stone]
-  roofs: [slate, plank]
+  roofs: [slate, thatch]
   fuel: "coal and charcoal"
   stake: ore shares
   richest: [assayer, freighter]
@@ -74,7 +74,7 @@
   fill: { logger_house: 0.8, cottage: 0.2 }
   extras: [freighter, smithy, carpenter, charcoal_burner]
   walls: [timber_and_board]
-  roofs: [plank, shingle]
+  roofs: [shingle, thatch]
   fuel: "wood and charcoal"
   stake: felling rights
   richest: [sawyer, freighter]

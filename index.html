@@ -41,7 +41,8 @@
           <label>Castle <select name="castle"><option value="">any</option><option value="1">yes</option><option value="0">no</option></select></label>
           <label>Market <select name="market"><option value="">any</option><option value="small">small</option><option value="large">large</option></select></label>
           <label>Suburbs <select name="suburbs"><option value="">any</option><option value="few">few</option><option value="many">many</option></select></label>
-          <p class="plan-note">“Any” leaves it to the dice. Castles need 1,000 people or more.</p>
+          <label>Crime <select name="crime"><option value="">any</option><option value="quiet">quiet</option><option value="usual">the usual</option><option value="rife">rife</option></select></label>
+          <p class="plan-note">“Any” leaves it to the dice. Castles need 1,000 people or more; gangs need 1,000 too.</p>
         </div>
       </details>
       <button type="submit">Generate</button>
@@ -63,6 +64,7 @@
     </div>
     <div class="controls">
       <select id="towns" aria-label="Your towns"></select>
+      <button type="button" id="sources" title="Show the book citations in the panels, or hide them behind §">§</button>
       <button type="button" id="save" title="Download this town as a file">Save</button>
       <label class="button">Load<input type="file" id="load" accept=".json,application/json" hidden /></label>
     </div>

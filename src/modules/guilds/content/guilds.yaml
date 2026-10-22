@@ -56,10 +56,61 @@ charity:
   - "keeps a bed in the hospital for members fallen on hard times"
   - "pays to mend the bridge every few years, and puts its arms on it"
 rights:
-  - { a: cordwainers, b: cobbler, text: "the cobblers are making new shoes, which is the cordwainers' right" }
-  - { a: tailors, b: fripperer, text: "the old-clothes men are cutting new cloth, which is the tailors' right" }
-  - { a: drapers, b: tailors, text: "the tailors are selling cloth by the yard, which is the drapers' right" }
-  - { a: smiths, b: cutlers, text: "the smiths are forging blades, which the cutlers say is theirs alone" }
-  - { a: carpenters, b: coopers, text: "the carpenters are making barrels, and the coopers have noticed" }
-  - { a: grocers, b: spicer, text: "the apothecaries are selling spices by the pound, which the grocers say is theirs" }
-  - { a: mercers, b: drapers, text: "the drapers have started selling silk" }
+  - { a: cordwainers, b: cobbler, text: "new shoes made by the cobblers, which is the cordwainers' right", says: "the cobblers are making new shoes, which is the cordwainers' right" }
+  - { a: tailors, b: fripperer, text: "new cloth cut by the old-clothes men, which is the tailors' right", says: "the old-clothes men are cutting new cloth, which is the tailors' right" }
+  - { a: drapers, b: tailors, text: "cloth sold by the yard in the tailors' shops, which is the drapers' right", says: "the tailors are selling cloth by the yard, which is the drapers' right" }
+  - { a: smiths, b: cutlers, text: "blades forged by the smiths, which the cutlers say is their work alone", says: "the smiths are forging blades, which the cutlers say is theirs alone" }
+  - { a: carpenters, b: coopers, text: "barrels made by the carpenters, which is coopers' work", says: "the carpenters are making barrels, and the coopers have noticed" }
+  - { a: grocers, b: spicer, text: "spices sold by the pound at the apothecary's, which the grocers say is their trade", says: "the apothecaries are selling spices by the pound, which the grocers say is theirs" }
+  - { a: mercers, b: drapers, text: "silk sold over the drapers' counters", says: "the drapers have started selling silk" }
+  - { a: merchants, b: weavers, text: "cloth sold by retail from the weavers' own doors, which the merchants say is theirs alone", says: "the weavers are selling their own cloth by the yard, past the merchants" }
+  - { a: merchants, b: tailors, text: "a cargo of foreign cloth that the tailors bought direct from a stranger", says: "the tailors bought foreign cloth from a stranger, past the guild" }
+# Each trade's own saints: the first is usual, the rest are what some towns chose.
+saints:
+  merchants: ["Holy Trinity", "St Nicholas"]
+  mercers: ["St Thomas the Martyr", "Our Lady"]
+  drapers: ["Our Lady", "St Thomas the Martyr"]
+  grocers: ["St Antony", "St Nicholas"]
+  vintners: ["St Martin", "St Nicholas"]
+  goldsmiths: ["St Dunstan", "St Eloi"]
+  butchers: ["St Luke", "St Bartholomew"]
+  fishmongers: ["St Peter", "St Andrew"]
+  brewers: ["St Thomas the Martyr", "St Arnold"]
+  fullers: ["St James", "Our Lady"]
+  dyers: ["St Maurice", "St Mary Magdalene"]
+  tailors: ["St John the Baptist", "St Martin"]
+  cappers: ["St James", "St Severus"]
+  glovers: ["St Bartholomew", "St Anne"]
+  skinners: ["St John the Baptist", "St Bartholomew"]
+  cordwainers: ["St Crispin and St Crispinian"]
+  cutlers: ["St Lawrence", "St Eloi"]
+  armourers: ["St George", "St Eloi"]
+  smiths: ["St Eloi", "St Clement"]
+  pewterers: ["Our Lady", "St Eloi"]
+  bowyers: ["St Sebastian", "St George"]
+  carpenters: ["the Holy Cross", "St Thomas"]
+  tilers: ["St Stephen", "the Four Crowned Martyrs"]
+  glaziers: ["St Luke", "St Mark"]
+  saddlers: ["St George", "St Martin"]
+  leathersellers: ["Holy Trinity", "St Bartholomew"]
+  scriveners: ["St John the Evangelist", "St Luke"]
+  barbers: ["St Cosmas and St Damian", "St Mary Magdalene"]
+  painters: ["St Luke"]
+  weavers: ["St Blaise", "St Paul"]
+  bakers: ["St Clement", "St Honoratus"]
+  masons: ["the Four Crowned Martyrs", "St Thomas"]
+  coopers: ["St Nicholas", "Our Lady"]
+  chandlers: ["Our Lady", "St Catherine"]
+# The merchant guild is a different thing: a brotherhood of traders that
+# keeps the town's trade to itself, not a craft with masters and journeymen.
+merchant_rules:
+  - "no stranger to buy or sell in the town but through a brother of the guild"
+  - "brothers go toll-free in the market, and buy first when a ship or a wagon comes in"
+  - "any brother present at a bargain may claim a share in it, at the same price"
+  - "brothers at law with each other go first before the alderman, not the court"
+  - "every brother pays scot and lot with the town, and keeps a horse and arms for its defence"
+  - "a brother fallen into poverty is kept by the guild, and his daughter dowered"
+merchant_charity:
+  - "keeps a chaplain to sing for dead brothers, and the guild's lights before the altar"
+  - "pays for the bridge and the town's wall when the king's tax falls due"
+  - "gives a feast for the whole town once a year, and a dole of bread to the poor"

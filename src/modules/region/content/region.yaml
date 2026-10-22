@@ -1,0 +1,53 @@
+# The country round a settlement: where its roads go, its neighbours, the old
+# towers and keeps, the carriers, and the news that comes in with them. The
+# spread of places follows the Low Fantasy Population Generator's regional
+# figures (The Welsh Piper, CC BY-SA; after S. John Ross): mostly villages, a
+# town a day or two off, a city a few days away; our own words throughout.
+
+# What lies at the end of a road, by weight, and how far in miles.
+destinations:
+  - { kind: village, weight: 6, miles: [3, 9] }
+  - { kind: "market town", weight: 3, miles: [8, 20] }
+  - { kind: "shire town", weight: 1, miles: [15, 35] }
+  - { kind: city, weight: 0.6, miles: [30, 70] }
+  - { kind: "abbey", weight: 0.8, miles: [4, 15] }
+  - { kind: "the coast", weight: 0.4, miles: [10, 30] }
+# Places off the roads, for the panel and for hooks.
+neighbours:
+  - "a village of a dozen houses and a mill, {miles} miles off"
+  - "a moated manor house, its lord away at court, {miles} miles off"
+  - "a hamlet in the forest that pays its rent in charcoal, {miles} miles off"
+  - "a priory of nine canons and a guesthouse, {miles} miles off"
+  - "a deserted village, emptied by the sickness in the old lord's time, {miles} miles off"
+  - "a fortified farm on the hill road, {miles} miles off"
+  - "a ferry and an alehouse where the river is too wide to bridge, {miles} miles off"
+  - "a hermit's cell by a holy well, {miles} miles off"
+# Old works on the land (LFP: towers, keeps and castles, some long abandoned).
+ruins:
+  - "a ruined tower on the ridge, its stair still standing; children dare each other to climb it"
+  - "the green mounds of an old fort where the plough turns up coins and bones"
+  - "a broken keep in the marsh, held a hundred years ago by a robber knight"
+  - "a burnt-out manor on the old road, never rebuilt; the family died in the fire"
+  - "the stones of an old church in a wood, roofless, where a few still leave offerings"
+  - "a gallows hill at a crossroads, where the old lords hanged their own"
+  - "a watchtower on the coast road, kept by one old soldier and a dog"
+  - "a motte with a timber keep, held for the king by a knight and six men"
+# News from outside, brought by carriers and travellers. {near} is a neighbour,
+# {far} a town further off.
+news:
+  - "the king's men are buying up horses and oats along the {far} road; there'll be a war"
+  - "a new bishop is chosen, and they say he's a hard one about tithes"
+  - "wool is fetching a good price at {far} this year, the best in memory"
+  - "the sickness is in {far}; they've shut the gates and the markets"
+  - "a ship went down off the coast with all hands, and the cargo washed up for a week"
+  - "outlaws on the forest road beyond {near}; a carter was robbed and stripped"
+  - "they hanged three men at {far} for the robbery of a merchant"
+  - "a miracle at the shrine at {near}: a blind woman sees again, they say"
+  - "the price of salt is up again, since the pans on the coast flooded"
+  - "a great fair is cried for {far}, with merchants coming from over the sea"
+  - "the king himself is to pass through {far} on his way north, with half the court"
+  - "a wolf was killed near {near}, the first anyone remembers in years"
+  - "the lord of {near} is dead, and his heir is a boy of nine"
+  - "a comet was seen over {far} three nights running, and the priests are worried"
+  - "the river flooded at {near}; they lost the mill and two houses"
+  - "a band of pardoners is on the road, selling pardons that are not worth the wax"

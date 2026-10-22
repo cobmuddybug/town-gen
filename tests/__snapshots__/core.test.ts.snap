@@ -53,15 +53,12 @@ exports[`determinism > golden: output for a fixed seed is unchanged 1`] = `
     "farmhouse",
     "farmhouse",
   ],
-  "firstFamily": "the Gentle household",
+  "firstFamily": "the Lane household",
   "geometry": "2322faea",
   "hooks": [
     "thumb-on-the-scale",
-    "bread-money",
-    "bread-money",
-    "neighbours-dont-know",
   ],
-  "name": "Wickby",
+  "name": "Langridge",
   "people": 204,
 }
 `;

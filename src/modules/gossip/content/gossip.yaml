@@ -58,7 +58,7 @@ topics:
     - "something between {c} and {b}"
 # News that comes with visitors. {who} and {note} come from the visit.
 news:
-  tax: "the sheriff's man is here: {note}"
+  tax: "the sheriff's man is in town ({note})"
   herald: "a herald in the market, proclaiming {note}"
   players: "players have come: {who}, {note}"
   mountebank: "a mountebank's train is in: {who}, with {note}"
@@ -87,8 +87,8 @@ chatter:
     - "{a} has been telling anyone who'll listen what {b} did over {about}"
   dispute:
     - "the quarrel between {a} and {b}, over {about}, is no nearer settled"
-    - "{a} and {b} have taken {about} to the elders again"
-    - "{about}: {a} and {b} still can't agree, and the whole place has taken sides"
+    - "{a} and {b} have taken the business of {about} to {court} again"
+    - "{a} and {b} still can't agree about {about}, and the whole place has taken sides"
   betrothed:
     - "{a} and {b} are to be married; the banns are read on Sunday"
     - "{a} and {b} were seen walking out after church, and the wedding's to be soon"
@@ -98,11 +98,35 @@ chatter:
     - "{a} crossed the road to keep clear of {b}, and everyone knows it's the {amount}"
   grievance:
     - "{a} is still complaining about {b}: {about}"
-    - "{a} raised {about} against {b} again, and nobody wants to hear it"
+    - "{a} brought up {about} against {b} again, and nobody wants to hear it"
   apprentice_of:
-    - "{a} has been beaten again by {b}, his master, they say"
-    - "{a} was sent home in tears by {b}, his master, and the mother is furious"
+    - "{a} has been beaten again by {b}, the master, they say"
+    - "{a} was sent home in tears by {b}, the master, and the mother is furious"
   friend:
     - "{a} and {b} are thick as thieves these days, and nobody can think why"
     - "{a} and {b} were up half the night together at the alehouse again"
     - "{a} has been helping {b} with the work, and won't take a penny for it"
+# How old talk changes as it goes round: worse, or the other way about.
+retold:
+  grown:
+    - "; and worse, they say"
+    - ", and it's come to blows once already"
+    - "; the whole street has an opinion"
+    - ", and the priest has had to speak to them"
+  turned:
+    - ", though that's not how the other side tells it"
+    - ", or the other way round, depending who you ask"
+    - ", though some say it's all the other one's doing"
+# How a person tells what they've heard, by temper. The first that fits.
+voices:
+  gossip: ["You didn't hear it from me, but ", "Have you heard? ", "Well! "]
+  pious: ["God forgive them, but ", "It's not for me to judge, but ", "The Lord sees all, and "]
+  drinker: ["Here's one for you: ", "Buy me another and I'll tell you: "]
+  sharp_tongued: ["Serves them right, but ", "Nobody's surprised: "]
+  kindly: ["Poor souls: ", "I'm sorry to say it, but "]
+  suspicious: ["Mark my words, there's more to it: ", "They'll tell you otherwise, but "]
+  boastful: ["I knew before anyone: ", "I said so a month ago: "]
+  quiet: ["(after a long pause) ", "(quietly) "]
+  timid: ["(glancing round first) ", "(in a whisper) "]
+  envious: ["Not before time: ", "And them so high and mighty: "]
+  default: ["They say ", "I heard ", "People are saying "]

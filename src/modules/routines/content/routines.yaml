@@ -3,7 +3,9 @@
 #          | sea | shore | mine | woods
 #   work = the household's own building; master/employer = the building of the
 #   person they're apprenticed to or working for.
-# {farm} {herd} {house} {child} are filled from the month's work below.
+# {farm} {herd} {house} {child} are filled from the month's work below;
+# {trade} is the household's trade. "a | b | c" picks one, day by day.
+# A template named X_town replaces X in a market town or bigger.
 templates:
   farmer:
     morning:    { where: home, doing: "seeing to the beasts; bread and ale standing up" }
@@ -276,6 +278,85 @@ templates:
     evening:    { where: work, doing: "supper" }
     night:      { where: work, doing: "asleep" }
     late_night: { where: work, doing: "asleep" }
+
+  # ---- town versions of the country days --------------------------------
+  housewife_town:
+    morning:    { where: home, doing: "the fire raked up, water fetched from the conduit | up first; the fire, the children, the bread from the baker's | the shutters down and the step swept" }
+    forenoon:   { where: home, doing: "the house, the washing, the children underfoot | minding the counter while the master works | at the well, then the house" }
+    afternoon:  { where: home, doing: "spinning at the door, watching the street | mending, and bargaining with a pedlar at the door | the dinner things, and the shop if it's busy" }
+    evening:    { where: home, doing: "supper, then spinning by the rushlight | supper, and the day's talk | supper; the children put to bed, eventually" }
+    night:      { where: home, doing: "asleep" }
+    late_night: { where: home, doing: "asleep, or up with a child" }
+  servant_house_town:
+    morning:    { where: home, doing: "first up: the fire, water from the conduit, the shutters | down the stair to fetch the bread and the water" }
+    forenoon:   { where: home, doing: "scrubbing, carrying, running to the market for whatever's forgotten | the master's errands, at a run" }
+    afternoon:  { where: home, doing: "the kitchen, the washing, the stairs | minding the shop door while the family eats" }
+    evening:    { where: home, doing: "serving supper, eating what's left" }
+    night:      { where: home, doing: "asleep on a pallet under the stairs" }
+    late_night: { where: home, doing: "asleep on a pallet under the stairs" }
+  child_town:
+    morning:    { where: home, doing: "water up from the well, many times | sweeping the step and the shop" }
+    forenoon:   { where: home, doing: "minding the little ones | at the parish clerk's for letters, a penny a week | running errands for the house" }
+    afternoon:  { where: streets, doing: "playing in the street: tip-cat, hoops, and getting under carts | chasing pigs down the lane with half the street | watching the carts and the smith" }
+    evening:    { where: home, doing: "supper" }
+    night:      { where: home, doing: "asleep" }
+    late_night: { where: home, doing: "asleep" }
+  old_town:
+    morning:    { where: home, doing: "up early; old people don't sleep" }
+    forenoon:   { where: home, doing: "minding the little ones and the fire | sitting at the door, watching the street" }
+    afternoon:  { where: home, doing: "dozing by the hearth | sitting at the door, telling anyone who passes how it used to be | at the church, praying for the dead, and for themselves" }
+    evening:    { where: home, doing: "supper, and stories nobody asked for" }
+    night:      { where: home, doing: "asleep" }
+    late_night: { where: home, doing: "awake, listening to the street" }
+  spinner_town:
+    morning:    { where: home, doing: "carding wool for the clothier's man" }
+    forenoon:   { where: home, doing: "spinning at the window, where the light is" }
+    afternoon:  { where: home, doing: "spinning; the clothier's man comes for the yarn on Saturdays | spinning, and an eye on the street" }
+    evening:    { where: home, doing: "spinning by the rushlight, as long as it lasts" }
+    night:      { where: home, doing: "asleep" }
+    late_night: { where: home, doing: "asleep" }
+  craftsman_town:
+    morning:    { where: work, doing: "the shutters down and the bench laid out | lighting the fire, looking over yesterday's work" }
+    forenoon:   { where: work, doing: "at the bench: {trade} work, with the shop open to the street | at work, a customer or two, an apprentice to shout at" }
+    afternoon:  { where: work, doing: "at work, and haggling with a customer over the price | at the bench, the light going | out to buy stock, then back to the bench" }
+    evening:    { where: home, doing: "supper, and the day's takings counted | supper" }
+    night:      { where: home, doing: "asleep" }
+    late_night: { where: home, doing: "asleep" }
+  shopkeeper_town:
+    morning:    { where: work, doing: "the shutters down, the board out, the goods laid on it" }
+    forenoon:   { where: work, doing: "behind the board: {trade}, and customers to argue with | serving, weighing, and keeping an eye on the boys by the door" }
+    afternoon:  { where: work, doing: "at the shop, quieter now | off to the carrier's for new stock | at the shop, reckoning the morning's trade" }
+    evening:    { where: home, doing: "the shutters up; supper, and the takings counted twice" }
+    night:      { where: home, doing: "asleep, with the strongbox under the bed" }
+    late_night: { where: home, doing: "asleep" }
+  baker:
+    morning:    { where: work, doing: "the first batch out; neighbours queueing at the hatch with their own dough" }
+    forenoon:   { where: work, doing: "baking for the street, and taking in other people's loaves at a farthing a batch" }
+    afternoon:  { where: work, doing: "the last batch, then the ovens raked out | asleep on the sacks for an hour, then the accounts" }
+    evening:    { where: home, doing: "supper, and early to bed" }
+    night:      { where: home, doing: "asleep" }
+    late_night: { where: work, doing: "up in the dark, the ovens fired, the dough kneaded" }
+  innkeeper:
+    morning:    { where: work, doing: "breakfasts for the travellers, and their horses seen to" }
+    forenoon:   { where: work, doing: "settling bills and taking bookings; the guests' horses saddled" }
+    afternoon:  { where: work, doing: "new guests arriving; rooms aired; the ostler shouted at" }
+    evening:    { where: work, doing: "the hall full: supper, ale and wine, and an ear to every table" }
+    night:      { where: work, doing: "locking up; the last guest seen to bed" }
+    late_night: { where: work, doing: "asleep, with one ear open for the gate" }
+  taverner:
+    morning:    { where: work, doing: "sweeping out, and the casks checked in the cellar" }
+    forenoon:   { where: work, doing: "the wine delivered and tasted; the bush out over the door" }
+    afternoon:  { where: work, doing: "serving wine to merchants doing business at the tables" }
+    evening:    { where: work, doing: "serving, and hearing everything" }
+    night:      { where: work, doing: "turning out the last drinkers at curfew, or not" }
+    late_night: { where: home, doing: "asleep" }
+  bathhouse:
+    morning:    { where: work, doing: "the fires lit under the coppers before light" }
+    forenoon:   { where: work, doing: "the first bathers in; water carried and heated, pennies taken" }
+    afternoon:  { where: work, doing: "the tubs full; heating water, taking pennies, keeping order" }
+    evening:    { where: work, doing: "the evening trade, which is another thing; a blind eye and a full purse" }
+    night:      { where: work, doing: "counting the takings; the last bathers put out" }
+    late_night: { where: home, doing: "asleep" }
 
 # What the work is, month by month. `out` lists the kinds of work done out in
 # the fields that month, so wives and children go there too.

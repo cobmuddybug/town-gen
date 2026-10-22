@@ -2,12 +2,12 @@
 # nearby place, {n} a number of years ago. Conditions: minAge, maxAge, sex,
 # roles, occ (head's trade), maxRank / minRank (class tier rank), setting
 # (country or town; none means either).
-- { id: farm_service, setting: country, text: "served {n} years as a farm servant at {place} before marrying", minAge: 24, maxRank: 6, roles: [head, spouse], weight: 4 }
+- { id: farm_service, setting: country, text: "served {n} years as a farm servant at {place} before marrying", minAge: 24, maxRank: 6, roles: [head, spouse], wed: true, weight: 4 }
 - { id: pilgrim, text: "walked on pilgrimage to the shrine at {place} and brought back a lead badge", minAge: 28, weight: 2 }
-- { id: first_spouse, text: "lost {their} first spouse to the bloody flux", minAge: 30, roles: [head, spouse], weight: 2 }
+- { id: first_spouse, text: "lost {their} first spouse to the bloody flux", minAge: 30, roles: [head, spouse], wed: true, weight: 2 }
 - { id: assize, setting: country, text: "was fined at the manor court for brewing against the assize of ale", minAge: 25, sex: f, weight: 2 }
 - { id: levy, text: "went with the lord's levy one summer, and doesn't talk about it", minAge: 30, sex: m, weight: 2 }
-- { id: millpond, text: "nearly drowned in the millpond as a child", minAge: 8, weight: 2 }
+- { id: millpond, setting: country, text: "nearly drowned in the millpond as a child", minAge: 8, weight: 2 }
 - { id: hungry_year, text: "was born in the hungry year", minAge: 10, weight: 2 }
 - { id: buried, text: "has buried three children", minAge: 30, sex: f, roles: [head, spouse, parent], weight: 3 }
 - { id: king, text: "once saw the king's party ride past on the high road", minAge: 20, weight: 1 }
@@ -18,18 +18,18 @@
 - { id: reaper, setting: country, text: "was the best reaper in the parish, before {their} back went", minAge: 50, weight: 2 }
 - { id: ran_away, text: "ran off to {place} at fifteen and came back a year later", minAge: 17, weight: 2 }
 - { id: never_left, setting: country, text: "has never been further than the next parish", minAge: 20, weight: 3 }
-- { id: fire, text: "was born on the night the old mill burned", minAge: 12, weight: 1 }
-- { id: fever, setting: country, text: "nursed half the hamlet through the fever {n} years ago", minAge: 30, sex: f, weight: 1 }
+- { id: fire, setting: country, text: "was born on the night the old mill burned", minAge: 12, weight: 1 }
+- { id: fever, setting: country, text: "nursed half the village through the fever {n} years ago", minAge: 30, sex: f, nBack: 20, weight: 1 }
 - { id: bees, text: "keeps bees, and tells them the news", minAge: 30, weight: 2 }
 - { id: oath, setting: country, text: "swore before the manor court to clear a neighbour, and the neighbour knows it", minAge: 25, weight: 1 }
 - { id: came_from, text: "came here from {place} {n} years ago", minAge: 20, weight: 3 }
 - { id: boundary, setting: country, text: "was beaten at the boundary stones as a boy, so {they} would remember where they lie", minAge: 15, sex: m, weight: 1 }
 - { id: geese, setting: country, text: "minds the geese on the green", minAge: 5, maxAge: 11, weight: 3 }
 - { id: crows, setting: country, text: "scares crows from the corn with a clapper", minAge: 6, maxAge: 12, weight: 3 }
-- { id: water, text: "fetches the water, twice a day", minAge: 6, maxAge: 14, weight: 3 }
+- { id: water, setting: country, text: "fetches the water, twice a day", minAge: 6, maxAge: 14, weight: 3 }
 - { id: oxen, setting: country, text: "is learning to plough, walking beside the oxen", minAge: 10, maxAge: 15, sex: m, weight: 2 }
 - { id: spinning, text: "spins whenever {their} hands are empty", minAge: 8, maxAge: 18, sex: f, weight: 3 }
-- { id: infant, text: "is too small to be any use, and loud with it", minAge: 0, maxAge: 4, weight: 5 }
+- { id: infant, text: "is too small to be any use, and loud with it", minAge: 1, maxAge: 4, weight: 2 }
 # Town lives (LF pp.83-104)
 - { id: t_gates, setting: town, text: "came in through the gates {n} years ago with nothing but a bundle", minAge: 20, weight: 4 }
 - { id: t_fire, setting: town, text: "lost a house and everything in it to the fire {n} years ago", minAge: 25, weight: 2 }
@@ -58,18 +58,18 @@
 - { id: t_carry, setting: town, text: "carries water up from the well, many times a day", minAge: 7, maxAge: 14, weight: 3 }
 # More lives, either setting
 - { id: twins, text: "is a twin; the other died at birth", minAge: 5, weight: 1 }
-- { id: wolf, text: "says {they} saw a wolf in the woods the winter of the great snow", minAge: 25, weight: 1 }
-- { id: wedding_brawl, text: "started a brawl at {their} own wedding and has never lived it down", minAge: 25, roles: [head, spouse], weight: 1 }
+- { id: wolf, setting: country, text: "says {they} saw a wolf in the woods the winter of the great snow", minAge: 25, weight: 1 }
+- { id: wedding_brawl, text: "started a brawl at {their} own wedding and has never lived it down", minAge: 25, roles: [head, spouse], wed: true, weight: 1 }
 - { id: dream, text: "had a dream of a treasure under a thorn tree, and dug for it", minAge: 20, weight: 1 }
 - { id: plague_child, text: "lost a brother and a sister in one bad winter", minAge: 15, weight: 2 }
 - { id: soldier_uncle, text: "has an uncle who went for a soldier and came back with a foreign wife", minAge: 15, weight: 1 }
 - { id: miracle, text: "was cured of a fever, people say, by a saint's relic carried to {their} bed", minAge: 12, weight: 1 }
-- { id: second_marriage, text: "married again within the year after {their} first spouse died, and people talked", minAge: 35, roles: [head, spouse], weight: 2 }
+- { id: second_marriage, text: "married again within the year after {their} first spouse died, and people talked", minAge: 35, roles: [head, spouse], wed: true, weight: 2 }
 - { id: debt_father, text: "is still paying off {their} father's debts", minAge: 22, roles: [head], maxRank: 6, weight: 2 }
 - { id: foundling, text: "was left as a baby at the church door", minAge: 10, weight: 1 }
-- { id: lost_child, text: "has a son who went away and has not sent word in {n} years", minAge: 45, roles: [head, spouse, parent], weight: 2 }
+- { id: lost_child, text: "has a son who went away and has not sent word in {n} years", minAge: 45, roles: [head, spouse, parent], nBack: 32, weight: 2 }
 - { id: thrown, text: "was thrown by a horse and has walked oddly since", minAge: 18, weight: 1 }
-- { id: lightning, text: "was in the barn when lightning struck it, and walked out", minAge: 12, weight: 1 }
+- { id: lightning, setting: country, text: "was in the barn when lightning struck it, and walked out", minAge: 12, weight: 1 }
 - { id: gift, text: "can charm warts, people say, and is asked to", minAge: 30, weight: 1 }
 - { id: drunk_oath, text: "swore off ale on {their} mother's grave and has broken the oath twice", minAge: 22, weight: 1 }
 - { id: betrothal_broken, text: "was betrothed once before; the other family broke it off", minAge: 20, weight: 2 }
@@ -89,3 +89,53 @@
 - { id: t_procession, setting: town, text: "carried a banner in the guild procession on the saint's day", minAge: 18, minRank: 5, weight: 2 }
 - { id: t_street_born, setting: town, text: "was born in the street {they} still lives in, and knows every family in it", minAge: 20, weight: 3 }
 - { id: t_lent_house, setting: town, text: "has taken in a lodger every Lent for {n} years", minAge: 30, roles: [head], weight: 1 }
+# Babies and small children
+- { id: b_christened, text: "was christened in a hurry, in case", maxAge: 3, weight: 2 }
+- { id: b_feast, text: "was born on a feast day, which the grandmother says means luck", maxAge: 4, weight: 2 }
+- { id: b_caul, text: "was born with a caul, which the mother keeps in a box against drowning", maxAge: 6, weight: 1 }
+- { id: b_breech, text: "came feet first, and the midwife still talks about it", maxAge: 4, weight: 1 }
+- { id: b_named, text: "is named for a godparent who gave a silver spoon", maxAge: 5, minRank: 5, weight: 2 }
+- { id: b_cradle, text: "sleeps in a cradle three brothers slept in before", maxAge: 2, weight: 2 }
+- { id: b_cat, text: "was found asleep with the cat, and nobody will say how", maxAge: 3, weight: 1 }
+- { id: b_snow, text: "was born in the great snow, and they thought the mother would die", maxAge: 3, weight: 1, setting: country }
+- { id: b_bells, text: "was born while the bells rang for a hanging, which the neighbours won't let drop", maxAge: 3, weight: 1, setting: town }
+- { id: k_lost, text: "went missing for a whole day at the fair and came back with a pie", minAge: 5, maxAge: 12, weight: 1 }
+- { id: k_bitten, text: "was bitten by the smith's dog and has the marks to show", minAge: 5, maxAge: 14, weight: 1 }
+- { id: k_dame, text: "is learning letters from the clerk's wife for a penny a week", minAge: 6, maxAge: 12, minRank: 5, weight: 2 }
+- { id: k_fell, text: "fell out of the hayloft and broke an arm, and was proud of it", minAge: 6, maxAge: 14, setting: country, weight: 2 }
+- { id: k_well, text: "dropped the bucket down the well and was beaten for it", minAge: 5, maxAge: 12, weight: 2 }
+- { id: k_minding, text: "minds the little ones while the mother works", minAge: 6, maxAge: 13, sex: f, weight: 3 }
+- { id: k_pigs, text: "takes the pigs to the wood for mast in autumn", minAge: 6, maxAge: 13, setting: country, weight: 2 }
+- { id: k_gleaning, text: "gleans the stubble after harvest with the women", minAge: 5, maxAge: 13, setting: country, weight: 2 }
+- { id: k_shells, text: "gathers shellfish on the strand at low tide", minAge: 5, maxAge: 13, bases: [fishing], weight: 4 }
+- { id: k_lambs, text: "sat up with the lambing ewes last spring and lost none", minAge: 8, maxAge: 15, bases: [herding], weight: 4 }
+- { id: k_cart, text: "rides on the carts to the market and back", minAge: 5, maxAge: 12, setting: town, weight: 2 }
+- { id: k_choir, text: "sings in the church choir and steals the candle ends", minAge: 7, maxAge: 13, sex: m, setting: town, weight: 2 }
+- { id: k_dung, text: "collects dung from the streets and sells it to the gardeners", minAge: 6, maxAge: 13, setting: town, maxRank: 3, weight: 2 }
+# Working lives
+- { id: f_storm, text: "was out in the boats the night of the great storm, and came back alone", minAge: 25, sex: m, bases: [fishing], weight: 3 }
+- { id: f_whale, text: "was there when the whale came ashore, and ate the meat for a month", minAge: 20, bases: [fishing], weight: 2 }
+- { id: f_wreck, text: "found a barrel of wine from a wreck and drank it before the lord's man came", minAge: 25, bases: [fishing], weight: 2 }
+- { id: m_trapped, text: "was trapped three days underground and still hears the dripping", minAge: 25, sex: m, bases: [mining], weight: 3 }
+- { id: h_snow, text: "dug the flock out of a snowdrift with {their} hands, and kept every ewe", minAge: 25, bases: [herding], weight: 3 }
+- { id: w_tree, text: "was under a tree when it went the wrong way, and lived", minAge: 25, sex: m, bases: [woodcutting], weight: 3 }
+- { id: t_apprenticed, setting: town, text: "was apprenticed at twelve to a master in {place}, and came back a journeyman", minAge: 20, roles: [head, sibling], weight: 3 }
+- { id: t_fined, setting: town, text: "was fined by the guild for working by candlelight, and did it again", minAge: 25, roles: [head], weight: 2 }
+- { id: t_burned, setting: town, text: "had {their} bad cloth burned in the market by the wardens, and has never forgiven them", minAge: 30, roles: [head], weight: 1 }
+- { id: t_inherit, setting: town, text: "inherited the house from an aunt nobody knew {they} had", minAge: 25, weight: 1 }
+- { id: t_flood, setting: town, text: "was flooded out of a cellar room by the river {n} years ago", minAge: 20, maxRank: 5, weight: 2 }
+- { id: t_mystery, setting: town, text: "played the devil in the guild play, and is still called it", minAge: 20, sex: m, weight: 1 }
+- { id: t_bell, setting: town, text: "rings the bell for the curfew some nights, for a penny", minAge: 16, maxRank: 5, weight: 1 }
+- { id: t_market, setting: town, text: "has stood at the same stall in the market for {n} years", minAge: 30, maxRank: 6, roles: [head, spouse], nBack: 16, weight: 2 }
+- { id: t_brawl, setting: town, text: "was fined for a brawl at the alehouse on the saint's day", minAge: 18, sex: m, maxRank: 5, weight: 2 }
+- { id: t_wall, setting: town, text: "carried stone for the new wall as a youth, and points out {their} stones", minAge: 35, maxRank: 5, weight: 2 }
+- { id: c_steward, setting: country, text: "was fined for letting {their} beasts into the lord's corn", minAge: 25, roles: [head], weight: 2 }
+- { id: c_boon, setting: country, text: "has never missed a boon-day at harvest, even with a fever", minAge: 25, maxRank: 5, weight: 2 }
+- { id: c_drowned, setting: country, text: "lost a brother to the river at the ford", minAge: 18, weight: 1 }
+- { id: c_pedlar, text: "bought a ribbon from a pedlar once and still has it", minAge: 14, sex: f, weight: 1 }
+- { id: c_church, text: "helped raise the church tower, or says so", minAge: 45, sex: m, weight: 1 }
+- { id: a_vow, text: "made a vow to St James at a sickbed and hasn't kept it yet", minAge: 25, weight: 1 }
+- { id: a_lost_purse, text: "found a purse in the road and gave it back, and got nothing for it", minAge: 18, weight: 1 }
+- { id: a_twin, text: "has a twin who went for a nun", minAge: 18, sex: f, weight: 1 }
+- { id: a_widow_young, text: "was widowed at twenty and swore never again", minAge: 30, sex: f, roles: [head], weight: 1 }
+- { id: a_lawsuit, text: "has been at law with a cousin over a field for {n} years", minAge: 35, roles: [head], nBack: 20, weight: 1 }

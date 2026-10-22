@@ -16,7 +16,7 @@
 - { id: general_trader, label: "general trader", tier: lower_middle, byname: Chapman, land: [0, 3], servants: [0, 1], source: "LF pp.61, 73" }
 - { id: alehouse_keeper, label: "alehouse keeper", tier: upper_lower, byname: Brewer, land: [0, 3], servants: [0, 1], source: "LF pp.61, 73" }
 - { id: alewife,        label: "alewife",        tier: upper_lower, female: true, byname: Brewster, land: [0, 3], servants: [0, 1], source: "LF pp.61, 73" }
-- { id: baker,          label: "baker",          tier: lower_middle, byname: Baker, land: [0, 2], servants: [0, 1], source: "LF p.73" }
+- { id: baker,          label: "baker",          tier: lower_middle, byname: Baker, land: [0, 2], servants: [0, 1], routine: baker, source: "LF p.73" }
 - { id: smith,          label: "smith",          tier: lower_middle, byname: Smith, land: [0, 3], servants: [0, 1], source: "LF p.73" }
 - { id: carpenter,      label: "carpenter",      tier: lower_middle, byname: Wright, land: [0, 2], servants: [0, 1], source: "LF p.73" }
 - { id: thatcher,       label: "thatcher",       tier: upper_lower, byname: Thatcher, land: [0, 2], source: "LF p.73" }

@@ -1,4 +1,6 @@
-import { addDays, describeDate, formatDate, jdn, parseDate } from "../../core/calendar";
+import { poss } from "../../core/text";
+import { isUrban } from "../core";
+import { addDays, describeDate, formatDate, jdn, parseDate, whenOf } from "../../core/calendar";
 import { data } from "../../core/content";
 import type { Rng } from "../../core/rng";
 import type { Town } from "../../core/town";
@@ -50,7 +52,7 @@ const LABEL: Record<string, string> = {
   assize: "Assizes",
 };
 
-const urban = (town: Town) => /town|city/.test(town.settlement().get<string>("sizeClass"));
+const urban = (town: Town) => isUrban(town);
 
 /** The epoch the band history is walked from. Arbitrary; changing it changes every band. */
 const EPOCH = 1100;
@@ -72,7 +74,7 @@ function dayIn(r: Rng, y: number, from: [number, number], to: [number, number]):
 function bands(town: Town): string[] {
   const r = rngFor(town, "bands");
   const out: string[] = [];
-  for (let i = 0; i < 6; i++) out.push(`${names(town).family(r, { settlement: "" }).name.replace(/^of /, "")}'s band of ${r.pick(visitorContent.band_kinds)}`);
+  for (let i = 0; i < 6; i++) out.push(`${poss(names(town).family(r, { settlement: "" }).name.replace(/^of /, ""))} band of ${r.pick(visitorContent.band_kinds)}`);
   return out;
 }
 
@@ -122,7 +124,7 @@ function coreVisits(town: Town, year: number): Visit[] {
   const collector = person(town, rngFor(town, `collector:${term}`));
   const rt = rngFor(town, `tax:${year}`);
   const town_ = urban(town);
-  out.push({ kind: "tax", start: dayIn(rt, year, [9, 25], [10, 20]), days: 2, who: `${collector}, the sheriff's man`, note: town_ ? "takes the town's farm, its yearly due to the king, from the chamberlain" : "collects what is owed, and hears the cases that waited for him" });
+  out.push({ kind: "tax", start: dayIn(rt, year, [9, 25], [10, 20]), days: 2, who: `${collector}, the sheriff's man`, note: town_ ? "takes the town's farm, its yearly due to the king, from the chamberlain" : "collects what is owed; the bigger quarrels wait for the hundred court" });
   if (rt.chance(0.5)) out.push({ kind: "tax", start: dayIn(rt, year, [4, 10], [5, 10]), days: 1, who: `${collector}, the sheriff's man`, note: town_ ? "the half-year's farm, and complaints about it" : "the half-year's dues" });
   if (town_) {
     // The king's justices come twice a year for what the town's courts may not hear (LF p.86).
@@ -136,7 +138,7 @@ function coreVisits(town: Town, year: number): Visit[] {
   if (rh.chance(0.35)) out.push({ kind: "herald", start: dayIn(rh, year, [1, 15], [11, 30]), days: 1, who: `a herald from ${names(town).place(rh)}`, note: `proclaiming ${rh.pick(c.decrees)}` });
 
   const rp = rngFor(town, `players:${year}`);
-  if (rp.chance(0.75)) out.push({ kind: "players", start: dayIn(rp, year, [5, 1], [9, 15]), days: rp.int(2, 4), who: `${person(town, rp)}'s company`, note: rp.pick(c.troupe_kinds) + (urban(town) ? ", in the inn yards" : "") });
+  if (rp.chance(0.75)) out.push({ kind: "players", start: dayIn(rp, year, [5, 1], [9, 15]), days: rp.int(2, 4), who: `${poss(person(town, rp))} company`, note: rp.pick(c.troupe_kinds) + (urban(town) ? ", in the inn yards" : "") });
 
   const rm = rngFor(town, `mountebank:${year}`);
   if (rm.chance(0.6)) {
@@ -157,7 +159,10 @@ function coreVisits(town: Town, year: number): Visit[] {
     const family = names(town).family(rk, { settlement: "" }).name.replace(/^of /, "");
     out.push({ kind: "tinkers", start, days: rk.int(1, 2), who: `the ${family} tinkers`, note: rk.pick(c.tinker_wares) });
     // They keep their hands clean while they're here, and come back later (LF p.77).
-    if (rk.chance(0.4)) out.push({ kind: "thefts", start: addDays(start, rk.int(14, 45)), days: 1, who: "someone, at night", note: `things missing from ${rk.int(2, 5)} houses: ${rk.shuffle(STOLEN).slice(0, 3).join(", ")}`, after: start });
+    // Where there are crews of housebreakers, it's them: the crime calendar has
+    // the night's work, and the talk blames the tinkers anyway.
+    const crews = (town.settlement().get<string[] | undefined>("crime.lays") ?? []).length > 0;
+    if (rk.chance(0.4) && !crews) out.push({ kind: "thefts", start: addDays(start, rk.int(14, 45)), days: 1, who: "someone, at night", note: `things missing from ${rk.int(2, 5)} houses: ${rk.shuffle(STOLEN).slice(0, 3).join(", ")}`, after: start });
   }
 
   const shrineOnly = !town.children(town.root, "building").some((x) => x.get("use") === "chapel");
@@ -174,8 +179,8 @@ function coreVisits(town: Town, year: number): Visit[] {
   if (urban(town)) {
     // A town holds its own fair, by charter, on its saint's day.
     const ded = Object.values(town.settlement().get<Record<number, string> | undefined>("dedications") ?? {})[0] ?? "St Giles";
-    out.push({ kind: "fair", start: fairDay, days: 3, who: `${ded}'s fair`, note: "booths in the market and outside the gates, merchants from far off, and pickpockets from further", local: true });
-  } else out.push({ kind: "fair", start: fairDay, days: 1, who: `the fair at ${fairTown}`, note: "half the hamlet walks there and back" });
+    out.push({ kind: "fair", start: fairDay, days: 3, who: `${poss(ded)} fair`, note: "booths in the market and outside the gates, merchants from far off, and pickpockets from further", local: true });
+  } else out.push({ kind: "fair", start: fairDay, days: 1, who: `the fair at ${fairTown}`, note: isUrban(town) ? "a good many go, the dealers and the young; the shops are quiet for three days" : town.settlement().get("sizeClass") === "hamlet" ? "half the hamlet walks there and back" : "half the village walks there and back" });
   return out;
 }
 
@@ -222,9 +227,9 @@ export const visitors: Module = {
         const y = parseDate(date).y;
         const now = visitorsOn(town, date);
         return visitsIn(town, y).map((v): PanelRow => ({
-          label: v.start.slice(5).replace("-", "/"),
+          label: whenOf(v.start, town.clock.date),
           value: `${now.some((x) => x.start === v.start && x.kind === v.kind) ? "▸ here now — " : ""}${visitLabel(town, v)}: ${v.who} — ${v.note}`,
-          hint: v.tooSoon ? `back after only ${y - v.tooSoon.last} years` : describeDate(v.start),
+          hint: v.tooSoon ? `back after only ${y - v.tooSoon.last === 1 ? "a year" : `${y - v.tooSoon.last} years`}` : describeDate(v.start),
         }));
       },
     },

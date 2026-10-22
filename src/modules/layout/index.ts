@@ -112,6 +112,42 @@ export function buildingsOfUse(town: Town, uses: string[]): { a: string; p: Pt }
   return l;
 }
 
+/** The `k` nearest buildings of these uses to a building, nearest first. */
+export function nearestBuildings(town: Town, from: string, uses: string[], k: number): string[] {
+  const at = centroid(town.get(from).get<Poly>("poly"));
+  const best: { a: string; d: number }[] = [];
+  for (const x of buildingsOfUse(town, uses)) {
+    const d = dist(at, x.p);
+    if (best.length < k || d < best[best.length - 1].d) {
+      best.push({ a: x.a, d });
+      best.sort((p, q) => p.d - q.d || (p.a < q.a ? -1 : 1));
+      if (best.length > k) best.pop();
+    }
+  }
+  return best.map((x) => x.a);
+}
+
+/** Floor area of a building's footprint, in square yards (near enough). */
+export function footprint(poly: Poly): number {
+  let s = 0;
+  for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; s += a[0] * b[1] - b[0] * a[1]; }
+  return Math.abs(s / 2);
+}
+
+// People per square yard of ground floor, standing or sitting, by use.
+const DENSITY: Record<string, number> = {
+  grand_temple: 1.6, temple: 1.6, fane: 1.6, chapel: 1.6, chantry: 0.6, shrine: 0.3, friary: 1, priory: 0.8, nunnery: 0.5,
+  tavern: 0.9, town_alehouse: 0.9, alehouse: 0.9, inn: 0.7, cookshop: 0.6, bathhouse: 0.4, market_hall: 1.5, guildhall: 1.2, courthouse: 1.4,
+};
+
+/** How many people a building holds before they spill out of the door. */
+export function capacityOf(town: Town, b: string): number {
+  const e = town.get(b);
+  const storeys = e.get<number>("storeys") ?? 1;
+  const d = DENSITY[e.get<string>("use")] ?? 0.4;
+  return Math.max(6, Math.round(footprint(e.get<Poly>("poly")) * d * (1 + 0.4 * (storeys - 1))));
+}
+
 /** The nearest building of one of these uses to a building. */
 export function nearestBuilding(town: Town, from: string, uses: string[]): string | undefined {
   let m = nearMemo.get(town);

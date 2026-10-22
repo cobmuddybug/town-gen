@@ -3,41 +3,57 @@
 - { id: grasping, label: grasping, weight: 3 }
 - { id: gossip, label: "a gossip", weight: 4 }
 - { id: quarrelsome, label: quarrelsome, weight: 3 }
-- { id: kindly, label: kindly, weight: 4 }
-- { id: idle, label: idle, weight: 2 }
+- { id: kindly, label: kindly, weight: 4, clash: [grudging, envious] }
+- { id: idle, label: idle, weight: 2, clash: [hardworking, ambitious] }
 - { id: sharp_tongued, label: sharp-tongued, weight: 3 }
-- { id: honest, label: "honest to a fault", weight: 2 }
-- { id: drinker, label: "fond of the alehouse", weight: 3 }
+- { id: honest, label: "honest to a fault", weight: 2, clash: [sly] }
+- { id: drinker, label: "fond of the alehouse", weight: 3, minAge: 15 }
 - { id: shrewd, label: shrewd, weight: 3, old: 2 }
-- { id: wise, label: "wise, and asked for advice", weight: 1, old: 4 }
+- { id: wise, label: "wise, and asked for advice", weight: 1, old: 4, minAge: 30 }
 - { id: proud, label: proud, weight: 3 }
-- { id: timid, label: timid, weight: 2 }
+- { id: timid, label: timid, weight: 2, clash: [bold, quarrelsome, hot_tempered, boastful] }
 - { id: hardworking, label: "hard-working", weight: 4 }
 - { id: superstitious, label: superstitious, weight: 4 }
 - { id: thrifty, label: "close with money", weight: 3 }
-- { id: generous, label: generous, weight: 2 }
+- { id: generous, label: generous, weight: 2, clash: [thrifty, grasping] }
 - { id: envious, label: envious, weight: 2 }
-- { id: cheerful, label: cheerful, weight: 3 }
+- { id: cheerful, label: cheerful, weight: 3, clash: [melancholy, sullen] }
 - { id: sullen, label: sullen, weight: 2 }
 - { id: forgetful, label: forgetful, weight: 1, old: 3 }
 - { id: devout_cunning, label: "trusts the cunning woman over the priest", weight: 1 }
 - { id: stern, label: stern, weight: 2, old: 2 }
-- { id: quiet, label: "quiet; keeps their own counsel", weight: 3 }
+- { id: quiet, label: "quiet; keeps {their} own counsel", weight: 3, clash: [gossip, boastful] }
 - { id: bold, label: bold, weight: 2 }
-- { id: roving_eye, label: "a roving eye", weight: 1 }
+- { id: roving_eye, label: "a roving eye", weight: 1, minAge: 15 }
 - { id: melancholy, label: melancholy, weight: 2 }
 - { id: boastful, label: boastful, weight: 2 }
-- { id: suspicious, label: "suspicious of strangers", weight: 3 }
+- { id: suspicious, label: "suspicious of strangers", weight: 3, clash: [curious] }
 - { id: loyal, label: "loyal to a fault", weight: 2 }
 - { id: curious, label: "curious about everything", weight: 2 }
 - { id: stubborn, label: stubborn, weight: 3, old: 2 }
 - { id: ambitious, label: ambitious, weight: 2 }
-- { id: gentle, label: gentle, weight: 3 }
+- { id: gentle, label: gentle, weight: 3, clash: [quarrelsome, hot_tempered, stern] }
 - { id: sly, label: sly, weight: 2 }
 - { id: cautious, label: cautious, weight: 3, old: 2 }
 - { id: hot_tempered, label: "quick to anger", weight: 2 }
 - { id: secretive, label: secretive, weight: 2 }
-- { id: litigious, label: "always at law over something", weight: 1, old: 2 }
+- { id: litigious, label: "always at law over something", weight: 1, old: 2, minAge: 25 }
 - { id: musical, label: "sings at every chance", weight: 2 }
 - { id: storyteller, label: "full of the old stories", weight: 1, old: 4 }
 - { id: grudging, label: "never forgets a slight", weight: 2 }
+- { id: patient, label: "patient as a heron", weight: 2, clash: [hot_tempered] }
+- { id: fussy, label: "fussy about small things", weight: 2, minAge: 20 }
+- { id: brave, label: "brave, or too stupid to be frightened", weight: 2, clash: [timid] }
+- { id: vain, label: "vain about {their} looks", weight: 2, minAge: 14 }
+- { id: tender, label: "soft-hearted with animals and children", weight: 2 }
+- { id: mocking, label: "a mocker; nobody is safe", weight: 2, minAge: 12, clash: [gentle, kindly] }
+- { id: worrier, label: "a worrier", weight: 3, clash: [cheerful] }
+- { id: rash, label: "rash; acts first", weight: 2, clash: [cautious] }
+- { id: dutiful, label: "dutiful", weight: 3, clash: [idle] }
+- { id: lazy_eye, label: "a dreamer, always somewhere else", weight: 2 }
+- { id: nosy, label: "nosy; knows the price of everyone's dinner", weight: 2, minAge: 14 }
+- { id: miserly, label: "a miser", weight: 1, old: 3, minAge: 30, clash: [generous] }
+- { id: pious_show, label: "pious where people can see", weight: 1, minAge: 20 }
+- { id: fair, label: "fair-minded; asked to settle quarrels", weight: 2, minAge: 25, clash: [quarrelsome] }
+- { id: restless, label: "restless; can't sit through a sermon", weight: 2 }
+- { id: grateful, label: "grateful for small things", weight: 2, clash: [envious] }

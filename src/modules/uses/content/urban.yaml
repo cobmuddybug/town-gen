@@ -12,9 +12,11 @@
 #   shambles, the mercery, goldsmiths' row); everything else spreads out.
 
 # ---- food and drink -------------------------------------------------------
-- { id: butcher_shop, label: "butcher's shop", category: smaller_urban, cluster: true, size: shop, site: street, value: [2, 6], per: 900, households: 1, occupations: { butcher: 1 }, look: trade, source: "LF p.11" }
-- { id: fishmonger, label: "fishmonger's stall-house", category: smaller_urban, cluster: true, size: shop, site: market, value: [2, 5], per: 1400, households: 1, occupations: { fishmonger: 1 }, look: trade, source: "LF p.11" }
+- { id: butcher_shop, label: "butcher's shop", category: smaller_urban, cluster: true, size: shop, site: street, value: [2, 6], per: 1000, households: 1, occupations: { butcher: 1 }, look: trade, source: "LF p.11; LFP (per head, after Ross)" }
+- { id: fishmonger, label: "fishmonger's stall-house", category: smaller_urban, cluster: true, size: shop, site: market, value: [2, 5], per: 900, households: 1, occupations: { fishmonger: 1 }, look: trade, source: "LF p.11" }
 - { id: poulterer, label: "poulterer's", category: smaller_urban, cluster: true, size: shop, site: street, value: [2, 5], per: 1600, households: 1, occupations: { poulterer: 1 }, look: trade, source: "LF p.11" }
+- { id: town_bakehouse, label: bakehouse, category: smaller_urban, cluster: true, size: workshop, site: street, value: [1, 5], per: 250, households: 1, occupations: { baker: 1 }, look: trade, source: "LF p.11; LFP (a baker per 250 people, after Ross)" }
+- { id: town_potter, label: "potter's yard", category: smaller_urban, size: yard, site: lane, value: [0, 3], per: 900, households: 1, occupations: { potter: 1 }, look: craft, source: "LFP (a potter per 450 people, after Ross; half of them out of town)" }
 - { id: cookshop, label: cookshop, category: smaller_urban, size: shop, site: street, value: [0, 4], per: 900, households: 1, occupations: { cook: 1 }, look: ale, source: "LF pp.11, 63" }
 - { id: brewhouse, label: brewhouse, category: other_large, size: yard, site: lane, value: [0, 4], per: 1500, households: 1, occupations: { brewer: 1 }, look: ale, source: "LF p.10" }
 - { id: wine_merchant, label: "wine merchant's", category: smaller_urban, size: shop, site: market, value: [4, 8], per: 2000, min_pop: 2500, households: 1, occupations: { vintner: 1 }, look: trade, source: "LF p.11" }
@@ -32,29 +34,29 @@
 - { id: town_weaver, label: "weaver's shop", category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 550, households: 1, occupations: { weaver: 1 }, look: craft, source: "LF p.11" }
 - { id: fulling_mill, label: "fulling mill", category: large_suburban, size: mill, site: stream, per: 3500, min_pop: 2500, households: 1, occupations: { fuller: 1 }, look: mill, source: "LF p.11" }
 - { id: dyehouse, label: dyehouse, category: large_suburban, size: workshop, site: river, per: 3000, min_pop: 2500, households: 1, occupations: { dyer: 1 }, look: craft, source: "LF p.11" }
-- { id: tailor, label: "tailor's shop", category: smaller_urban, size: shop, site: street, value: [1, 5], per: 350, households: 1, occupations: { tailor: 1 }, look: trade, source: "LF p.11" }
+- { id: tailor, label: "tailor's shop", category: smaller_urban, size: shop, site: street, value: [1, 5], per: 300, households: 1, occupations: { tailor: 1 }, look: trade, source: "LF p.11; LFP (per head, after Ross)" }
 - { id: draper, label: "draper's", category: smaller_urban, cluster: true, size: shop, site: market, value: [4, 7], per: 1500, min_pop: 2000, households: 1, occupations: { draper: 1 }, look: trade, source: "LF p.11" }
 - { id: mercer, label: "mercer's", category: smaller_urban, cluster: true, size: shop, site: market, value: [4, 8], per: 1300, min_pop: 2500, households: 1, occupations: { mercer: 1 }, look: trade, source: "LF p.11" }
 - { id: fripperer, label: "old-clothes shop", category: smaller_urban, size: shop, site: lane, value: [0, 3], per: 700, households: 1, occupations: { fripperer: 1 }, look: trade, source: "LF p.11" }
 - { id: capper, label: "capper's shop", category: smaller_urban, size: shop, site: street, value: [2, 5], per: 1600, households: 1, occupations: { capper: 1 }, look: trade, source: "LF p.11" }
 - { id: glover, label: "glover's", category: smaller_urban, size: shop, site: street, value: [2, 5], per: 2200, households: 1, occupations: { glover: 1 }, look: trade, source: "LF p.11" }
-- { id: skinner, label: "skinner's shop", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 1000, households: 1, occupations: { skinner: 1 }, look: craft, source: "LF p.11" }
+- { id: skinner, label: "skinner's shop", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 700, households: 1, occupations: { skinner: 1 }, look: craft, source: "LF p.11; LFP (per head, after Ross)" }
 - { id: cordwainer, label: "cordwainer's shop", category: smaller_urban, size: shop, site: street, value: [1, 5], per: 260, households: 1, occupations: { cordwainer: 1 }, look: trade, source: "LF p.11" }
 - { id: cobbler, label: "cobbler's", category: smaller_urban, size: shop, site: lane, value: [0, 3], per: 650, households: 1, occupations: { cobbler: 1 }, look: craft, source: "LF p.11" }
 
 # ---- metal ---------------------------------------------------------------------
-- { id: town_smithy, label: smithy, category: smaller_urban, size: workshop, site: main_road, value: [0, 4], per: 1500, households: 1, occupations: { smith: 1 }, look: craft, source: "LF p.11" }
+- { id: town_smithy, label: smithy, category: smaller_urban, size: workshop, site: main_road, value: [0, 4], per: 900, households: 1, occupations: { smith: 1 }, look: craft, source: "LF p.11; LFP (per head, after Ross)" }
 - { id: cutler, label: "cutler's", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 2200, households: 1, occupations: { cutler: 1 }, look: craft, source: "LF p.11" }
 - { id: armourer, label: "armourer's", category: smaller_urban, size: workshop, site: street, value: [2, 6], per: 4000, min_pop: 3000, households: 1, occupations: { armourer: 1 }, look: craft, source: "LF p.11" }
 - { id: locksmith, label: "locksmith's", category: smaller_urban, size: shop, site: street, value: [1, 4], per: 2500, households: 1, occupations: { locksmith: 1 }, look: craft, source: "LF p.11" }
-- { id: goldsmith, label: "goldsmith's", category: smaller_urban, cluster: true, size: shop, site: market, value: [6, 8], per: 3000, min_pop: 3000, households: 1, occupations: { goldsmith: 1 }, look: trade, source: "LF pp.11, 57" }
+- { id: goldsmith, label: "goldsmith's", category: smaller_urban, cluster: true, size: shop, site: market, value: [6, 8], per: 1800, min_pop: 3000, households: 1, occupations: { goldsmith: 1 }, look: trade, source: "LF pp.11, 57; LFP (per head, after Ross)" }
 - { id: pewterer, label: "pewterer's", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 3000, min_pop: 2500, households: 1, occupations: { pewterer: 1 }, look: craft, source: "LF p.11" }
 - { id: bowyer, label: "bowyer and fletcher", category: smaller_urban, size: shop, site: street, value: [1, 5], per: 3000, households: 1, occupations: { bowyer: 1 }, look: craft, source: "LF p.11" }
 
 # ---- wood, stone and building ------------------------------------------------------
 - { id: town_carpenter, label: "carpenter's shop", category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 650, households: 1, occupations: { carpenter: 1 }, look: craft, source: "LF p.11" }
 - { id: town_cooper, label: cooperage, category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 900, households: 1, occupations: { cooper: 1 }, look: craft, source: "LF p.11" }
-- { id: town_mason, label: "mason's yard", category: smaller_urban, size: yard, site: lane, value: [0, 4], per: 700, households: 1, occupations: { mason: 1 }, look: craft, source: "LF p.11" }
+- { id: town_mason, label: "mason's yard", category: smaller_urban, size: yard, site: lane, value: [0, 4], per: 600, households: 1, occupations: { mason: 1 }, look: craft, source: "LF p.11; LFP (per head, after Ross)" }
 - { id: wheelwright, label: "wheelwright's", category: small_rural, size: yard, site: suburb, per: 2200, households: 1, occupations: { wheelwright: 1 }, look: craft, source: "LF p.11" }
 - { id: turner, label: "turner's shop", category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 3000, households: 1, occupations: { turner: 1 }, look: craft, source: "LF p.11" }
 - { id: tiler, label: "tiler's", category: smaller_urban, size: workshop, site: lane, value: [0, 3], per: 1800, households: 1, occupations: { tiler: 1 }, look: craft, source: "LF p.11" }
@@ -67,7 +69,7 @@
 - { id: town_tannery, label: tannery, category: large_suburban, size: workshop, site: downstream, per: 2500, households: 1, occupations: { tanner: 1 }, look: craft, source: "LF p.11" }
 - { id: saddler, label: "saddler's", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 1300, households: 1, occupations: { saddler: 1 }, look: craft, source: "LF p.11" }
 - { id: pursemaker, label: "pursemaker's", category: smaller_urban, size: shop, site: street, value: [2, 6], per: 1600, households: 1, occupations: { pursemaker: 1 }, look: trade, source: "LF p.11" }
-- { id: town_chandlery, label: chandlery, category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 900, households: 1, occupations: { chandler: 1 }, look: craft, source: "LF p.11" }
+- { id: town_chandlery, label: chandlery, category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 700, households: 1, occupations: { chandler: 1 }, look: craft, source: "LF p.11; LFP (per head, after Ross)" }
 - { id: tallow_works, label: "tallow works", category: large_suburban, size: yard, site: edge, per: 7000, min_pop: 6000, households: 1, occupations: { chandler: 1 }, look: craft, source: "LF p.11" }
 - { id: parchmenter, label: "parchment-maker's", category: smaller_urban, size: workshop, site: lane, value: [0, 4], per: 4000, min_pop: 3000, households: 1, occupations: { parchmenter: 1 }, look: craft, source: "LF p.11" }
 
@@ -88,7 +90,7 @@
 - { id: warehouse, label: warehouse, category: other_large, size: warehouse, site: quay, value: [2, 6], per: 700, min_pop: 2500, households: 1, occupations: { warehouseman: 1 }, look: trade, source: "LF p.10" }
 - { id: money_changer, label: "money changer's", category: smaller_urban, cluster: true, size: shop, site: market, value: [6, 8], per: 4500, min_pop: 4500, households: 1, occupations: { money_changer: 1 }, look: trade, source: "LF p.11" }
 - { id: foreign_compound, label: "foreign merchants' house", category: other_large, size: hall, site: quay, value: [4, 8], plots: 3, per: 12000, min_pop: 8000, households: 1, occupations: { foreign_merchant: 1 }, look: trade, source: "LF p.85" }
-- { id: livery_stable, label: "livery stable", category: smaller_urban, size: yard, site: main_road, value: [1, 5], per: 2200, min_pop: 2000, households: 1, occupations: { ostler: 1 }, look: craft, source: "LF p.11" }
+- { id: livery_stable, label: "livery stable", category: smaller_urban, size: yard, site: main_road, value: [1, 5], per: 1500, min_pop: 2000, households: 1, occupations: { ostler: 1 }, look: craft, source: "LF p.11; LFP (per head, after Ross)" }
 - { id: town_carter, label: "carter's yard", category: small_rural, size: yard, site: suburb, per: 1500, households: 1, occupations: { carter: 1 }, look: craft, source: "LF p.11" }
 - { id: hay_merchant, label: "hay merchant's yard", category: small_rural, size: yard, site: suburb, per: 3500, min_pop: 3000, households: 1, occupations: { hay_merchant: 1 }, look: trade, source: "LF p.11" }
 - { id: woodmonger, label: "woodmonger's yard", category: small_rural, size: yard, site: suburb, per: 2500, households: 1, occupations: { woodmonger: 1 }, look: trade, source: "LF p.11" }

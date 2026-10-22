@@ -1,3 +1,4 @@
+import { isUrban } from "../core";
 import { table } from "../../core/content";
 import type { Row } from "../../core/registry";
 import type { Module, PanelRow } from "../../core/types";
@@ -32,7 +33,7 @@ export const materials: Module = {
     onHouseholdResolved(ctx, h) {
       const reg = ctx.registry<Living>("living");
       // Towns and cities live differently from the country (LF pp.83-84).
-      const town = /town|city/.test(ctx.town.settlement().get<string>("sizeClass"));
+      const town = isUrban(ctx.town);
       const row = (town ? reg.find(`town:${h.get("tier")}`) : undefined) ?? reg.find(h.get("tier")) ?? reg.find("lower_lower")!;
       // A town household that keeps a shop lives over it, whatever its tier.
       const b = ctx.town.get(ctx.town.parentOf(h.address)!);

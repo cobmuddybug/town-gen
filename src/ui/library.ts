@@ -24,13 +24,14 @@ export function townKey(s: Pick<SaveFile, "town">): string {
 /** The design choices in a URL hash or form, as settings (empty values mean "any"). */
 export function designFrom(get: (k: string) => string | null): Design | undefined {
   const d: Design = {};
-  const walls = get("walls"), gates = get("gates"), shape = get("shape"), castle = get("castle"), market = get("market"), suburbs = get("suburbs");
+  const walls = get("walls"), gates = get("gates"), shape = get("shape"), castle = get("castle"), market = get("market"), suburbs = get("suburbs"), crime = get("crime");
   if (walls === "none" || walls === "palisade" || walls === "wall") d.walls = walls;
   if (gates && Number(gates) >= 2 && Number(gates) <= 6) d.gates = Math.round(Number(gates));
   if (shape === "round" || shape === "oval" || shape === "long") d.shape = shape;
   if (castle === "1" || castle === "0") d.castle = castle === "1";
   if (market === "small" || market === "large") d.market = market;
   if (suburbs === "few" || suburbs === "many") d.suburbs = suburbs;
+  if (crime === "quiet" || crime === "usual" || crime === "rife") d.crime = crime;
   return Object.keys(d).length ? d : undefined;
 }
 

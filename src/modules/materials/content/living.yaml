@@ -38,7 +38,7 @@
   dress: ["russet wool and linen; a better tunic for church"]
   arms: ["a long knife and a hedge-bill", "an axe and a bow, by law", "a bow and a sheaf of arrows, by the law of arms"]
   bedding: ["a straw mattress on a low bedstead, woollen blankets"]
-  display: ["a glazed window in the hall, the only one in the hamlet", "a carved chest and a brass ewer kept where visitors will see them", null, null, null, null, null, null]
+  display: ["a glazed window in the hall, the only one for miles", "a carved chest and a brass ewer kept where visitors will see them", null, null, null, null, null, null]
 - id: upper_lower
   source: "LF Tables 2:10-2:11"
   dwelling: ["a cottage of two bays, smoke-blackened inside", "a longhouse shared with a cow and a pig", "a cottage of two bays and a pigsty against the wall"]

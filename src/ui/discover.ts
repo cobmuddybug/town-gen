@@ -2,18 +2,22 @@
 // to find them, map lenses, search and lists, the almanac, and a person's day.
 // Pure functions of the town and the clock, so tests and the UI share them.
 
+import { HIRE_KINDS, hireRate } from "../modules/hire";
+import { lifeBetween } from "../modules/lives";
+import { patronalOn, patronOf } from "../modules/religion";
 import type { Address } from "../core/address";
-import { addDays, BLOCKS, describeDate, feastOn, parseDate, type Block } from "../core/calendar";
+import { addDays, BLOCKS, describeDate, feastOn, parseDate, type Block, whenOf } from "../core/calendar";
 import type { Entity, Town } from "../core/town";
 import type { Edge, EdgeKind, PanelLink, PanelRow } from "../core/types";
 import type { Tier } from "../modules/core";
-import { allSecrets, describeHour, heardAt, hourOf, linked, rumoursIn, spread, type Rumour } from "../modules/gossip";
+import { allSecrets, describeHour, heardAt, hourOf, linked, rumoursIn, spread, type Rumour, whenHour } from "../modules/gossip";
 import { lsd } from "../modules/households";
 import { isStreetPlan, VALUE_CLASSES, type MapData } from "../modules/layout";
 import { centroid, type Poly, type Pt } from "../modules/layout/geom";
 import { PLACES, occupancy, whereabouts, type Whereabouts } from "../modules/routines";
 import type { Occupation } from "../modules/uses";
 import { visitLabel, visitsIn } from "../modules/visitors";
+import { crimeContent, happened, incidentsBetween, prisoners, world } from "../modules/crime";
 
 type Value = (string | PanelLink)[];
 const L = (town: Town, a: Address): PanelLink => ({ text: town.label(a), address: a });
@@ -107,9 +111,9 @@ export function whoKnows(town: Town, fact: Fact, date: string, block: Block, lim
     heard.sort((a, b) => a.at - b.at || (a.p < b.p ? -1 : 1));
     total = knowers.length + heard.length;
     for (const h of heard.slice(0, Math.max(0, limit - knowers.length))) add(h.p, "heard", h.at, h.telling);
-    note = `out since ${describeHour(rumour.start)}${rumour.how ? `: ${rumour.how}` : ""}`;
+    note = `out since ${whenHour(rumour.start, hourOf(date, block))}${rumour.how ? `: ${rumour.how}` : ""}`;
   } else if (rumour) {
-    note = `still a secret; it comes out ${describeHour(rumour.start)}${rumour.how ? `, when ${rumour.how}` : ""}`;
+    note = `still a secret; it comes out ${whenHour(rumour.start, hourOf(date, block))}${rumour.how ? `, when ${rumour.how}` : ""}`;
   } else note = "a secret, and nothing says it will ever come out";
   const title: Value = rumour ? linked(town, rumour, 0) : edgeTitle(town, edge!);
   return { title, note, total, knowers };
@@ -117,7 +121,7 @@ export function whoKnows(town: Town, fact: Fact, date: string, block: Block, lim
 
 // ---- 2. map lenses ------------------------------------------------------
 
-export type Lens = "none" | "wealth" | "class" | "parish" | "value" | "guild" | "thread";
+export type Lens = "none" | "wealth" | "class" | "parish" | "value" | "guild" | "thread" | "crime";
 export const LENSES: { id: Lens; label: string; streetOnly?: boolean }[] = [
   { id: "none", label: "Plain map" },
   { id: "wealth", label: "Wealth" },
@@ -126,6 +130,7 @@ export const LENSES: { id: Lens; label: string; streetOnly?: boolean }[] = [
   { id: "value", label: "Ward value", streetOnly: true },
   { id: "guild", label: "Guilds", streetOnly: true },
   { id: "thread", label: "Threads (who's tied to whom)" },
+  { id: "crime", label: "Crime: turf, dens, fences", streetOnly: true },
 ];
 
 export interface LensView {
@@ -197,6 +202,8 @@ export function lensView(town: Town, lens: Lens, selected?: Address): LensView {
     for (const [g, colour] of [...colours].sort()) legend.push({ label: g, colour });
   } else if (lens === "thread") {
     return threads(town, selected);
+  } else if (lens === "crime") {
+    return crimeLens(town);
   }
   return { fills, legend, lines };
 }
@@ -208,6 +215,7 @@ const THREAD: [string, string[], string][] = [
   ["bad blood", ["rival", "grievance", "dispute"], "#e67e22"],
   ["friends", ["friend"], "#2c7fb8"],
   ["work", ["employer", "serves", "apprentice_of", "skims", "answers_to"], "#7f6a4f"],
+  ["crime", ["fence_for", "harbours", "pays_off", "protection", "informs_on", "blackmails", "tithe_to", "hired_knife", "in_league"], "#3b3b3b"],
 ];
 
 function threads(town: Town, selected?: Address): LensView {
@@ -234,6 +242,27 @@ function threads(town: Town, selected?: Address): LensView {
   return { fills, legend, lines, note: lines.length ? undefined : "No threads to other houses." };
 }
 
+/** Whose turf is where, the dens, the fences, and the houses robbed in the last fortnight. */
+function crimeLens(town: Town): LensView {
+  const fills = new Map<Address, string>();
+  const legend: LensView["legend"] = [];
+  const W = world(town);
+  if (!W) return { fills, legend, lines: [], note: "Too small a place for crews: a few rogues, no underworld." };
+  const TURF = ["#e8b4b8", "#b8d4e8", "#c8e0b0", "#e8d4a8", "#d4c0e4", "#b0e0d8", "#f0c8a0", "#d0d0a0"];
+  const turfOf = new Map<number, string>();
+  W.gangs.forEach((g, i) => { for (const w of g.turf) if (!turfOf.has(w)) turfOf.set(w, TURF[i % TURF.length]); legend.push({ label: g.name, colour: TURF[i % TURF.length] }); });
+  for (const b of town.children(town.root, "building")) {
+    const c = turfOf.get(b.get<number>("ward"));
+    if (c) fills.set(b.address, c);
+  }
+  const date = town.clock.date;
+  for (const i of incidentsBetween(town, addDays(date, -14), date)) if (!i.at.startsWith("place:") && happened(i, date, town.clock.block as Block)) fills.set(i.at, "#d62828");
+  for (const f of W.fences) { const b = buildingOf(f); if (b) fills.set(b, "#6a3d9a"); }
+  for (const g of W.gangs) if (g.den) fills.set(g.den, "#1d1d1d");
+  legend.push({ label: "a crew's den", colour: "#1d1d1d" }, { label: "a fence", colour: "#6a3d9a" }, { label: "robbed in the last fortnight", colour: "#d62828" });
+  return { fills, legend, lines: [], note: `${W.gangs.length} crews; ${crimeContent.levels[W.level].label}` };
+}
+
 // ---- 3. search and lists ------------------------------------------------
 
 interface Entry { address: Address; text: string; label: string; detail: string }
@@ -249,7 +278,8 @@ function index(town: Town): Entry[] {
     if (e.type === "person") {
       const hh = town.get(town.parentOf(e.address)!);
       const occ = occs.find(e.get("occupation"))?.label ?? occs.find(hh.get("occupation"))?.label ?? "";
-      push(e.address, town.label(e.address), `${occ}, ${e.get<number>("age")}`);
+      const alias = e.get<string | undefined>("crime.alias");
+      push(e.address, town.label(e.address), `${occ}, ${e.get<number>("age")}${alias ? `, "${alias}"` : ""}`);
     } else if (e.type === "building") push(e.address, town.label(e.address), String(e.get("use")).replace(/_/g, " "));
     else if (e.type === "ward" || e.type === "institution") push(e.address, town.label(e.address), e.type);
   }
@@ -274,12 +304,29 @@ const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 export const LISTS: ListSpec[] = [
   {
+    id: "hire", title: "For hire",
+    rows(town) {
+      town.society();
+      const out: (PanelRow & { fact?: Fact })[] = [];
+      for (const e of town.allEntities()) {
+        if (e.type !== "person") continue;
+        const as = e.get<string | undefined>("hire.as"), past = e.get<string | undefined>("hire.past");
+        if (as) out.push({ label: HIRE_KINDS.find((k) => k.id === as)?.label.replace(/^an? /, "") ?? as, value: [L(town, e.address)], hint: `${hireRate(e.get<number>("hire.rate"))} a day` });
+        if (past) out.push({ label: "has seen the world", value: [L(town, e.address), `: ${past}`] });
+      }
+      return out.sort((a, b) => (a.label < b.label ? -1 : a.label > b.label ? 1 : 0));
+    },
+  },
+  {
     id: "richest", title: "The richest households",
     rows(town) {
       const hs = town.allEntities().filter((e) => e.type === "household");
-      hs.sort((a, b) => b.get<number>("income") + b.get<number>("savings") / 4 - (a.get<number>("income") + a.get<number>("savings") / 4) || (a.address < b.address ? -1 : 1));
+      hs.sort((a, b) => b.get<number>("income") - a.get<number>("income") || (a.address < b.address ? -1 : 1));
       const occs = town.registry<Occupation>("occupations");
-      return hs.slice(0, 40).map((h) => ({ label: lsd(h.get<number>("income")), value: [L(town, h.address), `, ${occs.find(h.get("occupation"))?.label ?? h.get("occupation")}`], hint: `a year; ${lsd(h.get<number>("savings"))} put by` }));
+      return hs.slice(0, 40).map((h) => {
+        const take = h.get<number | undefined>("crime.take");
+        return { label: `${lsd(h.get<number>("income"))} a year`, value: [L(town, h.address), ` — ${occs.find(h.get("occupation"))?.label ?? h.get("occupation")}`], hint: `${lsd(h.get<number>("savings"))} put by${take ? `; and ${lsd(take)} a year from the crews, which nobody sees` : ""}` };
+      });
     },
   },
   {
@@ -301,7 +348,7 @@ export const LISTS: ListSpec[] = [
       es.sort((a, b) => (when.get(a.id) ?? Infinity) - (when.get(b.id) ?? Infinity) || (a.id < b.id ? -1 : 1));
       return es.slice(0, 80).map((e) => {
         const t = when.get(e.id);
-        return { label: t === undefined ? "stays hidden" : t <= now ? "out already" : `out ${describeHour(t).slice(0, 10)}`, value: edgeTitle(town, e), fact: `edge:${e.id}` as Fact };
+        return { label: t === undefined ? "stays hidden" : t <= now ? "out already" : `out ${whenHour(t, now)}`, value: edgeTitle(town, e), fact: `edge:${e.id}` as Fact };
       });
     },
   },
@@ -316,6 +363,36 @@ export const LISTS: ListSpec[] = [
     id: "offices", title: "Who holds office",
     rows(town) {
       return town.edges({ kind: "office_in" }).map((e) => ({ label: String(e.facts?.office ?? "office"), value: [L(town, e.from), " in ", L(town, e.to)] }));
+    },
+  },
+  {
+    id: "underworld", title: "The underworld",
+    rows(town) {
+      const W = world(town);
+      if (!W) return [{ label: "—", value: "no crews here" }];
+      const rows: (PanelRow & { fact?: Fact })[] = [];
+      for (const g of W.gangs) {
+        rows.push({ label: g.lay.label, value: [L(town, g.address), ` — ${g.members.length}`, ...(g.chief ? [", led by ", L(town, g.chief)] : []), ...(g.den ? [", at ", L(town, g.den)] : [])], highlight: g.members.map((m) => m.p) });
+      }
+      for (const [p, roles] of W.roles) for (const r of roles) if (r !== "keeper") rows.push({ label: r === "thiefTaker" ? "thief-taker" : r, value: [L(town, p)] });
+      return rows;
+    },
+  },
+  {
+    id: "crimes", title: "Crimes in the last month",
+    rows(town, date, block) {
+      return incidentsBetween(town, addDays(date, -30), date).filter((i) => happened(i, date, block)).reverse().slice(0, 80).map((i) => ({
+        label: whenOf(i.date, date, i.block),
+        value: [`${crimeContent.crimes[i.kind].label}${i.victim ? ": " : ""}`, ...(i.victim ? [L(town, i.victim)] : []), `${i.items ? ` — ${i.items}` : ""}; by `, ...i.culprits.flatMap((c, k) => [...(k ? [", "] : []), L(town, c)]), i.caught && i.caught.date <= date ? " (taken)" : ""],
+        highlight: [i.at, ...i.culprits],
+      }));
+    },
+  },
+  {
+    id: "gaol", title: "In gaol now",
+    rows(town, date) {
+      const held = prisoners(town, date);
+      return held.length ? held.map((x) => ({ label: "held", value: [L(town, x.p), `: ${x.doing}`] })) : [{ label: "—", value: "the gaol is empty" }];
     },
   },
   {
@@ -339,7 +416,7 @@ export const LISTS: ListSpec[] = [
 
 // ---- 5. the almanac -----------------------------------------------------
 
-export interface AlmanacEntry { date: string; kind: "feast" | "rent" | "visit" | "secret" | "market"; text: Value; fact?: Fact }
+export interface AlmanacEntry { date: string; kind: "feast" | "rent" | "visit" | "secret" | "market" | "crime" | "life"; text: Value; fact?: Fact }
 
 export function almanac(town: Town, from: string, days = 60): AlmanacEntry[] {
   const out: AlmanacEntry[] = [];
@@ -348,7 +425,16 @@ export function almanac(town: Town, from: string, days = 60): AlmanacEntry[] {
   const y0 = parseDate(from).y, y1 = parseDate(end).y;
   for (let d = from; d < end; d = addDays(d, 1)) {
     const f = feastOn(d);
-    if (f && f.name !== "Sunday") out.push({ date: d, kind: f.quarter ? "rent" : "feast", text: [f.quarter ? `${f.name}: a quarter-day, when rents fall due` : f.festival ? `${f.name}: a festival, three days of it` : `${f.name}: a holy day, no work`] });
+    if (f && f.name !== "Sunday") out.push({ date: d, kind: f.quarter ? "rent" : "feast", text: [f.quarter ? `${f.name}: a quarter-day, when rents fall due` : f.festival ? `${f.name}: a festival${f.custom ? `: ${f.custom}` : ""}` : f.holy ? `${f.name}: a holy day, no work${f.custom ? `; ${f.custom}` : ""}` : `${f.name}${f.custom ? `: ${f.custom}` : ""}`] });
+    for (const c of patronalOn(town, d)) out.push({ date: d, kind: "feast", text: [L(town, c), `: the patronal feast of ${patronOf(town, c)}, with a procession round the parish and a church-ale`] });
+  }
+  // Weddings, burials and fires to come: the DM's foreknowledge.
+  for (const e of lifeBetween(town, from, addDays(end, -1))) {
+    if (e.kind === "wedding") out.push({ date: e.date, kind: "life", text: ["Wedding: ", L(town, e.who[0]), " and ", L(town, e.who[1])] });
+    if (e.kind === "death" && town.get(e.who[0]).get<number>("age") >= 16) out.push({ date: e.date, kind: "life", text: ["Death: ", L(town, e.who[0]), `, of ${e.cause}; the funeral next day`] });
+    if (e.kind === "fire") out.push({ date: e.date, kind: "life", text: [`Fire: ${e.buildings!.length} houses burn, from ${e.cause}, starting at `, L(town, e.at!)] });
+    if (e.kind === "flood") out.push({ date: e.date, kind: "life", text: [`Flood: ${e.cause}; ${e.buildings!.length} houses by the water flooded`] });
+    if (e.kind === "sickness") out.push({ date: e.date, kind: "life", text: [`Sickness: ${e.cause} comes to the town, for two months`] });
   }
   const marketDays = town.settlement().get<string[] | undefined>("marketDays");
   if (marketDays?.length) out.push({ date: from, kind: "market", text: [`Market every ${marketDays.join(" and ")}`] });
@@ -364,6 +450,17 @@ export function almanac(town: Town, from: string, days = 60): AlmanacEntry[] {
     const amount = r.edge ? edges.get(r.edge)?.facts?.amount : undefined;
     if (r.topic === "debtor_of" && typeof amount === "number" && amount < 240) continue;
     out.push({ date: describeHour(r.start).slice(0, 10), kind: "secret", text: ["It comes out that ", ...linked(town, r, 0).map((x, i) => (i === 0 && typeof x === "string" ? x[0].toLowerCase() + x.slice(1) : x)), ` (${r.how})`], fact: `rumour:${r.id}` as Fact });
+  }
+  // The crimes to come, for the DM's eyes only: break-ins, robberies, killings, arrests and sentences.
+  for (const i of incidentsBetween(town, from, addDays(end, -1))) {
+    if (i.notable && ["burglary", "robbery", "horse", "smash", "killing"].includes(i.kind)) {
+      out.push({ date: i.date, kind: "crime", text: [`${cap(crimeContent.crimes[i.kind].label)}${i.victim ? ": " : ""}`, ...(i.victim ? [L(town, i.victim)] : []), ` (${i.block.replace("_", " ")}), by `, ...i.culprits.flatMap((c, k) => [...(k ? [", " ] : []), L(town, c)])] });
+    }
+  }
+  for (const i of incidentsBetween(town, addDays(from, -200), addDays(end, -1))) {
+    if (i.fate && i.fate.felony && inWindow(i.fate.on)) out.push({ date: i.fate.on, kind: "crime", text: i.fate.outcome === "hanged"
+      ? ["Hanging: ", L(town, i.caught!.who), `, for ${crimeContent.crimes[i.kind].charge}, on the gallows outside the gates in the afternoon; a third of the town will turn out to watch`]
+      : ["Sentence: ", L(town, i.caught!.who), `, for ${crimeContent.crimes[i.kind].charge}: ${i.fate.text}`] });
   }
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
@@ -381,6 +478,7 @@ export function placePoint(town: Town, where: string, person: Address): Pt | und
   const home = buildingOf(person);
   switch (where) {
     case "place:green": case "place:market": return centroid(m.green);
+    case "place:gallows": return m.features.find((x) => x.kind === "gallows")?.p;
     case "place:streets": case "place:walls": return home ? centroid(town.get(home).get<Poly>("poly")) : undefined;
     case "place:fields": case "place:demesne": return m.greatFields[0]?.label;
     case "place:pasture": return m.features.find((f) => f.kind === "fold")?.p ?? m.greatFields[1]?.label;

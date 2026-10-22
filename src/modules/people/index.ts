@@ -9,19 +9,48 @@ import traitsYaml from "./content/traits.yaml";
 import featuresYaml from "./content/features.yaml";
 import historyYaml from "./content/history.yaml";
 import type { NameProvider } from "../names";
-import type { Tier } from "../core";
+import { isUrban, type Tier } from "../core";
 
 export interface HistoryLine extends Row {
   text: string; weight: number; minAge?: number; maxAge?: number; sex?: string; roles?: string[]; occ?: string[]; maxRank?: number;
-  minRank?: number; setting?: "country" | "town";
+  minRank?: number; setting?: "country" | "town"; bases?: string[];
+  /** only for people who are or were married */
+  wed?: boolean;
+  /** {n} years ago can be at most age minus this (default 12) */
+  nBack?: number;
 }
 
-export interface Trait extends Row { label: string; weight: number; old?: number }
+export interface Trait extends Row { label: string; weight: number; old?: number; minAge?: number; clash?: string[] }
 export interface Feature extends Row { label: string; weight: number; minAge?: number; maxAge?: number }
+
+/** "town" for a market town or bigger, else "country". */
+export const settingOf = (town: Town): "town" | "country" => (isUrban(town) ? "town" : "country");
+
+// Third person singular: everyone here is he or she.
+const VERB: Record<string, string> = { are: "is", have: "has", do: "does", go: "goes" };
+/** Fill {they}/{their}/{them}/{themself} and make {verb} agree with them. */
+export function say(text: string, sex: string): string {
+  const [they, their, them, self] = sex === "f" ? ["she", "her", "her", "herself"] : ["he", "his", "him", "himself"];
+  return text.replace(/\{(\w+)\}/g, (_, w: string) =>
+    w === "they" ? they : w === "their" ? their : w === "them" ? them : w === "themself" ? self
+      : VERB[w] ?? (/(s|sh|ch|x)$/.test(w) ? `${w}es` : /[^aeiou]y$/.test(w) ? `${w.slice(0, -1)}ies` : `${w}s`));
+}
+
+/** How a person looks, in words that agree with them. */
+export function looksOf(town: Town, p: { get<T>(k: string): T }): string | undefined {
+  const f = town.registry<Feature>("features").find(p.get("feature"));
+  return f && say(f.label, p.get<string>("sex"));
+}
+
+/** Their temper, in words that agree with them. */
+export function temperOf(town: Town, p: { get<T>(k: string): T }): string {
+  const traits = town.registry<Trait>("traits");
+  return (p.get<string[]>("traits") ?? []).map((t) => say(traits.find(t)?.label ?? t, p.get<string>("sex"))).join(", ");
+}
 
 export const people: Module = {
   id: "people",
-  version: "1.0.0",
+  version: "2.0.0",
   requires: ["core", "households", "names"],
   provides: ["traits", "features", "history"],
   register(add) {
@@ -37,8 +66,10 @@ export const people: Module = {
         if (age < 4) return [];
         const n = age < 12 ? 1 : r.chance(0.6) ? 2 : 1;
         const out: string[] = [];
+        // Two traits that can't live in one person ("cheerful, melancholy") never come together.
+        const clashes = (a: Trait, b: string) => a.clash?.includes(b) || traits.find((x) => x.id === b)?.clash?.includes(a.id);
         while (out.length < n) {
-          const t = r.weighted(traits, (t) => (out.includes(t.id) ? 0 : age >= 50 && t.old ? t.old * t.weight : t.weight));
+          const t = r.weighted(traits, (t) => (out.includes(t.id) || (t.minAge ?? 0) > age || out.some((o) => clashes(t, o)) ? 0 : age >= 50 && t.old ? t.old * t.weight : t.weight));
           out.push(t.id);
         }
         return out;
@@ -50,11 +81,13 @@ export const people: Module = {
       const hh = town.get(town.parentOf(p.address)!);
       const rank = town.registry<Tier>("tiers").find(hh.get("tier"))?.rank ?? 3;
       const role = p.get<string>("role"), s = p.get<string>("sex"), occ = hh.get<string>("occupation");
-      const setting = /town|city/.test(town.settlement().get<string>("sizeClass")) ? "town" : "country";
+      const setting = settingOf(town);
+      const base = town.settlement().get<string>("base");
       const fits = ctx.registry<HistoryLine>("history").list(ctx.era).filter((h) =>
         age >= (h.minAge ?? 0) && age <= (h.maxAge ?? 200) && (!h.sex || h.sex === s) &&
         (!h.roles || h.roles.includes(role)) && (!h.occ || h.occ.includes(occ)) && (h.maxRank === undefined || rank <= h.maxRank) &&
-        (h.minRank === undefined || rank >= h.minRank) && (!h.setting || h.setting === setting));
+        (h.minRank === undefined || rank >= h.minRank) && (!h.setting || h.setting === setting) && (!h.bases || h.bases.includes(base)) &&
+        (!h.wed || (p.get<string>("marital") !== "single" && p.get<string>("marital") !== undefined)));
       const names = ctx.registry<NameProvider>("nameProviders").get("anglo-norman");
       ctx.gen(p, "history", (r) => {
         const n = age < 16 ? 1 : r.chance(0.55) ? 1 : 2;
@@ -62,11 +95,10 @@ export const people: Module = {
         while (picked.length < n && picked.length < fits.length) {
           picked.push(r.weighted(fits, (h) => (picked.includes(h) ? 0 : h.weight)));
         }
-        const [they, their, them] = s === "f" ? ["she", "her", "her"] : ["he", "his", "him"];
-        return picked.map((h) => h.text
-          .replace(/\{they\}/g, they).replace(/\{their\}/g, their).replace(/\{them\}/g, them)
+        // {n} years ago stays inside the life: a son who left 20 years ago needs a parent of 50.
+        return picked.map((h) => say(h.text
           .replace(/\{place\}/g, () => names.place(r))
-          .replace(/\{n\}/g, () => String(Math.max(1, Math.min(age - 12, r.int(2, 30))))));
+          .replace(/\{n\}/g, () => String(Math.max(1, Math.min(age - (h.nBack ?? 12), r.int(2, 30))))), s));
       });
     },
   },
@@ -77,7 +109,6 @@ export const people: Module = {
       for: "person",
       order: 1,
       rows(town, p) {
-        const traits = town.registry<Trait>("traits");
         const occ = town.registry<Occupation>("occupations").find(p.get("occupation"));
         const rows: PanelRow[] = [
           { label: "Age", value: p.get<number>("age") },
@@ -85,8 +116,8 @@ export const people: Module = {
         ];
         if (occ) rows.push({ label: "Work", value: occ.label });
         rows.push(
-          { label: "Temper", value: p.get<string[]>("traits").map((t) => traits.find(t)?.label ?? t).join(", ") || "—", key: "traits", rerollable: true },
-          { label: "Looks", value: town.registry<Feature>("features").find(p.get("feature"))?.label ?? "—", key: "feature", rerollable: true },
+          { label: "Temper", value: temperOf(town, p) || "—", key: "traits", rerollable: true },
+          { label: "Looks", value: looksOf(town, p) ?? "—", key: "feature", rerollable: true },
         );
         p.get<string[]>("history").forEach((h, i) => rows.push({ label: i ? "\u00a0" : "History", value: h, ...(i ? {} : { key: "history", rerollable: true, noEdit: true }) }));
         return rows;
@@ -113,9 +144,31 @@ export function edgeText(town: Town, e: Edge, from: string): string {
   return kind?.symmetric ? kind.label : kind?.inverse ?? `${e.kind} (from)`;
 }
 
+// Relationships in the order a DM wants them: the house, the family, work,
+// friends, quarrels, then money.
+const GROUP: Record<string, number> = {
+  spouse: 0, kin: 1, godparent: 1, betrothed: 2, courting: 2, lover: 2, serves: 3, apprentice_of: 3, employer: 3, member_of: 4, office_in: 4,
+  tenant_of: 4, vassal_of: 4, owes_service: 4, friend: 5, rival: 6, dispute: 6, grievance: 6, debtor_of: 7,
+};
+const KIN_ORDER = ["husband", "wife", "father", "mother", "son", "daughter", "brother", "sister", "cousin"];
+
 export function relationshipRows(town: Town, address: string): PanelRow[] {
   const rows: PanelRow[] = [];
-  for (const e of town.edges({ touching: address })) {
+  const home = town.parentOf(address);
+  const edges = [...town.edges({ touching: address })];
+  const key = (e: Edge) => {
+    const other = e.from === address ? e.to : e.from;
+    const sameHouse = town.parentOf(other) === home ? 0 : 1;
+    const label = edgeText(town, e, address);
+    const kin = KIN_ORDER.findIndex((k) => label.startsWith(k));
+    return [GROUP[e.kind] ?? 8, e.kind === "kin" ? sameHouse : 0, kin < 0 ? 99 : kin, label, town.label(other)] as const;
+  };
+  edges.sort((a, b) => {
+    const x = key(a), y = key(b);
+    for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+    return 0;
+  });
+  for (const e of edges) {
     const other = e.from === address ? e.to : e.from;
     const link: PanelLink = { text: town.label(other), address: other };
     const f = e.facts ?? {};

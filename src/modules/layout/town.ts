@@ -166,7 +166,8 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   const mainW = urban ? 7 : 6;
   const laneW = urban ? 3 : 3.5;
   const blockLen: [number, number] = urban ? [55, 100] : [90, 160];
-  const marketR = (urban ? 16 + 0.45 * Math.sqrt(needIn * 6) : 18 + 0.3 * Math.sqrt(needIn * 6)) * (o.market === "small" ? 0.7 : o.market === "large" ? 1.5 : 1);
+  // The market grows with the town: on market day a fifth of the place is in it.
+  const marketR = (urban ? 20 + 0.55 * Math.sqrt(needIn * 6) : o.scale === "village" ? 20 + 0.42 * Math.sqrt(needIn * 6) : 18 + 0.3 * Math.sqrt(needIn * 6)) * (o.market === "small" ? 0.7 : o.market === "large" ? 1.5 : 1);
 
   // The whole plan is drawn in (angle, radius) and bent by a wobble, so the
   // town is not a circle. The finer terms drift with the radius, so the rings
@@ -422,12 +423,13 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   // ---- river ----------------------------------------------------------------
   const riverW = urban ? r.range(9, 14) : r.range(4, 6);
   const riverPhi = coast ? seaPhi + PI * r.range(0.6, 1.4) : r.range(0, TAU);
-  // The river runs straight past the town: clear of its furthest point that
-  // way, which for a lobed or long town is not the radius at that angle.
+  // The river runs hard under the wall on one side, as at most river towns: the
+  // town grew at the crossing. Clear of its furthest point that way, which for
+  // a lobed or long town is not the radius at that angle.
   let reach = wallR * f(riverPhi, wallR);
   const ru0 = dirOf(riverPhi);
   for (let k = 0; k < 120; k++) reach = Math.max(reach, dot(sub(P((k / 120) * TAU, wallR * 1.04), C), ru0));
-  const riverOff = reach + r.range(30, 45);
+  const riverOff = reach + r.range(9, 15);
   const rv0 = add(C, mul(dirOf(riverPhi), riverOff));
   const ru = perp(dirOf(riverPhi));
   const riverPts: Pt[] = [];
@@ -502,6 +504,7 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   const shareTot = shares.reduce((a, b) => a + b, 0);
   const sw: [number, number] = [plotW[0] * 1.2, plotW[1] * 1.35];
   const sd = depth * 1.3;
+  const laid: Poly[] = [];
   for (let i = 0; i < nSub; i++) {
     const want = Math.ceil((needOut * 1.12 * (o.room ?? 1) * shares[i]) / shareTot) + 2;
     const rd = roads[i];
@@ -522,7 +525,10 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
         s += w;
         if (nearLine(river, poly, riverW / 2 + 1.5)) { s += 4; gap(); continue; }
         if (solids.some((x) => convexOverlap(poly, x, 0.5))) { gap(); continue; }
+        // Where the road bends hard, a plot can swing across one already laid.
+        if (laid.some((x) => convexOverlap(poly, x, 0.3))) { gap(); continue; }
         if (coast && poly.some((v) => beyond(v) > seaD - 3)) { gap(); continue; }
+        laid.push(poly);
         const id = makePlot(poly, "suburb", run, idx++, `sub${i}`, 99, s);
         subPlots.push(id);
         made++;
@@ -956,8 +962,14 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
     const p = plan[i];
     const yard = insetOutline(x.yard, 1.2);
     const c = centroid(yard);
+    // Shrink to fit: a small block gets a small church, never one that spills
+    // over the street into its neighbours.
+    const fits = (polys: Poly[]) => polys.every((pl) => pl.every((pt) => pointInPoly(pt, yard)));
+    let k = 1;
     if (x.kind === "church") {
-      const [cw, cd] = CHURCH_SIZE[x.size ?? "chapel"] ?? [16, 7.5];
+      const [cw0, cd0] = CHURCH_SIZE[x.size ?? "chapel"] ?? [16, 7.5];
+      for (; k > 0.35; k -= 0.08) if (fits([rect(add(c, [-cw0 * k * 0.12, 0]), [1, 0], cw0 * k * 0.76, cd0 * k), rect(add(c, [cw0 * k * 0.38, 0]), [1, 0], cw0 * k * 0.24, cd0 * k * 0.72)])) break;
+      const cw = cw0 * k, cd = cd0 * k;
       // Facing east whatever the street does: chancel on the +x end.
       const nave = rect(add(c, [-cw * 0.12, 0]), [1, 0], cw * 0.76, cd);
       const chancel = rect(add(c, [cw * 0.38, 0]), [1, 0], cw * 0.24, cd * 0.72);
@@ -970,8 +982,9 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
       for (const w of wards) if (w.id === b.ward && !w.near.includes(p.size)) w.near.push(p.size);
     } else {
       // A religious house: its church along one side, a cloister beside it.
-      const ch = rect(add(c, [0, -9]), [1, 0], 30, 9);
-      const cl = rect(add(c, [0, 8]), [1, 0], 20, 16);
+      for (; k > 0.3; k -= 0.07) if (fits([rect(add(c, [0, -9 * k]), [1, 0], 30 * k, 9 * k), rect(add(c, [0, 8 * k]), [1, 0], 20 * k, 16 * k)])) break;
+      const ch = rect(add(c, [0, -9 * k]), [1, 0], 30 * k, 9 * k);
+      const cl = rect(add(c, [0, 8 * k]), [1, 0], 20 * k, 16 * k);
       result[i] = { planIndex: i, poly: qpoly(ch), parts: [{ kind: "cloister", poly: qpoly(cl) }], plot: yard, plotKind: "precinct", front: qp(c), road: b.id, ward: b.ward, block: b.id };
     }
   }
@@ -1058,10 +1071,23 @@ export function layoutTown(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
     features.push({ kind: "clamp", p: qp(add(centroid(w), mul(dirOf(r.range(0, TAU)), r.range(0, 25)))) });
   }
   // The market's furniture.
-  features.push({ kind: urban ? "cross" : "well", p: qp(add(C, [marketR * 0.1, -marketR * 0.2])) });
+  const market_town = urban || o.scale === "village";
+  features.push({ kind: market_town ? "cross" : "well", p: qp(add(C, [marketR * 0.1, -marketR * 0.2])) });
   features.push({ kind: "well", p: qp(add(C, [-marketR * 0.35, marketR * 0.3])) });
   features.push({ kind: "stocks", p: qp(add(C, [marketR * 0.4, marketR * 0.25])) });
   for (const b of bridges) features.push({ kind: "bridge", p: b });
+  if (market_town) {
+    // The town's furniture of law and order, and the butts where the men practise on Sundays.
+    features.push({ kind: "pillory", p: qp(add(C, [-marketR * 0.1, -marketR * 0.5])) });
+    if (urban) features.push({ kind: "conduit", p: qp(add(C, [marketR * 0.35, -marketR * 0.45])) });
+    const outRoad = (i: number, rho: number, side: number): Pt => {
+      const a = P(theta(i, rho), rho), b = P(theta(i, rho + 6), rho + 6);
+      return qp(add(a, mul(perp(norm(sub(b, a))), side * (mainW + 14))));
+    };
+    features.push({ kind: "gallows", p: outRoad(0, wallR + 110, 1) });
+    features.push({ kind: "butts", p: outRoad(k > 1 ? 1 : 0, wallR + 70, -1) });
+    if (bridges.length && urban) features.push({ kind: "bridge_chapel", p: bridges[0] });
+  }
 
   const market: Poly = [];
   for (let s = 0; s < 24; s++) market.push(P((s / 24) * TAU, marketR));

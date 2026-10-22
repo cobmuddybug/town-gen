@@ -1,0 +1,78 @@
+# Prices, in pence, for a fair harvest in an ordinary month; and what each
+# shop keeps on its board. Medieval English price levels, roughly, in our own
+# round numbers: a labourer earns about a penny or two a day.
+# `food` items follow the harvest; `season` items follow the month; `needs`
+# lists the buildings that sell it, so a hamlet isn't offered a bathhouse.
+prices:
+  - { id: loaf, label: "a farthing loaf", price: 0.25, food: true, note: "{oz} oz by the assize of bread" }
+  - { id: ale, label: "a gallon of ale", price: 1, food: true }
+  - { id: wine, label: "a pint of Gascon wine", price: 1.5, needs: [tavern, wine_merchant, inn] }
+  - { id: meal, label: "a hot pie at the cookshop", price: 0.5, food: true, needs: [cookshop] }
+  - { id: herring, label: "a dozen salt herring", price: 1 }
+  - { id: hen, label: "a hen", price: 1.5, food: true }
+  - { id: goose, label: "a goose", price: 4, food: true, season: [9, 10, 11, 12] }
+  - { id: eggs, label: "a score of eggs", price: 1, food: true }
+  - { id: cheese, label: "a pound of cheese", price: 0.5, food: true }
+  - { id: candles, label: "a pound of tallow candles", price: 1.5 }
+  - { id: salt, label: "a bushel of salt", price: 6 }
+  - { id: shoes, label: "a pair of shoes", price: 6 }
+  - { id: cloak, label: "a plain woollen cloak", price: 36 }
+  - { id: knife, label: "a good knife", price: 4 }
+  - { id: horse, label: "a sound riding horse", price: 240 }
+  - { id: meal_home, label: "a meal at somebody's table, if they'll have you", price: 0.5, food: true, hamlet: true }
+  - { id: stabling, label: "a night's stabling and hay", price: 1.5, needs: [inn, livery_stable] }
+  - { id: wage, label: "a day labourer's wage", price: 1.5 }
+  - { id: letter, label: "a letter written by a clerk", price: 2, needs: [scrivener, notary] }
+  - { id: shave, label: "a shave at the barber's", price: 0.5, needs: [barber] }
+  - { id: bath, label: "a bath at the bathhouse", price: 1, needs: [bathhouse] }
+harvest:
+  - { id: good, label: "a good harvest: bread is cheap and plentiful", mult: 0.75, weight: 3 }
+  - { id: fair, label: "a fair harvest: prices as usual", mult: 1, weight: 5 }
+  - { id: poor, label: "a poor harvest: bread dear by spring, and tempers short", mult: 1.5, weight: 2 }
+  - { id: failed, label: "the harvest failed: bread at twice its price and the poor eating bran", mult: 2.2, weight: 0.6 }
+# What's on the board, by building use: item and price in pence.
+stock:
+  butcher_shop: [["a joint of beef, a pound", 1], ["a leg of mutton", 4], ["pig's trotters, three for", 0.5], ["tripe, a bowl", 0.25], ["a side of bacon", 18]]
+  fishmonger: [["salt herring, a dozen", 1], ["stockfish, dried hard", 1], ["a fresh eel", 1], ["oysters, a hundred", 2], ["a salmon, fresh", 12]]
+  poulterer: [["a hen", 1.5], ["a capon, fattened", 3], ["a goose", 4], ["eggs, a score", 1], ["a coney", 1]]
+  town_bakehouse: [["a farthing loaf of white bread", 0.25], ["a halfpenny loaf of brown", 0.5], ["a penny cake with currants", 1], ["baking your own dough, a batch", 0.25]]
+  bakehouse: [["a farthing loaf", 0.25], ["baking your own dough, a batch", 0.25]]
+  cookshop: [["a hot meat pie", 0.5], ["a pasty", 0.25], ["roast goose, a quarter", 2], ["pease pottage, a bowl", 0.25], ["your own dish baked", 0.5]]
+  town_chandlery: [["tallow candles, a pound", 1.5], ["rushlights, a bundle", 0.25], ["soft soap, a pot", 1], ["lamp oil, a quart", 2]]
+  cordwainer: [["new shoes, made to measure", 6], ["boots to the knee", 20], ["pattens for the mud", 2]]
+  cobbler: [["shoes resoled", 1.5], ["old shoes, mended, second-hand", 2], ["a strap stitched while you wait", 0.25]]
+  tailor: [["a tunic, made up", 12], ["hose, a pair", 6], ["a hood", 4], ["mending, by the piece", 0.5]]
+  draper: [["russet cloth, a yard", 8], ["good blue broadcloth, a yard", 30], ["linen, an ell", 3], ["a remnant, cheap", 4]]
+  mercer: [["silk ribbon, a yard", 6], ["a silk purse", 24], ["fine thread, a skein", 1], ["buttons of horn, a dozen", 1]]
+  spicer: [["pepper, an ounce", 4], ["ginger, an ounce", 3], ["saffron, a pinch", 6], ["sugar, a pound", 24], ["cloves, a dozen", 2]]
+  apothecary: [["a cough syrup", 3], ["a plaster for the back", 2], ["theriac, a dose", 12], ["herbs for the flux", 1]]
+  goldsmith: [["a silver ring", 24], ["a brooch of gilt", 60], ["a silver spoon", 40], ["a gold ring with a stone", 240]]
+  cutler: [["a good knife", 4], ["a dagger", 12], ["shears", 6], ["a razor", 3]]
+  town_smithy: [["a horse shod", 3], ["nails, a hundred", 2], ["a hinge made", 2], ["a pot mended", 1]]
+  smithy: [["a horse shod", 3], ["a sickle", 3], ["a pot mended", 1]]
+  locksmith: [["a lock and key for a chest", 12], ["a padlock", 6], ["a key copied", 2]]
+  saddler: [["a saddle", 60], ["a bridle", 12], ["a harness mended", 3]]
+  glover: [["working gloves", 2], ["fine kid gloves", 12]]
+  capper: [["a felt cap", 3], ["a knitted cap", 2]]
+  pursemaker: [["a leather purse", 3], ["a belt with a buckle", 4]]
+  fripperer: [["a cloak, second-hand, mended", 12], ["an old gown, cut down", 8], ["a hood, much worn", 1], ["a pair of hose, darned", 2]]
+  wine_merchant: [["Gascon wine, a gallon", 6], ["Rhenish, a gallon", 10], ["a tun, delivered", 1200]]
+  town_alehouse: [["ale, a gallon", 1], ["small ale, a gallon", 0.5], ["a bed in the loft, shared", 0.5]]
+  alehouse: [["ale, a gallon", 1], ["small ale, a gallon", 0.5]]
+  tavern: [["wine, a pint", 1.5], ["ale, a gallon", 1], ["bread and cheese", 0.5]]
+  inn: [["supper and ale", 2], ["a bed, shared", 1], ["a private chamber", 4], ["stabling and hay", 1.5]]
+  trader: [["salt, a peck", 1], ["needles, a paper", 1], ["thread, a skein", 0.5], ["candles, a pound", 1.5]]
+  town_potter: [["a cooking pot", 1], ["a jug", 1], ["a chamber pot", 1], ["a dozen bowls", 3]]
+  pewterer: [["a pewter plate", 6], ["a pewter tankard", 8], ["a salt cellar", 4]]
+  bowyer: [["a yew bow", 18], ["arrows, a sheaf", 12], ["a bowstring", 1]]
+  armourer: [["a mail shirt, mended", 240], ["a steel cap", 36], ["a padded jack", 60]]
+  scrivener: [["a letter written", 2], ["a deed copied", 6], ["a will drawn up", 12]]
+  parchmenter: [["parchment, a dozen sheets", 6], ["vellum, a skin", 12]]
+  barber: [["a shave", 0.5], ["a bleeding", 2], ["a tooth drawn", 2]]
+  bathhouse: [["a bath", 1], ["a bath and a rub", 2], ["a private room", 6]]
+  livery_stable: [["a horse hired for the day", 6], ["stabling for the night", 1.5], ["a horse sold, sound", 240]]
+  woodmonger: [["firewood, a cartload", 12], ["faggots, a dozen", 2], ["charcoal, a sack", 3]]
+  hay_merchant: [["hay, a truss", 1], ["oats, a bushel", 3]]
+  town_tannery: [["a tanned hide", 24], ["leather offcuts, a bundle", 2]]
+  town_weaver: [["russet cloth, a yard", 8], ["a blanket", 12]]
+  weaver: [["coarse cloth, a yard", 5], ["a blanket", 10]]

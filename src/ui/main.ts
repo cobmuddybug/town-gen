@@ -6,13 +6,15 @@ import type { MapData } from "../modules/layout";
 import { findHooks } from "../modules/sifters";
 import { defaultModules, generate } from "../town-gen";
 import { renderMap, renderPeople } from "./map";
-import { BLOCKS, addDays, describeDate, parseDate, type Block } from "../core/calendar";
+import { BLOCKS, addDays, describeDate, parseDate, type Block, whenOf } from "../core/calendar";
 import { occupancy } from "../modules/routines";
 import { describeHour } from "../modules/gossip";
 import { almanac, dayOf, LENSES, lensView, LISTS, placeName, search, whoKnows, type Fact, type Lens } from "./discover";
 import { designFrom, fetchKept, forget, keep, listKept, townKey } from "./library";
 import { encounter, jobBoard, nearestBuildingTo, partyName, reachOf, report, type Text } from "./party";
 import { lsd } from "../modules/households";
+import { crimeContent, world } from "../modules/crime";
+import { ordinaryDay } from "../modules/civic";
 
 const modules = defaultModules;
 const STORE = "town-gen:last";
@@ -29,7 +31,7 @@ let showPeople = false;
 try { showPeople = localStorage.getItem("town-gen:people") === "1"; } catch { /* ignore */ }
 
 // What the inspector shows: an entity, the finder, the almanac, or who knows a fact.
-type Page = "inspect" | "find" | "almanac" | "knows" | "nearby" | "jobs";
+type Page = "inspect" | "find" | "almanac" | "knows" | "nearby" | "jobs" | "underworld";
 let page: Page = "inspect";
 let fact: Fact | undefined;
 let query = "";
@@ -165,7 +167,7 @@ function syncForm() {
   (form.elements.namedItem("base") as HTMLSelectElement).value = s.config.base;
   (form.elements.namedItem("manorial") as HTMLInputElement).checked = s.config.lordship === "manorial";
   const d = s.config.design ?? {};
-  for (const k of ["walls", "gates", "shape", "castle", "market", "suburbs"] as const) {
+  for (const k of ["walls", "gates", "shape", "castle", "market", "suburbs", "crime"] as const) {
     const v = d[k];
     (form.elements.namedItem(k) as HTMLSelectElement).value = v === undefined ? "" : typeof v === "boolean" ? (v ? "1" : "0") : String(v);
   }
@@ -395,8 +397,21 @@ function link(a: Address, text = town.label(a)) {
   return `<a href="#" data-go="${esc(a)}">${esc(text)}</a>`;
 }
 
+// Book citations ("LF p.86", "CC pp.58-59", "LFP") belong to the author, not the
+// table: they come out of the text and wait in a hover, unless sources are on.
+const SOURCE = /\s*\((?:[^()]*\b(?:LF|CC|LFP)\b(?: Table| p| pp)[^()]*|LFP[^()]*)\)/g;
+const SOURCE_ALONE = /^(?:LF|CC|LFP)\b[^;]*$/;
+let showSources = false;
+try { showSources = localStorage.getItem("town-gen.sources") === "1"; } catch { /* ignore */ }
+function sourcesOf(text: string): string[] {
+  return [...text.matchAll(SOURCE)].map((m) => m[0].trim().replace(/^\(|\)$/g, ""));
+}
+function unsourced(text: string): string {
+  return showSources ? text : text.replace(SOURCE, "");
+}
+
 function valueHtml(v: PanelRow["value"]): string {
-  const one = (x: string | number | PanelLink) => (typeof x === "object" ? link(x.address, x.text) : esc(x));
+  const one = (x: string | number | PanelLink) => (typeof x === "object" ? link(x.address, x.text) : esc(typeof x === "string" ? unsourced(x) : x));
   return Array.isArray(v) ? v.map(one).join(v.every((x) => typeof x === "object") ? ", " : "") : one(v);
 }
 
@@ -407,7 +422,10 @@ function rowHtml(e: Address, r: PanelRow): string {
   const tools = r.key
     ? `<span class="tools">${editable ? `<button data-edit="${esc(r.key)}" title="Edit">✎</button>` : ""}${r.rerollable ? `<button data-reroll="${esc(r.key)}" title="Reroll">↻</button>` : ""}${edited ? `<button data-reset="${esc(r.key)}" title="Back to generated">×</button>` : ""}</span>`
     : "";
-  const hint = (r.fact ? ` <button class="knows" data-fact="${esc(r.fact)}" title="Who knows this, and where to find them">who knows?</button>` : "") + (r.hint ? `<span class="hint">${esc(r.hint)}</span>` : "");
+  const cited = [...(typeof r.value === "string" ? sourcesOf(r.value) : []), ...(r.hint ? sourcesOf(r.hint) : []), ...(r.hint && SOURCE_ALONE.test(r.hint) ? [r.hint] : [])];
+  const hintText = r.hint && !(SOURCE_ALONE.test(r.hint) && !showSources) ? unsourced(r.hint) : "";
+  const src = cited.length && !showSources ? ` <span class="src" title="${esc(cited.join("; "))}">§</span>` : "";
+  const hint = (r.fact ? ` <button class="knows" data-fact="${esc(r.fact)}" title="Who knows this, and where to find them">who knows?</button>` : "") + (hintText ? `<span class="hint">${esc(hintText)}</span>` : "") + src;
   const opts = r.options ? ` data-options="${esc(r.options.join("|"))}"` : "";
   const hi = r.highlight?.length ? ` data-involves="${esc(r.highlight.join(" "))}"` : "";
   return `<dt>${esc(r.label)}</dt><dd class="${edited ? "edited" : ""}" data-key="${esc(r.key ?? "")}"${opts}${hi}><span class="val">${valueHtml(r.value)}${hint}</span>${tools}</dd>`;
@@ -432,7 +450,7 @@ function crumbs(e: Address): string {
 function tabsHtml(): string {
   const t = (id: Page, label: string) => `<button data-page="${id}" class="${page === id || (id === "inspect" && page === "knows") ? "on" : ""}">${label}</button>`;
   const following = follow && town.find(follow) ? `<span class="following">following ${link(follow)} <button data-follow="" title="Stop following">×</button></span>` : "";
-  return `<nav class="tabs">${t("inspect", "Inspect")}${t("nearby", "Nearby")}${t("jobs", "Jobs")}${t("find", "Find")}${t("almanac", "Almanac")}${following}</nav>`;
+  return `<nav class="tabs">${t("inspect", "Inspect")}${t("nearby", "Nearby")}${t("jobs", "Jobs")}${world(town) ? t("underworld", "Underworld") : ""}${t("find", "Find")}${t("almanac", "Almanac")}${following}</nav>`;
 }
 
 function rowsHtml(rows: PanelRow[]): string {
@@ -455,10 +473,17 @@ function findResultsHtml(): string {
   return `<ul class="links">${results.map((x) => `<li>${link(x.address, x.label)} <span class="sub">— ${esc(x.detail)}</span></li>`).join("")}</ul>${total > results.length ? `<p class="sub">and ${total - results.length} more; add a word to narrow it</p>` : ""}`;
 }
 
+// What the almanac shows. Crimes and deaths to come are the DM's foreknowledge,
+// and drown out the rest: off until asked for.
+const ALMANAC_KINDS: [string, string][] = [["feast", "feasts"], ["market", "markets"], ["visit", "visitors"], ["secret", "secrets"], ["life", "lives"], ["crime", "crimes"]];
+const almanacShow = new Set(["feast", "market", "visit", "secret", "life"]);
+
 function almanacHtml(): string {
   const from = town.clock.date;
-  const items = almanac(town, from, 60);
-  const h: string[] = [`<h2>Almanac</h2>`, `<p class="sub">The next sixty days from ${esc(describeDate(from))}. Click a date to go there.</p>`];
+  const all = almanac(town, from, 60);
+  const items = all.filter((x) => almanacShow.has(x.kind === "rent" ? "feast" : x.kind));
+  const chips = ALMANAC_KINDS.map(([k, l]) => `<button data-almanac="${k}" class="${almanacShow.has(k) ? "on" : ""}">${l} (${all.filter((x) => (x.kind === "rent" ? "feast" : x.kind) === k).length})</button>`).join(" ");
+  const h: string[] = [`<h2>Almanac</h2>`, `<p class="sub">The next sixty days from ${esc(describeDate(from))}. Click a date to go there.</p>`, `<p class="lists">${chips}</p>`];
   let day = "";
   for (const it of items) {
     if (it.date !== day) {
@@ -500,6 +525,7 @@ function nearbyHtml(): string {
   const r = report(town, at, date, block as Block);
   h.push(`<p class="sub">${esc(cap(partyName(town)))}, ${textHtml(r.where)}. ${esc(describeDate(date))}, ${esc(block.replace("_", " "))}. <button class="knows" data-party-clear title="Take the party off the map">remove</button></p>`);
   h.push(`<label class="party-name">The town calls them <input id="party-name" placeholder="the strangers" value="${esc(town.party?.name ?? "")}" autocomplete="off" /></label>`);
+  if (r.scene.length) h.push(`<details class="panel" open><summary>The scene</summary><p class="scene">${r.scene.map(esc).join(" ")}</p></details>`);
 
   // Who do we bump into?
   h.push(`<details class="panel" open><summary>Who do they bump into?</summary>`);
@@ -508,7 +534,10 @@ function nearbyHtml(): string {
     if (!e) h.push(`<p class="sub">Nobody about. The street is empty.</p>`);
     else {
       h.push(`<div class="encounter" data-involves="${esc(e.p)}"><h3>${link(e.p)} <span class="sub">— ${textHtml(e.where)}, ${esc(e.doing)}</span></h3>`);
-      h.push(`<p class="opener">${esc(e.opener)}</p><dl class="rows">`);
+      h.push(`<p class="opener">${esc(e.opener)}</p>`);
+      if (e.lines?.length) h.push(`<ul class="lines">${e.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`);
+      h.push(`<dl class="rows">`);
+      if (e.crew) h.push(`<dt>Underneath</dt><dd class="dm"><span class="val">${textHtml(e.crew)}</span></dd>`);
       for (const [l, v] of [["Looks", e.looks], ["Talks", e.speech], ["Habit", e.habit], ["Wants", e.want], ["To strangers", e.strangers]] as const) if (v) h.push(`<dt>${l}</dt><dd><span class="val">${esc(v)}</span></dd>`);
       h.push(`</dl></div>`);
     }
@@ -526,6 +555,8 @@ function nearbyHtml(): string {
   h.push(`</dl></details>`);
   if (r.street.length) h.push(`<details class="panel" open><summary>Out and about</summary><dl class="rows">${r.street.map((x) => `<dt></dt><dd data-involves="${esc(x.p)}"><span class="val">${link(x.p)}: ${esc(x.doing)}</span></dd>`).join("")}</dl></details>`);
 
+  if (r.crime) h.push(crimeNearHtml(r.crime));
+
   // What's being said.
   h.push(`<details class="panel" open><summary>Talk round here</summary><dl class="rows">`);
   h.push(r.talk.length ? r.talk.map((x) => `<dt></dt><dd><span class="val">${textHtml(x.text)} <button class="knows" data-fact="${esc(x.fact)}">who knows?</button><span class="hint">heard at ${esc(town.label(x.at).replace(/^The /, "the "))}</span></span></dd>`).join("") : `<dt></dt><dd><span class="val">the weather, the price of bread, and who drank too much</span></dd>`);
@@ -542,6 +573,35 @@ function nearbyHtml(): string {
 
   if (r.jobs.length) h.push(`<details class="panel" open><summary>Work going nearby</summary>${r.jobs.map(jobHtml).join("")}<p><a href="#" data-page="jobs">All the work going in ${esc(town.label(town.root))}</a></p></details>`);
   if (r.visitors.length) h.push(`<details class="panel" open><summary>In town today</summary><ul class="links">${r.visitors.map((v) => `<li>${esc(v)}</li>`).join("")}</ul></details>`);
+  return h.join("");
+}
+
+/** The underworld round about the party: for the DM, not the players. */
+function crimeNearHtml(c: NonNullable<ReturnType<typeof report>["crime"]>): string {
+  const rows: string[] = [];
+  const row = (label: string, html: string, involves: string[] = []) => rows.push(`<dt>${esc(label)}</dt><dd${involves.length ? ` data-involves="${esc(involves.join(" "))}"` : ""}><span class="val">${html}</span></dd>`);
+  const crew = (g: string) => link(g, town.label(g).replace(/^The /, "the "));
+  if (c.turf.length) row("Turf of", c.turf.map(crew).join(", "));
+  else row("Turf of", `nobody's in particular`);
+  if (c.dark) row("After dark", "a black, unlit ward: footpads' country");
+  for (const d of c.dens) row("A den", `${link(d.a)}, where ${crew(d.gang)} meet`, [d.a]);
+  for (const f of c.fences) row("A fence", `${link(f)} buys anything, at the back door`, [f]);
+  for (const m of c.marks) row("Chalked", `${link(m.a)}: ${m.marks.map((k) => `${esc(crimeContent.marks[k].glyph)} ${esc(crimeContent.marks[k].text)}`).join("; ")}`, [m.a]);
+  for (const a of c.active) row("About now", `${link(a.p)} of ${crew(a.gang)}: ${esc(a.doing)}`, [a.p]);
+  for (const i of c.recent) row(whenOf(i.date, town.clock.date, i.block), `${esc(crimeContent.crimes[i.kind].label)}${i.victim ? `: ${link(i.victim)}` : ""}${i.items ? ` — ${esc(i.items)}` : ""}; by ${i.culprits.map((p) => link(p)).join(", ")}${i.caught && i.caught.date <= town.clock.date ? " (taken)" : ""}`, [i.at, ...i.culprits]);
+  return `<details class="panel" open><summary>The underworld round here <span class="sub">— for the DM</span></summary><dl class="rows">${rows.join("")}</dl></details>`;
+}
+
+/** The underworld page: the whole thing at a glance, each crew in its own section. */
+function underworldHtml(): string {
+  const W = world(town);
+  if (!W) return `<h2>Underworld</h2><p class="sub">Too small a place for crews.</p>`;
+  const h: string[] = [`<h2>The underworld of ${esc(town.label(town.root))}</h2>`, `<p class="sub">For the DM. Crews, their dens and turf, who they pay and who sells them out, and the cant they speak. Click any name; hover a row to see it on the map.</p>`];
+  for (const p of panelsFor(W.address)) h.push(panelHtml(W.address, p).replace('<details class="panel" open data-panel="crime-cant">', '<details class="panel" data-panel="crime-cant">'));
+  for (const g of W.gangs) {
+    const rows = panelsFor(g.address).filter((p) => p.id === "crime-gang").map((p) => p.rows(town, town.get(g.address))).flat();
+    h.push(`<details class="panel"><summary>${esc(town.label(g.address))} <span class="sub">— ${esc(g.lay.label)}, ${g.members.length}</span></summary><dl class="rows">${rows.map((r) => rowHtml(g.address, r)).join("")}</dl><p>${link(g.address, "Open the crew")}</p></details>`);
+  }
   return h.join("");
 }
 
@@ -572,7 +632,7 @@ function followHtml(p: Address): string {
 
 function drawInspector() {
   if (page !== "inspect") {
-    insp.innerHTML = tabsHtml() + (page === "find" ? findHtml() : page === "almanac" ? almanacHtml() : page === "nearby" ? nearbyHtml() : page === "jobs" ? jobsHtml() : knowsHtml());
+    insp.innerHTML = tabsHtml() + (page === "find" ? findHtml() : page === "almanac" ? almanacHtml() : page === "nearby" ? nearbyHtml() : page === "jobs" ? jobsHtml() : page === "underworld" ? underworldHtml() : knowsHtml());
     if (page === "nearby") {
       const name = insp.querySelector<HTMLInputElement>("#party-name");
       // The name is in every telling of their deeds, so the town is rebuilt with it.
@@ -651,6 +711,8 @@ insp.addEventListener("click", (ev) => {
   if (fk) { fact = fk.dataset.fact as Fact; page = "knows"; drawInspector(); insp.scrollTop = 0; return; }
   const ls = t.closest<HTMLElement>("[data-list]");
   if (ls) { listId = listId === ls.dataset.list ? undefined : ls.dataset.list; drawInspector(); return; }
+  const ak = t.closest<HTMLElement>("[data-almanac]");
+  if (ak) { const k = ak.dataset.almanac!; if (almanacShow.has(k)) almanacShow.delete(k); else almanacShow.add(k); drawInspector(); return; }
   const dt = t.closest<HTMLElement>("[data-date]");
   if (dt) { ev.preventDefault(); setClock(dt.dataset.date!, "forenoon"); return; }
   const fo = t.closest<HTMLElement>("[data-follow]");
@@ -749,11 +811,16 @@ form.addEventListener("submit", (ev) => {
   selected = undefined;
   const pop = Math.min(30000, Math.max(50, Number(fd.get("pop")) || 200));
   const design = pop > 700 ? designFrom((k) => fd.get(k) as string | null) : undefined;
-  setTown(generate(String(fd.get("seed")) || randomSeed(), { pop, era: fd.get("era") as Era, base: String(fd.get("base") || "agricultural"), lordship: fd.get("manorial") && pop <= MANOR_MAX ? "manorial" : "free", ...(design ? { design } : {}) }));
+  setTown(fresh(String(fd.get("seed")) || randomSeed(), { pop, era: fd.get("era") as Era, base: String(fd.get("base") || "agricultural"), lordship: fd.get("manorial") && pop <= MANOR_MAX ? "manorial" : "free", ...(design ? { design } : {}) }));
 });
 $("#random-seed").addEventListener("click", () => {
   (form.elements.namedItem("seed") as HTMLInputElement).value = randomSeed();
   form.requestSubmit();
+});
+$("#sources").addEventListener("click", () => {
+  showSources = !showSources;
+  try { localStorage.setItem("town-gen.sources", showSources ? "1" : "0"); } catch { /* ignore */ }
+  drawInspector();
 });
 $("#save").addEventListener("click", () => {
   const blob = new Blob([serialize(town)], { type: "application/json" });
@@ -790,12 +857,19 @@ function start() {
     let kept: SaveFile | undefined;
     try { kept = fetchKept(localStorage, key); } catch { /* ignore */ }
     if (kept) return setTown(load(kept, modules));
-    return setTown(generate(seed, settings));
+    return setTown(fresh(seed, settings));
   }
   try {
     const saved = localStorage.getItem(STORE);
     if (saved) return setTown(load(JSON.parse(saved), modules));
   } catch { /* ignore */ }
-  setTown(generate(randomSeed()));
+  setTown(fresh(randomSeed()));
+}
+
+/** A new town opens on an ordinary market day, mid-morning. */
+function fresh(seed: string, settings: Parameters<typeof generate>[1] = {}) {
+  const t = generate(seed, settings);
+  t.clock = { date: ordinaryDay(t), block: "forenoon" };
+  return t;
 }
 start();

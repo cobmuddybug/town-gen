@@ -3,50 +3,66 @@
 // faith, health, letters and tongues, and what they carry. Plus the secrets
 // they hold as of the clock.
 import { data } from "../../core/content";
-import type { Address } from "../../core/address";
 import type { Block } from "../../core/calendar";
-import type { EntityLike, Module, PanelLink, PanelRow } from "../../core/types";
+import type { EntityLike, Module, PanelRow } from "../../core/types";
 import type { Rng } from "../../core/rng";
 import { lsd } from "../households";
 import type { Tier } from "../core";
 import type { Occupation } from "../uses";
-import { edgeText } from "../people";
-import { secretsOf } from "../gossip";
+import { say, settingOf } from "../people";
+import type { NameProvider } from "../names";
+import { edgeTold, secretsOf } from "../gossip";
 import characterYaml from "./content/character.yaml";
 
 interface Line {
   id: string; text: string; weight: number;
   minAge?: number; maxAge?: number; sex?: string; roles?: string[]; occ?: string[];
-  minRank?: number; maxRank?: number; setting?: "country" | "town";
+  minRank?: number; maxRank?: number; setting?: "country" | "town"; bases?: string[];
+  /** field:id pairs that can't stand beside this line */
+  clash?: string[];
 }
-type Lists = Record<"wants" | "fears" | "speech" | "habits" | "knacks" | "strangers" | "faith" | "health" | "pockets", Line[]>;
+type Field = "wants" | "fears" | "speech" | "habits" | "knacks" | "strangers" | "faith" | "health" | "pockets" | "babes";
+type Lists = Record<Field, Line[]>;
 const content = data<Lists>(characterYaml);
 
 // Trades that live by the pen, or by the Church.
 const LEARNED = new Set(["clerk", "clerk_in_orders", "notary", "lawyer", "physician", "schoolmaster", "scrivener", "canon", "provost", "bishop", "parish_priest", "chantry_priest", "priest", "chaplain", "friar", "monk", "nun", "prior", "abbot"]);
 const FOREIGN = ["Flemish", "Italian", "Gascon French", "German", "Breton"];
 
-interface Who { age: number; sex: string; role: string; occ: string; rank: number; setting: "country" | "town"; cleric: boolean }
+interface Who {
+  age: number; sex: string; role: string; occ: string; rank: number; setting: "country" | "town"; cleric: boolean; base: string;
+  /** what's been drawn so far, as field:id, with traits as trait:id; for clashes */
+  has: Set<string>;
+  place: (r: Rng) => string;
+}
 
-function fits(l: Line, w: Who): boolean {
+const KEY: Record<Field, string> = { wants: "want", fears: "fear", speech: "speech", habits: "habit", knacks: "knack", strangers: "strangers", faith: "faith", health: "health", pockets: "pocket", babes: "babe" };
+// Every line's clashes, both ways round: "fear:horses" -> ["want:horse", "knack:horses"].
+const CLASH = new Map<string, Set<string>>();
+for (const f of Object.keys(KEY) as Field[]) for (const l of content[f] ?? []) for (const c of l.clash ?? []) {
+  const me = `${KEY[f]}:${l.id}`;
+  (CLASH.get(me) ?? CLASH.set(me, new Set()).get(me)!).add(c);
+  (CLASH.get(c) ?? CLASH.set(c, new Set()).get(c)!).add(me);
+}
+
+function fits(f: Field, l: Line, w: Who): boolean {
   return w.age >= (l.minAge ?? 0) && w.age <= (l.maxAge ?? 200) && (!l.sex || l.sex === w.sex) &&
     (!l.roles || l.roles.includes(w.role)) && (!l.occ || l.occ.includes(w.occ)) &&
     (l.minRank === undefined || w.rank >= l.minRank) && (l.maxRank === undefined || w.rank <= l.maxRank) &&
-    (!l.setting || l.setting === w.setting);
+    (!l.setting || l.setting === w.setting) && (!l.bases || l.bases.includes(w.base)) &&
+    ![...(CLASH.get(`${KEY[f]}:${l.id}`) ?? [])].some((c) => w.has.has(c));
 }
 
-// Third person singular: everyone here is he or she.
-const VERB: Record<string, string> = { are: "is", have: "has", do: "does", go: "goes" };
-function say(text: string, sex: string): string {
-  const [they, their, them, self] = sex === "f" ? ["she", "her", "her", "herself"] : ["he", "his", "him", "himself"];
-  return text.replace(/\{(\w+)\}/g, (_, w: string) =>
-    w === "they" ? they : w === "their" ? their : w === "them" ? them : w === "themself" ? self
-      : VERB[w] ?? (/(s|sh|ch|x)$/.test(w) ? `${w}es` : /[^aeiou]y$/.test(w) ? `${w.slice(0, -1)}ies` : `${w}s`));
+function text(r: Rng, l: Line, w: Who): string {
+  return say(l.text.replace(/\{place\}/g, () => w.place(r)), w.sex);
 }
 
-function pick(r: Rng, list: Line[], w: Who): string | null {
-  const ok = list.filter((l) => fits(l, w));
-  return ok.length ? say(r.weighted(ok, (l) => l.weight).text, w.sex) : null;
+function pick(r: Rng, f: Field, w: Who): string | null {
+  const ok = content[f].filter((l) => fits(f, l, w));
+  if (!ok.length) return null;
+  const l = r.weighted(ok, (l) => l.weight);
+  w.has.add(`${KEY[f]}:${l.id}`);
+  return text(r, l, w);
 }
 
 function letters(r: Rng, w: Who, history: string[]): string {
@@ -78,6 +94,7 @@ function purse(r: Rng, w: Who, income: number): number {
 }
 
 function whoIs(town: import("../../core/town").Town, p: EntityLike): Who {
+  const names = town.registry<NameProvider>("nameProviders").get("anglo-norman");
   const hhAddr = town.parentOf(p.address)!;
   const hh = town.get(hhAddr);
   const tier = hh.type === "household" ? hh.get<string>("tier") : undefined;
@@ -87,14 +104,17 @@ function whoIs(town: import("../../core/town").Town, p: EntityLike): Who {
   const o = town.registry<Occupation>("occupations").find(occ);
   return {
     age: p.get<number>("age"), sex: p.get<string>("sex"), role, occ, rank,
-    setting: /town|city/.test(town.settlement().get<string>("sizeClass")) ? "town" : "country",
+    setting: settingOf(town), base: town.settlement().get<string>("base"),
     cleric: role === "cleric" || !!o?.celibate,
+    // Generated traits, so a DM's edit to someone's temper doesn't reshuffle the rest.
+    has: new Set((town.get(p.address).generated<string[]>("traits") ?? []).map((t) => `trait:${t}`)),
+    place: (r) => names.place(r),
   };
 }
 
 export const character: Module = {
   id: "character",
-  version: "1.0.0",
+  version: "2.0.0",
   requires: ["core", "households", "people"],
   hooks: {
     onPersonResolved(ctx, p) {
@@ -102,25 +122,27 @@ export const character: Module = {
       const w = whoIs(town, p);
       const hh = town.get(town.parentOf(p.address)!);
       const income = hh.type === "household" ? hh.get<number>("income") ?? 0 : 0;
-      ctx.gen(p, "character.want", (r) => pick(r, content.wants, w));
-      ctx.gen(p, "character.fear", (r) => pick(r, content.fears, w));
-      ctx.gen(p, "character.speech", (r) => pick(r, content.speech, w));
-      ctx.gen(p, "character.habit", (r) => pick(r, content.habits, w));
-      ctx.gen(p, "character.knack", (r) => (w.age < 6 ? null : pick(r, content.knacks, w)));
-      ctx.gen(p, "character.strangers", (r) => (w.age < 4 ? null : pick(r, content.strangers, w)));
+      // Babies have a temper, not opinions: no wants, fears or ways of talking.
+      const babe = w.age < 3;
+      ctx.gen(p, "character.want", (r) => (babe ? null : pick(r, "wants", w)));
+      ctx.gen(p, "character.fear", (r) => (babe ? null : pick(r, "fears", w)));
+      ctx.gen(p, "character.speech", (r) => (babe ? null : pick(r, "speech", w)));
+      ctx.gen(p, "character.habit", (r) => pick(r, babe ? "babes" : "habits", w));
+      ctx.gen(p, "character.knack", (r) => (w.age < 4 ? null : pick(r, "knacks", w)));
+      ctx.gen(p, "character.strangers", (r) => (w.age < 3 ? null : pick(r, "strangers", w)));
       ctx.gen(p, "character.faith", (r) => {
         if (w.cleric) return r.chance(0.75) ? "devout, as befits the cloth" : r.pick(["worldly: fonder of dinners than of the office", "privately troubled; prays harder for it"]);
-        return w.age < 7 ? null : pick(r, content.faith, w);
+        return w.age < 4 ? null : pick(r, "faith", w);
       });
-      ctx.gen(p, "character.health", (r) => pick(r, content.health, w));
+      ctx.gen(p, "character.health", (r) => pick(r, "health", w));
       ctx.gen(p, "character.letters", (r) => letters(r, w, p.get<string[]>("history") ?? []));
       ctx.gen(p, "character.tongues", (r) => (w.age < 3 ? null : tongues(r, w)));
       ctx.gen(p, "character.purse", (r) => purse(r, w, income));
       ctx.gen(p, "character.pockets", (r) => {
-        const ok = content.pockets.filter((l) => fits(l, w));
+        const ok = content.pockets.filter((l) => fits("pockets", l, w));
         const out: string[] = [];
         for (let n = w.age < 4 ? 0 : r.chance(0.5) ? 2 : 1; out.length < n && ok.length;) {
-          const t = say(r.weighted(ok, (l) => (out.includes(say(l.text, w.sex)) ? 0 : l.weight)).text, w.sex);
+          const t = text(r, r.weighted(ok, (l) => (out.includes(say(l.text, w.sex)) ? 0 : l.weight)), w);
           if (out.includes(t)) break;
           out.push(t);
         }
@@ -143,7 +165,7 @@ export const character: Module = {
         row("Wants", "want");
         row("Fears", "fear");
         row("Talks", "speech");
-        row("Habit", "habit");
+        row(p.get<number>("age") < 3 ? "As a baby" : "Habit", "habit");
         row("Knack", "knack");
         row("To strangers", "strangers");
         row("Faith", "faith");
@@ -165,35 +187,18 @@ export const character: Module = {
       rows(town, p) {
         const { date, block } = town.clock;
         const rows: PanelRow[] = [];
-        const name = (a: Address): PanelLink => ({ text: town.label(a), address: a });
-        // Their own secrets first, then what they were told, then talk: the
-        // talk about their own household and acquaintances, then the newest.
-        // Everybody in a town has heard the big stories; those aren't news here.
-        const hh = town.parentOf(p.address)!;
-        const near = new Set<Address>(town.children(hh, "person").map((x) => x.address));
-        for (const e of town.edges({ touching: p.address })) near.add(e.from === p.address ? e.to : e.from);
-        const all = secretsOf(town, p.address, date, block as Block);
+        // Only what they hold close: their own secrets, and what they were told in
+        // confidence. What reached them as talk is under "Has heard".
+        const all = secretsOf(town, p.address, date, block as Block).filter((x) => x.how === "kept");
         const mine = (x: (typeof all)[number]) => x.edge.from === p.address || x.edge.to === p.address;
-        const kept = all.filter((x) => x.how === "kept").sort((a, b) => Number(mine(b)) - Number(mine(a)));
-        const heard = all.filter((x) => x.how === "heard")
-          .map((x) => ({ x, close: near.has(x.edge.from) || near.has(x.edge.to) }))
-          .sort((a, b) => Number(b.close) - Number(a.close) || (b.x.since ?? 0) - (a.x.since ?? 0));
-        const HEARD = 4;
-        for (const s of [...kept, ...heard.slice(0, HEARD).map((h) => h.x)]) {
+        all.sort((a, b) => Number(mine(b)) - Number(mine(a)));
+        for (const s of all) {
           const e = s.edge;
           const theirs = mine(s);
-          const value: (string | PanelLink)[] = [name(e.from), ` — ${edgeText(town, e, e.from)} — `, name(e.to)];
-          const about = e.facts?.about ? `, over ${e.facts.about}` : typeof e.facts?.amount === "number" ? `, ${lsd(e.facts.amount as number)}` : "";
-          if (about) value.push(about);
-          const label = theirs ? "hides" : s.how === "kept" ? "keeps quiet" : "has heard";
           const others = Array.isArray(e.knownBy) ? e.knownBy.filter((x) => x !== p.address).length : 0;
-          const close = !theirs && s.how === "heard" && (near.has(e.from) || near.has(e.to));
-          const hint = theirs
-            ? s.out ? "it's out: people are talking" : others ? `${others} other${others === 1 ? "" : "s"} know` : "nobody else knows"
-            : s.how === "kept" ? "was told in confidence" : close ? "close to home" : "from the talk going round";
-          rows.push({ label, value, hint, fact: `edge:${e.id}`, highlight: [e.from, e.to] });
+          const hint = s.out ? "it's out: people are talking" : others ? `${others} other${others === 1 ? " knows" : "s know"}` : "nobody else knows";
+          rows.push({ label: theirs ? "hides" : "was told", value: edgeTold(town, e), hint: theirs ? hint : `in confidence; ${hint}`, fact: `edge:${e.id}`, highlight: [e.from, e.to] });
         }
-        if (heard.length > HEARD) rows.push({ label: "", value: `and ${heard.length - HEARD} more stories doing the rounds, like everyone else` });
         return rows.length ? rows : [{ label: "—", value: "nothing worth hiding, or nothing anyone's found yet" }];
       },
     },

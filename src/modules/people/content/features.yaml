@@ -1,7 +1,7 @@
 - { id: pockmarked, label: "pockmarked", weight: 3 }
 - { id: lame, label: "walks with a limp", weight: 2 }
 - { id: teeth, label: "missing front teeth", weight: 3, minAge: 30 }
-- { id: tall, label: "taller than anyone they know", weight: 1 }
+- { id: tall, label: "taller than anyone {they} {know}", weight: 1 }
 - { id: ruddy, label: "ruddy-faced", weight: 3 }
 - { id: scar, label: "an old scar across one hand", weight: 2, minAge: 16 }
 - { id: squint, label: "a squint", weight: 1 }
@@ -9,7 +9,7 @@
 - { id: hands, label: "huge, cracked hands", weight: 2, minAge: 16 }
 - { id: voice, label: "a voice that carries across a market", weight: 2 }
 - { id: deaf, label: "hard of hearing", weight: 1, minAge: 55 }
-- { id: bent, label: "bent from years of field work", weight: 2, minAge: 50 }
+- { id: bent, label: "bent from years of work", weight: 2, minAge: 50 }
 - { id: plain, label: "nothing anyone remembers", weight: 6 }
 - { id: nose, label: "a broken nose, badly set", weight: 2, minAge: 14 }
 - { id: red_hair, label: "red hair", weight: 2 }
@@ -28,8 +28,26 @@
 - { id: cough, label: "a cough that never quite goes", weight: 2, minAge: 30 }
 - { id: ears, label: "ears like jug handles", weight: 1 }
 - { id: warts, label: "warts on both hands", weight: 1 }
-- { id: dimples, label: "dimples when they smile, which is often", weight: 2 }
+- { id: dimples, label: "dimples when {they} {smile}, which is often", weight: 2 }
 - { id: bald, label: "bald as an egg", weight: 2, minAge: 35 }
-- { id: tattered, label: "always untidy, whatever they wear", weight: 2 }
+- { id: tattered, label: "always untidy, whatever {they} {wear}", weight: 2 }
 - { id: neat, label: "neat as a pin", weight: 2 }
 - { id: limp_arm, label: "a stiff arm from an old break", weight: 1, minAge: 20 }
+- { id: eyes_blue, label: "eyes so pale they look like water", weight: 1 }
+- { id: eyebrows, label: "eyebrows that meet in the middle", weight: 1, minAge: 12 }
+- { id: beard, label: "a forked beard {they} {comb} with {their} fingers", weight: 2, minAge: 25 }
+- { id: plaits, label: "long plaits wound round {their} head", weight: 2, minAge: 12 }
+- { id: rosy, label: "round and rosy", weight: 2 }
+- { id: gaunt, label: "gaunt, with hollow cheeks", weight: 2, minAge: 20 }
+- { id: blackteeth, label: "a gap-toothed grin", weight: 2, minAge: 8 }
+- { id: hairy, label: "hair everywhere: arms, ears, knuckles", weight: 1, minAge: 25 }
+- { id: dark, label: "dark, with heavy brows", weight: 2 }
+- { id: fair_hair, label: "flaxen hair, almost white", weight: 2 }
+- { id: lined, label: "a face like a walnut", weight: 2, minAge: 50 }
+- { id: soft_hands, label: "soft hands that have never held a spade", weight: 1, minAge: 16 }
+- { id: tattoo, label: "a pilgrim's cross pricked into {their} wrist", weight: 1, minAge: 20 }
+- { id: shaved, label: "close-shaven, which is unusual here", weight: 1, minAge: 18 }
+- { id: chubby, label: "chubby, with fists like bread rolls", weight: 3, maxAge: 4 }
+- { id: curls, label: "a head of yellow curls", weight: 2, maxAge: 10 }
+- { id: stained, label: "fingers stained to the knuckle with dye or ink", weight: 1, minAge: 16 }
+- { id: tiny, label: "small for {their} age", weight: 2, maxAge: 15 }

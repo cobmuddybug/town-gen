@@ -1,3 +1,4 @@
+import { isUrban } from "../core";
 import type { Entity, Town } from "../../core/town";
 import type { Module, PanelRow } from "../../core/types";
 import type { Base } from "../core";
@@ -40,6 +41,13 @@ const PETTY = [
   "firewood taken from another's pile",
 ];
 
+const OFFICE_TEXT: Record<string, string> = {
+  reeve: "gathers the rents and dues, and answers for them; not loved",
+  hayward: "keeps the hedges and the fields, impounds strays and fines their owners",
+  woodward: "keeps the woods: who may cut, who may graze pigs, and who has been poaching",
+  constable: "keeps the peace, raises the hue and cry, and holds a man for the court",
+};
+
 export const council: Module = {
   id: "council",
   version: "1.0.0",
@@ -47,7 +55,7 @@ export const council: Module = {
   hooks: {
     onSettlementGenerated(ctx, s) {
       // Towns and cities govern themselves differently (see the civic module).
-      if (/town|city/.test(s.get<string>("sizeClass"))) return;
+      if (isUrban(ctx.town)) return;
       ctx.create("institution", s.address, COUNCIL, { kind: "council" });
     },
 
@@ -133,6 +141,31 @@ export const council: Module = {
         docket.push({ matter: r.pick(BIG), parties: [x.head.address, y.head.address], waits: true });
       }
       ctx.set(inst, "docket", docket);
+      // The village's officers (LFP after Ross: a reeve four times in five, a
+      // hayward for the fields and beasts, a woodward where there's woodland,
+      // a constable nearly always). Chosen from the heads not on the council.
+      const ro = ctx.rng(inst, "officers");
+      const taken = new Set(seats.map((x) => x.person));
+      const pick = (ok: (x: (typeof all)[number]) => boolean) => {
+        const c = all.filter((x) => !taken.has(x.head.address) && x.head.get("sex") === "m" && ok(x));
+        if (!c.length) return undefined;
+        const x = ro.pick(c);
+        taken.add(x.head.address);
+        return x.head.address;
+      };
+      const age = (x: (typeof all)[number]) => x.head.get<number>("age");
+      const manorial = town.settlement().get("lordship") === "manorial";
+      const posts: [string, number, (x: (typeof all)[number]) => boolean][] = [
+        ["reeve", manorial ? 0 : 0.8, (x) => age(x) >= 30 && age(x) <= 60 && x.household.get<number>("stake") >= 1],
+        ["hayward", 0.75, (x) => age(x) >= 25 && age(x) <= 60],
+        ["woodward", /forest|woodcutting/.test(`${town.settlement().get("terrain")} ${town.settlement().get("base")}`) ? 0.9 : 0.4, (x) => age(x) >= 25 && age(x) <= 60],
+        ["constable", 0.9, (x) => age(x) >= 25 && age(x) <= 55],
+      ];
+      for (const [office, chance, ok] of posts) {
+        if (!ro.chance(chance)) continue;
+        const who = pick(ok);
+        if (who) ctx.edge({ from: who, to: inst.address, kind: "office_in", weight: 0.4, facts: { office } });
+      }
       ctx.gen(inst, "stocks", (rr) => rr.pick(["on the green, newly mended", "on the green, rotten at one end", "by the alehouse door", "on the green, and used last at Lammas"]));
     },
   },
@@ -152,9 +185,10 @@ export const council: Module = {
         const rows: PanelRow[] = [];
         if (elder) rows.push({ label: "Elder", value: { text: town.label(elder), address: elder }, key: "elder", rerollable: true });
         for (const s of seats) if (s.person !== elder) rows.push({ label: "Councillor", value: [{ text: town.label(s.person), address: s.person }, ` — ${s.why}`] });
+        for (const e of town.edges({ to: inst.address, kind: "office_in" })) if (e.facts?.office !== "elder") rows.push({ label: String(e.facts?.office), value: [{ text: town.label(e.from), address: e.from }, ` — ${OFFICE_TEXT[String(e.facts?.office)] ?? ""}`] });
         rows.push({ label: "Stocks", value: inst.get<string>("stocks"), key: "stocks", rerollable: true });
         for (const d of inst.get<{ matter: string; parties: string[]; waits?: boolean }[]>("docket") ?? []) {
-          rows.push({ label: d.waits ? "Waiting for the sheriff's man" : "Before them", value: [d.matter + " — ", ...d.parties.flatMap((p, i) => [...(i ? [" and "] : []), { text: town.label(p), address: p }])] });
+          rows.push({ label: d.waits ? "Waiting for the hundred court" : "Before them", value: [d.matter + " — ", ...d.parties.flatMap((p, i) => [...(i ? [" and "] : []), { text: town.label(p), address: p }])] });
         }
         return rows;
       },

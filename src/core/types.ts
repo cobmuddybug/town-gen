@@ -43,6 +43,8 @@ export interface Design {
   castle?: boolean;
   market?: "small" | "large";
   suburbs?: "few" | "many";
+  /** how much crime: the underworld's size and nerve */
+  crime?: "quiet" | "usual" | "rife";
 }
 
 export interface Settings {

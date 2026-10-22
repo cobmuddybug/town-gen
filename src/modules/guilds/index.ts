@@ -16,12 +16,14 @@ interface GuildData {
   extra_members: Record<string, string>;
   rules: string[];
   charity: string[];
-  rights: { a: string; b: string; text: string }[];
+  rights: { a: string; b: string; text: string; says: string }[];
+  saints: Record<string, string[]>;
+  merchant_rules: string[];
+  merchant_charity: string[];
 }
 const content = data<GuildData>(guildsYaml);
 const MIN_MASTERS = 3;
-const SAINTS = ["St Crispin", "St Eloi", "St Clement", "St Blaise", "St Anne", "St Martin", "St Luke", "St John the Baptist", "St Joseph",
-  "St Nicholas", "St Bartholomew", "St Catherine", "St Dunstan", "St Lawrence", "St Thomas"];
+const SAINTS = ["St Nicholas", "St Martin", "Our Lady", "St John the Baptist", "Holy Trinity"];
 
 const guildOf = (town: Town, occ: string): string | undefined =>
   town.registry<Occupation>("occupations").find(occ)?.guild ?? content.extra_members[occ];
@@ -52,7 +54,7 @@ const inst = (town: Town, id: string) => `${town.root}/institution:guild-${id}`;
 
 export const guilds: Module = {
   id: "guilds",
-  version: "1.0.0",
+  version: "2.0.0",
   requires: ["core", "uses", "layout", "households", "names", "people", "society"],
   register(add) {
     add<Sifter>("sifters", [masterpieceRefused, whoseRight]);
@@ -68,9 +70,13 @@ export const guilds: Module = {
 
     onInstitutionResolved(ctx, i) {
       if (i.get("kind") !== "guild") return;
-      ctx.gen(i, "saint", (r) => r.pick(SAINTS));
-      ctx.gen(i, "rules", (r) => r.shuffle(content.rules).slice(0, r.int(2, 3)));
-      ctx.gen(i, "charity", (r) => r.pick(content.charity));
+      // The trade's own saint, mostly: smiths keep St Eloi's day, cordwainers St Crispin's.
+      const id = i.get<string>("guild");
+      const own = content.saints[id];
+      ctx.gen(i, "saint", (r) => (own ? (own.length > 1 && r.chance(0.25) ? own[1] : own[0]) : r.pick(SAINTS)));
+      const merchants = id === "merchants";
+      ctx.gen(i, "rules", (r) => r.shuffle(merchants ? content.merchant_rules : content.rules).slice(0, r.int(2, 3)));
+      ctx.gen(i, "charity", (r) => r.pick(merchants ? content.merchant_charity : content.charity));
       ctx.gen(i, "dues", (r) => r.pick(["a penny a week to the box", "fourpence a quarter", "a shilling a year, and a fine for missing the feast"]));
     },
 
@@ -107,6 +113,9 @@ export const guilds: Module = {
       const guildhall = town.children(town.root, "building").find((b) => b.get("use") === "guildhall");
       const taverns = town.children(town.root, "building").filter((b) => ["tavern", "inn", "town_alehouse"].includes(b.get("use")));
       let hallAt = 0;
+      // Each guild has its own house: a hall, or an inn or tavern no other guild uses,
+      // or failing that the master's own hall.
+      const usedHouses = new Set<string>();
       for (const g of list) {
         const I = inst(town, g.id);
         const ms = masters.get(g.id) ?? [];
@@ -128,9 +137,13 @@ export const guilds: Module = {
         let meets: string | undefined;
         if (g.id === "merchants" && guildhall) meets = guildhall.address;
         else if (hallAt < halls.length) meets = halls[hallAt++].address;
-        else if (taverns.length && ms.length) {
-          const c = centroid(ms[0].b.get<Poly>("poly"));
-          meets = [...taverns].sort((a, b) => dist(c, centroid(a.get<Poly>("poly"))) - dist(c, centroid(b.get<Poly>("poly"))) || (a.address < b.address ? -1 : 1))[0].address;
+        else if (ms.length) {
+          const c = centroid((senior[0] ?? ms[0]).b.get<Poly>("poly"));
+          const free = taverns.filter((t) => !usedHouses.has(t.address) && dist(c, centroid(t.get<Poly>("poly"))) < 400);
+          meets = free.length
+            ? [...free].sort((a, b) => dist(c, centroid(a.get<Poly>("poly"))) - dist(c, centroid(b.get<Poly>("poly"))) || (a.address < b.address ? -1 : 1))[0].address
+            : (senior[0] ?? ms[0]).b.address;
+          usedHouses.add(meets);
         }
         if (meets) ctx.set(town.get(I), "meets", meets);
         // A masterpiece refused (LF p.85): the wardens judge who may become a master.
@@ -138,7 +151,7 @@ export const guilds: Module = {
         const ripe = js.filter((j) => j.age >= 22 && j.p.get("sex") === "m");
         if (wardens.length && ripe.length && r.chance(0.4)) {
           const j = r.pick(ripe), w = r.pick(wardens);
-          ctx.edge({ from: j.p.address, to: w.p.address, kind: "grievance", weight: -0.6, facts: { about: "the wardens refused his masterpiece, and passed a warden's nephew the same month", guild: g.id }, knownBy: "public" });
+          ctx.edge({ from: j.p.address, to: w.p.address, kind: "grievance", weight: -0.6, facts: { about: "a refused masterpiece, and a warden's nephew passed the same month", guild: g.id }, knownBy: "public" });
         }
       }
       // Whose right is it? Trades quarrel over where one craft ends.
@@ -155,7 +168,7 @@ export const guilds: Module = {
         }
         if (!a || !b || a.p === b.p || !r.chance(0.5)) continue;
         const aHead = town.edges({ to: inst(town, q.a), kind: "office_in" }).find((e) => /master|alderman/.test(String(e.facts?.office)))?.from ?? a.p.address;
-        ctx.edge({ from: aHead, to: b.p.address, kind: "dispute", weight: -0.5, facts: { about: q.text, guild: q.a } });
+        ctx.edge({ from: aHead, to: b.p.address, kind: "dispute", weight: -0.5, facts: { about: q.text, says: q.says, guild: q.a } });
       }
     },
   },
@@ -175,7 +188,8 @@ export const guilds: Module = {
         const rows: PanelRow[] = [];
         const members = town.edges({ to: i.address, kind: "member_of" });
         const nm = members.filter((e) => e.facts?.as === "master").length, nj = members.length - nm;
-        rows.push({ label: "Members", value: `${nm} masters, ${nj} journeymen, and their apprentices` });
+        const merchants = i.get("guild") === "merchants";
+        rows.push({ label: "Members", value: merchants ? `${nm} brothers, with their factors and apprentices` : `${nm} masters, ${nj} journeymen, and their apprentices` });
         for (const e of town.edges({ to: i.address, kind: "office_in" })) rows.push({ label: String(e.facts?.office), value: { text: town.label(e.from), address: e.from } });
         const meets = i.get<string | undefined>("meets");
         rows.push({ label: "Meets", value: meets ? { text: town.label(meets), address: meets } : "in the back room of a member's house" });
@@ -183,7 +197,7 @@ export const guilds: Module = {
         rows.push({ label: "Dues", value: i.get<string>("dues"), key: "dues", rerollable: true });
         rows.push({ label: "Charity", value: i.get<string>("charity"), key: "charity", rerollable: true });
         for (const rule of i.get<string[]>("rules") ?? []) rows.push({ label: "Rule", value: rule });
-        rows.push({ label: "Masters", value: members.filter((e) => e.facts?.as === "master").slice(0, 40).flatMap((e, k) => [...(k ? [", "] : []), { text: town.label(e.from), address: e.from }]) });
+        rows.push({ label: merchants ? "Brothers" : "Masters", value: members.filter((e) => e.facts?.as === "master").slice(0, 40).flatMap((e, k) => [...(k ? [", "] : []), { text: town.label(e.from), address: e.from }]) });
         return rows;
       },
     },
@@ -208,7 +222,7 @@ export const masterpieceRefused: Sifter = {
   match(town) {
     return town.edges({ kind: "grievance" }).filter((e) => e.facts?.guild && /masterpiece/.test(String(e.facts.about))).map((e) => ({
       title: this.title,
-      summary: `${town.label(e.from)}, a journeyman of ${town.label(inst(town, String(e.facts!.guild)))}, says ${e.facts!.about}. The warden was ${town.label(e.to)}.`,
+      summary: `${town.label(e.from)}, a journeyman of ${town.label(inst(town, String(e.facts!.guild)))}, says the wardens refused his masterpiece, and passed a warden's nephew the same month. The warden was ${town.label(e.to)}.`,
       involves: [e.from, e.to],
     }));
   },
@@ -221,7 +235,7 @@ export const whoseRight: Sifter = {
   match(town) {
     return town.edges({ kind: "dispute" }).filter((e) => e.facts?.guild).map((e) => ({
       title: this.title,
-      summary: `${town.label(inst(town, String(e.facts!.guild)))} complains that ${e.facts!.about}. ${town.label(e.from)} speaks for the guild; ${town.label(e.to)} is the one they mean.`,
+      summary: `${town.label(inst(town, String(e.facts!.guild)))} complains that ${e.facts!.says ?? e.facts!.about}. ${town.label(e.from)} speaks for the guild; ${town.label(e.to)} is the one they mean.`,
       involves: [e.from, e.to],
     }));
   },

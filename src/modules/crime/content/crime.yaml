@@ -1,0 +1,576 @@
+# The town's underworld, after the structures of Gygax's *The Canting Crew*
+# (Troll Lord Games, 2002). That book is copyrighted: we take its shape
+# (brotherhoods of gangs and knots with ranked members, fences, safe houses,
+# payoffs, informers, thief-takers, chalked signs, a ladder of punishments)
+# and its proportions, and write every row in our own words. `source` cites
+# the printed page (CC p.N). The cant itself is period slang from Harman
+# (1567), Dekker (1608) and the old canting dictionaries, which is public
+# domain; the book only collects it.
+#
+# Translated for a mundane, human-only, high-medieval setting: no assassins'
+# guild, only a knife for hire in a big town; no gypsies as a criminal class;
+# no magic; punishments are the stocks, pillory, cart, gaol, branding,
+# sanctuary, abjuring the realm and the gallows.
+
+# How much crime there is. `mult` scales gang sizes and how often they work;
+# `catch` scales the odds of being caught.
+levels:
+  quiet: { mult: 0.55, catch: 1.4, weight: 2, label: "quiet: a few rogues, and the watch knows their names" }
+  usual: { mult: 1.0, catch: 1.0, weight: 5, label: "the usual: gangs in the poor wards, purses cut on market day" }
+  rife:  { mult: 1.7, catch: 0.6, weight: 2, label: "rife: the crews run whole wards, and half the watch is paid" }
+
+# Below this many people there are rogues but no gangs (CC p.11: no organised
+# underworld in places under a thousand).
+gangsFrom: 1000
+
+# The kinds of gang, each a "lay" of the trade (CC pp.50-66, 69-71).
+# `size`: members at 3,000 people; bigger towns grow by the square root.
+# `minPop`: none smaller. `needs`: quay, river, bathhouse, inn, gates.
+# `recruit`: occupations it draws its members from, by weight (anyone poor
+# and hard enough will do at weight 1). `den`: building uses it meets in.
+lays:
+  - id: nips
+    label: "cutpurses and pickpockets"
+    cant: "a knot of nips and foists"
+    minPop: 1000
+    weight: 10
+    size: [5, 9]
+    den: [town_alehouse, tavern, sleeping_house, poor_row]
+    recruit: { cutpurse: 40, vagrant: 8, beggar: 3, pauper: 4, rag_picker: 3, porter: 2, laundress: 1 }
+    crimes: [cutpurse, pickpocket]
+    turf: market
+    names: ["the {den} knot", "the {ward} nips", "the market foists", "the {den} foists", "the {gate} nips", "the {church} foists"]
+    # the oldest a working member or a chief is likely to be
+    maxAge: 45
+    chiefMaxAge: 58
+    ranks:
+      - { id: chief, cant: "dimber damber", plain: "head of the knot; holds the take and divides it", chief: true, minAge: 22 }
+      - { id: nip, cant: "nip", plain: "cuts purses from belts with a little knife and a horn guard on the thumb", weight: 3, minAge: 15 }
+      - { id: foist, cant: "foist", plain: "picks pockets, two fingers deep, while the mark is busy", weight: 3, minAge: 13 }
+      - { id: stall, cant: "stall", plain: "jostles, stumbles and apologises while the nip works", weight: 2, minAge: 14 }
+      - { id: kinchin, cant: "kinchin", plain: "a child learning the trade; carries the purse away through the crowd", weight: 2, minAge: 8, maxAge: 14 }
+    source: "CC pp.58-59 (pickpockets and cutpurses, 5th tier)"
+
+  - id: crackers
+    label: "housebreakers"
+    cant: "a crew of ken-crackers"
+    minPop: 1500
+    weight: 8
+    size: [4, 7]
+    den: [town_alehouse, sleeping_house, poor_row, tenement]
+    recruit: { cutpurse: 6, vagrant: 6, labourer: 3, porter: 3, journeyman: 2, rag_picker: 2, nightsoil_man: 3, locksmith: 2 }
+    crimes: [burglary]
+    turf: rich
+    names: ["the {ward} crackers", "the darkmans crew", "the {den} crew", "the {ward} housebreakers", "the {gate} crackers", "the dark-lantern men of {ward}"]
+    # the oldest a working member or a chief is likely to be
+    maxAge: 45
+    chiefMaxAge: 60
+    ranks:
+      - { id: chief, cant: "upright man", plain: "picks the houses, plans the nights, sells the goods on", chief: true, minAge: 25 }
+      - { id: dubber, cant: "rum dubber", plain: "opens locks with a bent wire and a ring of false keys", weight: 2, minAge: 18 }
+      - { id: budge, cant: "budge", plain: "slips in at an open door at dusk and hides till the house sleeps", weight: 2, minAge: 14 }
+      - { id: lookout, cant: "stall", plain: "keeps watch at the end of the lane, and delays anyone coming", weight: 2, minAge: 12 }
+      - { id: snakesman, cant: "little snakesman", plain: "a boy small enough for a shutter gap or a coal-hole", weight: 1, minAge: 8, maxAge: 13 }
+    source: "CC pp.58 (burglars, 4th tier)"
+
+  - id: pads
+    label: "footpads and robbers"
+    cant: "a gang of low pads"
+    minPop: 1500
+    weight: 6
+    size: [3, 6]
+    den: [town_alehouse, sleeping_house, poor_row]
+    recruit: { vagrant: 6, labourer: 4, porter: 3, journeyman: 2, cutpurse: 2, soldier: 2 }
+    crimes: [robbery]
+    turf: dark
+    names: ["the {gate} pads", "the {ward} cudgel men", "the {den} lads", "the low pads of {ward}", "the {ward} pads", "the lane-end lads of {ward}"]
+    # the oldest a working member or a chief is likely to be
+    maxAge: 38
+    chiefMaxAge: 48
+    ranks:
+      - { id: chief, cant: "dimber damber", plain: "the strongest of them, and the one with the best cudgel", chief: true, minAge: 20 }
+      - { id: pad, cant: "low pad", plain: "waits in the dark of a lane with a cudgel", weight: 4, minAge: 16 }
+      - { id: hedge, cant: "hedge creeper", plain: "robs from behind hedges and garden walls beyond the gates", weight: 2, minAge: 16 }
+      - { id: ruffler, cant: "ruffler", plain: "claims to be an old soldier down on his luck; starts the quarrel that ends in a robbery", weight: 1, minAge: 25, sex: m }
+    source: "CC p.60 (footpads, 5th tier)"
+
+  - id: mumpers
+    label: "the beggars' fraternity"
+    cant: "a fraternity of maunders"
+    minPop: 3000
+    weight: 6
+    size: [6, 12]
+    den: [hostel, sleeping_house, poor_row, town_alehouse]
+    recruit: { beggar: 30, pauper: 20, vagrant: 15, almsman: 2, rag_picker: 4, widow_spinster: 1 }
+    crimes: [linen]
+    turf: church
+    marks: true
+    names: ["the {ward} mumpers", "the beggars of {church} porch", "the maunders of {ward}"]
+    # the oldest a working member or a chief is likely to be
+    maxAge: 70
+    chiefMaxAge: 70
+    ranks:
+      - { id: chief, cant: "upright man", plain: "lord of the beggars: gives out the pitches and takes a share of every alms", chief: true, minAge: 30 }
+      - { id: abram, cant: "abram man", plain: "feigns madness, half-naked, calling himself Poor Tom", weight: 2, minAge: 18 }
+      - { id: crank, cant: "counterfeit crank", plain: "foams with soap and falls in fits at the church door", weight: 2, minAge: 16 }
+      - { id: palliard, cant: "palliard", plain: "born to begging; shows false sores made with spearwort and rust", weight: 3, minAge: 14 }
+      - { id: dummerer, cant: "dummerer", plain: "pretends his tongue was torn out by the Saracens", weight: 1, minAge: 18 }
+      - { id: whipjack, cant: "whipjack", plain: "a 'shipwrecked mariner' with a forged licence to beg", weight: 1, minAge: 20 }
+      - { id: patrico, cant: "patrico", plain: "a hedge-priest who marries beggars under a tree, for a penny", weight: 1, minAge: 40, sex: m }
+      - { id: mort, cant: "walking mort", plain: "begs with borrowed children; carries word between the houses", weight: 2, minAge: 16, sex: f }
+      - { id: kinchin, cant: "kinchin", plain: "a beggar's child, already better at it than most adults", weight: 2, minAge: 6, maxAge: 13 }
+    source: "CC pp.69-71 (beggars), p.130 (their signs)"
+
+  - id: cheats
+    label: "dice cheats and cozeners"
+    cant: "a company of cony-catchers"
+    minPop: 2000
+    weight: 6
+    size: [3, 6]
+    den: [tavern, inn, town_alehouse]
+    recruit: { journeyman: 3, clerk: 2, vagrant: 2, cutpurse: 2, fripperer: 1, barber: 1, porter: 1, musician: 1 }
+    crimes: [dice]
+    turf: taverns
+    usury: true
+    names: ["the {den} setters", "the cony-catchers of the {den}", "the {ward} cozeners", "the high-and-low men of {ward}", "the {gate} cozeners"]
+    # the oldest a working member or a chief is likely to be
+    maxAge: 60
+    chiefMaxAge: 65
+    ranks:
+      - { id: chief, cant: "master cozener", plain: "dresses like a gentleman, keeps the false dice, lends to the losers", chief: true, minAge: 25 }
+      - { id: setter, cant: "setter", plain: "falls in with strangers at the inn and brings them to the game", weight: 2, minAge: 18 }
+      - { id: verser, cant: "verser", plain: "the friendly fellow who happens to be drinking there and stands a round", weight: 2, minAge: 18 }
+      - { id: barnard, cant: "barnard", plain: "plays the loud fool who loses, then wins everything when the stakes go up", weight: 1, minAge: 20 }
+      - { id: rutter, cant: "rutter", plain: "the bully who stands by the table, in case the cony complains", weight: 1, minAge: 18, sex: m }
+    source: "CC pp.53-54 (sharpers), p.62 (rutters), p.125 (at the gaming house)"
+
+  - id: stews
+    label: "the stews"
+    cant: "a bawdy house and its people"
+    minPop: 3000
+    needs: [bathhouse]
+    weight: 5
+    size: [4, 7]
+    den: [bathhouse, sleeping_house, town_alehouse]
+    recruit: { bath_keeper: 30, laundress: 3, widow_spinster: 2, pauper: 2, vagrant: 2 }
+    crimes: [crossbite]
+    turf: taverns
+    blackmail: true
+    names: ["the {ward} stews", "the house behind the {den}", "the {den} stews", "the {church} stews", "the bathhouse girls of {ward}"]
+    # the oldest a working member or a chief is likely to be
+    maxAge: 42
+    chiefMaxAge: 62
+    ranks:
+      - { id: chief, cant: "bawd", plain: "keeps the house, keeps the books, keeps the secrets", chief: true, minAge: 30 }
+      - { id: bully, cant: "bully", plain: "keeps the door and throws out whoever won't pay", weight: 1, minAge: 18, sex: m }
+      - { id: doxy, cant: "doxy", plain: "works the house; listens", weight: 3, minAge: 16, sex: f }
+      - { id: crossbiter, cant: "crossbiter", plain: "a 'husband' who bursts in on the customer and demands satisfaction", weight: 1, minAge: 20, sex: m }
+    source: "CC pp.55-56 (bawdy houses), p.58 (blackmailers)"
+
+  - id: owlers
+    label: "smugglers"
+    cant: "a company of owlers"
+    minPop: 2000
+    needs: [water]
+    weight: 5
+    size: [4, 7]
+    den: [town_alehouse, warehouse, tavern]
+    recruit: { porter: 6, carter: 4, labourer: 3, warehouseman: 4, journeyman: 1, water_carrier: 2 }
+    crimes: [smuggle]
+    turf: water
+    names: ["the {ward} owlers", "the night boats", "the {den} owlers", "the {gate} owlers", "the lantern men of {ward}"]
+    # the oldest a working member or a chief is likely to be
+    maxAge: 50
+    chiefMaxAge: 60
+    ranks:
+      - { id: chief, cant: "master owler", plain: "buys the wool cheap upcountry and sells it abroad with no custom paid", chief: true, minAge: 28 }
+      - { id: boatman, cant: "owler", plain: "rows the bales out by night", weight: 3, minAge: 16, sex: m }
+      - { id: carrier, cant: "carrier", plain: "brings the bales in under hay on a cart", weight: 2, minAge: 16 }
+      - { id: lookout, cant: "glimmer", plain: "shows a light, or doesn't, when the way is clear", weight: 1, minAge: 12 }
+    source: "CC p.54 (smugglers, 3rd tier)"
+
+  - id: clippers
+    label: "coin clippers"
+    cant: "a knot of clippers"
+    minPop: 6000
+    weight: 3
+    size: [3, 5]
+    den: [goldsmith, money_changer, fripperer, town_alehouse]
+    recruit: { goldsmith: 20, money_changer: 10, pewterer: 6, cutler: 3, fripperer: 3, journeyman: 2 }
+    crimes: [coin]
+    turf: market
+    names: ["the {ward} clippers", "the shavers of {ward}"]
+    # the oldest a working member or a chief is likely to be
+    maxAge: 62
+    chiefMaxAge: 68
+    ranks:
+      - { id: chief, cant: "rum clipper", plain: "melts the clippings into ingots and sells them as plate", chief: true, minAge: 30 }
+      - { id: clipper, cant: "clipper", plain: "trims a sliver from every good penny that passes through his hands", weight: 2, minAge: 18 }
+      - { id: smasher, cant: "smasher", plain: "passes the light and the false coin in the market", weight: 2, minAge: 16 }
+    source: "CC p.56 (counterfeiters), p.65 (coin shavers)"
+
+  - id: bullies
+    label: "extortioners"
+    cant: "a company of bullies"
+    minPop: 5000
+    weight: 4
+    size: [4, 7]
+    den: [town_alehouse, tavern, sleeping_house]
+    recruit: { porter: 4, labourer: 4, soldier: 3, vagrant: 3, butcher: 1, journeyman: 2 }
+    crimes: [smash]
+    turf: shops
+    protection: true
+    names: ["the {ward} ruffians", "the {den} bullies", "the roaring boys of {ward}", "the {gate} ruffians", "the Saturday men of {ward}"]
+    # the oldest a working member or a chief is likely to be
+    maxAge: 40
+    chiefMaxAge: 50
+    ranks:
+      - { id: chief, cant: "captain hackum", plain: "sells 'protection' to the shops, and is what they need protecting from", chief: true, minAge: 24, sex: m }
+      - { id: collector, cant: "Saturday man", plain: "calls on the shops each week for the money", weight: 2, minAge: 20 }
+      - { id: ding, cant: "ding boy", plain: "breaks shutters, heads and anything else he's told to", weight: 3, minAge: 16, sex: m }
+    source: "CC pp.51 (extortioners, 1st tier), p.64-65 (bullies)"
+
+  - id: prancers
+    label: "horse thieves"
+    cant: "priggers of prancers"
+    minPop: 3000
+    needs: [inn]
+    weight: 3
+    size: [3, 5]
+    den: [livery_stable, town_alehouse, inn]
+    recruit: { ostler: 12, drover: 6, carter: 4, vagrant: 2, labourer: 1 }
+    crimes: [horse]
+    turf: inns
+    names: ["the {ward} prancer-priggers", "the {den} horse-coupers", "the {gate} horse-coupers"]
+    # the oldest a working member or a chief is likely to be
+    maxAge: 50
+    chiefMaxAge: 60
+    ranks:
+      - { id: chief, cant: "jingler", plain: "a horse dealer at the fairs, who sells the stolen ones far away with new marks", chief: true, minAge: 25 }
+      - { id: prigger, cant: "prigger of prancers", plain: "takes a horse from the stable in the small hours", weight: 3, minAge: 16 }
+      - { id: queer_bird, cant: "queer bird", plain: "looks for work at the inns, and for which stable door sticks", weight: 2, minAge: 16 }
+    source: "CC p.53 (horse thieves, 2nd tier)"
+
+# Roles the whole underworld shares, in bigger places.
+roles:
+  boss: { minPop: 8000, minGangs: 3, cant: "upright man of the whole town", plain: "takes a tenth from every crew's take, settles their quarrels, and keeps the officers sweet", source: "CC p.46 (the tithe up the chain)" }
+  fence: { cant: "fence", plain: "receives stolen goods, pays a third of their worth, and sells them on far off", source: "CC pp.51-52 (fences)" }
+  knife: { minPop: 10000, cant: "knife for hire", plain: "kills for money, and makes it look like anything but", source: "CC pp.47-49 (the assassins, here only one or two quiet hired killers)" }
+  thiefTaker: { minPop: 6000, cant: "thief-taker", plain: "catches thieves for the reward, and runs a few of his own", source: "CC pp.39-40 (thief-takers and paid informers)" }
+
+# Where a fence sits: occupations, by weight.
+fences: { fripperer: 10, money_changer: 6, alehouse_keeper: 6, alewife: 3, sleeping_keeper: 5, rooming_keeper: 3, hostel_keeper: 2, tavern_keeper: 3, rag_picker: 3, pewterer: 1, goldsmith: 1 }
+
+# The knife's cover, and how the knife works (CC pp.47-49, rewritten).
+knifeCover: { apothecary: 8, barber: 6, butcher: 3, soldier: 3, porter: 2, journeyman: 2, physician: 1, cook: 2 }
+knifeMethods:
+  - { id: venom, text: "something in the wine", death: "took ill at supper and died before morning", cover: [apothecary, physician, cook] }
+  - { id: accident, text: "an accident: a fall, a loose stair-rod, a runaway cart", death: "fell on the stairs in the dark and broke his neck" }
+  - { id: blade, text: "a quarrel picked in a tavern, and a knife in a fair fight", death: "was killed in a tavern brawl that nobody remembers starting" }
+  - { id: pillow, text: "a pillow over the face, asleep", death: "died in the night in bed, quietly" }
+  - { id: river, text: "a push into the river after dark", death: "was pulled out of the river, drowned, with drink on the breath" }
+  - { id: footpads, text: "made to look like footpads", death: "was set on by robbers in a lane and beaten to death" }
+
+# The crimes the crews commit, and what they look like on the day.
+# `rate`: chance a crew of six does one on a given day (scaled by size and
+# level). `catch`: chance the culprit is taken. `offence`: what the law calls it.
+crimes:
+  cutpurse:  { label: "purse cut", charge: "cutting purses", plural: "purses cut", offence: theft, rate: 0.25, catch: 0.112, blocks: [forenoon, afternoon], doing: "working the market crowd, a little knife in the palm", source: "CC pp.58-59" }
+  pickpocket: { label: "pocket picked", charge: "picking pockets", plural: "pockets picked", offence: theft, rate: 0.15, catch: 0.08, blocks: [forenoon, afternoon, evening], doing: "in the press of people, light-fingered", source: "CC p.58" }
+  burglary:  { label: "house broken into", charge: "housebreaking", plural: "houses broken into", offence: burglary, rate: 0.09, catch: 0.192, blocks: [late_night], doing: "inside a house that isn't theirs, in the dark", source: "CC p.58" }
+  robbery:   { label: "robbed in the street", charge: "robbery in the street", plural: "robberies in the street", offence: robbery, rate: 0.06, catch: 0.224, blocks: [night], doing: "waiting in the dark of a lane with a cudgel", source: "CC p.60" }
+  dice:      { label: "fleeced at dice", charge: "cheating at dice", plural: "fleecings at dice", offence: cheating, rate: 0.12, catch: 0.08, blocks: [evening], doing: "at the dice, with a friendly stranger who doesn't know yet", source: "CC pp.53-54" }
+  crossbite: { label: "robbed in the stews", charge: "robbery in the stews", plural: "robberies in the stews", offence: theft, rate: 0.06, catch: 0.064, blocks: [night], doing: "at the stews, about the house's business", source: "CC p.58" }
+  smuggle:   { label: "wool run past the customs", charge: "running wool past the customs", plural: "loads of wool run past the customs", offence: smuggling, rate: 0.05, catch: 0.128, blocks: [late_night], doing: "loading bales into a boat with no light showing", source: "CC p.54" }
+  coin:      { label: "clipped coin passed", charge: "passing clipped coin", plural: "clipped coins passed", offence: coining, rate: 0.04, catch: 0.096, blocks: [forenoon], doing: "buying small things in the market with light pennies", source: "CC pp.56, 65" }
+  smash:     { label: "shop smashed", charge: "smashing up a shop", plural: "shops smashed", offence: violence, rate: 0.03, catch: 0.24, blocks: [night], doing: "smashing a shop's shutters for a lesson", source: "CC p.51" }
+  horse:     { label: "horse stolen", charge: "horse theft", plural: "horses stolen", offence: horse_theft, rate: 0.03, catch: 0.16, blocks: [late_night], doing: "leading a horse out of a stable with its hooves muffled in sacking", source: "CC p.53" }
+  linen:     { label: "linen stolen", charge: "stealing linen", plural: "washing lines stripped", offence: theft, rate: 0.04, catch: 0.096, blocks: [afternoon], doing: "hooking washing off a hedge with a long staff", source: "CC p.70 (prygmen), p.61 (lully priggers)" }
+  killing:   { label: "killing", charge: "murder", plural: "killings", offence: murder, rate: 0, catch: 0.24, blocks: [night], doing: "about a quiet piece of work", source: "CC pp.47-49" }
+
+# What things get taken, by how well off the house is (rank of the household).
+loot:
+  poor: ["a pewter dish", "a shirt and a pair of hose", "a copper pot", "a ham from the rafters", "two good knives", "a cloak", "a bolt of coarse cloth", "a purse with a few pence"]
+  middling: ["the pewter off the dresser", "a silver spoon", "a gown and a good cloak", "the money-box from under the bed", "a brass ewer and basin", "the shop's takings", "a bolt of good cloth", "a belt with a silver buckle"]
+  rich: ["the plate from the hall", "a coffer of coin", "a silver salt and six spoons", "the lady's rings", "a mazer bound in silver", "a furred gown", "a gold chain of office", "letters from the strongbox"]
+
+# The ladder of punishment (CC pp.176-179 give a long table for a later age;
+# this is our own high-medieval version: twelvepence divides petty theft from
+# grand larceny, which is a felony and a hanging matter).
+petty:
+  - { id: pillory, text: "a day in the pillory in the market, pelted with filth", weight: 4 }
+  - { id: stocks, text: "a day in the stocks", weight: 3 }
+  - { id: whipped, text: "whipped at the cart's tail through the town", weight: 3 }
+  - { id: fined, text: "fined, and bound over to keep the peace", weight: 2 }
+cheating: "the pillory, with the false dice hung round the neck"
+vagrancy: "whipped, and put out at the gate"
+assize:
+  - { id: hanged, text: "hanged on the common gallows outside the town", weight: 3 }
+  - { id: elevenpence, text: "the jury valued the goods at elevenpence, so it was petty theft after all: whipped and let go", weight: 3 }
+  - { id: acquitted, text: "acquitted: the jury knew the family", weight: 4 }
+  - { id: approver, text: "turned approver and named others, and walked free", weight: 1 }
+  - { id: pardoned, text: "pardoned, for a price", weight: 1 }
+clergy: "pleaded benefit of clergy: read the neck verse, was branded on the thumb, and let go"
+sanctuary: "fled to sanctuary in the church; after forty days abjured the realm, and walked to the coast in sackcloth"
+
+# The chalk marks beggars and vagabonds leave by doors (CC pp.130-134;
+# our glyphs, the meanings abridged).
+marks:
+  rich:  { glyph: "⊕", text: "a rich house, worth the trouble" }
+  poor:  { glyph: "○", text: "nothing to be had here" }
+  kind:  { glyph: "∪", text: "they give: tell a sad tale" }
+  pious: { glyph: "✝", text: "talk of the saints here and they'll feed you" }
+  hard:  { glyph: "⊓", text: "a hard man: move on" }
+  law:   { glyph: "‖", text: "the law lives here" }
+  dog:   { glyph: "▲", text: "a dog that bites" }
+  barred: { glyph: "⊞", text: "robbed once: barred now, and watching" }
+  empty: { glyph: "◇", text: "nobody home by day" }
+  work:  { glyph: "#", text: "they'll make you work for a meal" }
+  old:   { glyph: "∴", text: "an old one alone: easy" }
+
+# Street names for crew members.
+aliases:
+  feature:
+    scar: ["Slash {given}", "Scarred {given}"]
+    fingers: ["{given} Three-Fingers", "Nine-Fingers"]
+    tall: ["Long {given}", "Lanky {given}"]
+    red_hair: ["Ginger {given}", "Red {given}"]
+    squint: ["Squinting {given}", "the Squint"]
+    lame: ["Hopping {given}", "Dot-and-Carry"]
+    bald: ["Bald {given}", "the Egg"]
+    thin: ["the Rake", "Thin {given}"]
+    fat: ["Fat {given}", "the Barrel"]
+    teeth: ["Gappy {given}", "Tooth"]
+    pockmarked: ["Pocky {given}", "Spotted {given}"]
+    nose: ["Beak", "{given} Nose"]
+    wiry: ["Wiry {given}", "the Ferret"]
+    handsome: ["Pretty {given}", "Sweet {given}"]
+    deaf: ["Deaf {given}", "Hark"]
+    voice: ["Whisper", "Croaker"]
+    hands: ["Quick {given}", "{given} Lightfingers"]
+    ears: ["Jug", "Wingnut"]
+  trait:
+    sly: ["the Weasel", "Fox {given}"]
+    quarrelsome: ["the Bear", "Black {given}"]
+    hot_tempered: ["Hot {given}", "the Kettle"]
+    cheerful: ["Merry {given}", "Sunny {given}"]
+    quiet: ["Silent {given}", "Mouse"]
+    pious: ["the Parson", "Holy {given}"]
+    drinker: ["Pottle {given}", "Barrel-and-Bung"]
+    boastful: ["Captain {given}", "the Gentleman"]
+    bold: ["Bold {given}", "the Cock"]
+    timid: ["Mouse", "Shy {given}"]
+    shrewd: ["the Magpie", "Sharp {given}"]
+  any: ["Little {given}", "{given} Quick", "the Owl", "Magpie", "Shoes", "{given} the Nip", "Jack-in-the-Box", "Kit-cat", "Rook", "Crow", "Toby", "the Moth", "Sixpence", "Darkmans {given}", "Wet {given}", "Old {given}"]
+
+# What a crew calls itself in the open: a password and a sign (our own).
+words: ["darkmans", "lightmans", "ruffmans", "bene bowse", "the green cove", "Saint Dismas", "the queer cuffin's dead", "a rum mort", "glimmer", "the cly is light", "harmanbeck sleeps", "cackling cheat", "pannam and caffan", "the prancer's shod", "salmon", "lour", "the knot's fast"]
+signs: ["a thumb drawn down the cheek", "two fingers laid along the nose", "a knuckle rapped twice on the table, then once", "a hat touched with the left hand", "a palm turned up and slowly closed", "the little finger crooked round a cup", "a coin turned over on the counter", "an ear pulled, as if it itched"]
+emblems: ["a wheel", "a hook", "a cross in a ring", "an open hand", "a key", "a little gallows, upside down", "a crescent moon", "three strokes and a dot"]
+customs:
+  - "a tenth of every take to the chief, before anyone drinks"
+  - "nobody works the street the den is on"
+  - "a member taken by the watch keeps his mouth shut, and the crew feeds him in gaol"
+  - "a nose has his tongue slit, if he's lucky"
+  - "no working in the parish of the church that feeds them"
+  - "new members are sworn in at night with ale poured over the head"
+  - "no lifting from widows on a Sunday"
+  - "the children keep a quarter of what they bring in"
+  - "quarrels go to the chief, never to the watch"
+
+# The cant: period slang, defined in our own words.
+cant:
+  - { w: "cove", m: "a man; one of us" }
+  - { w: "mort", m: "a woman" }
+  - { w: "cull / cony", m: "a mark: the fool about to be robbed" }
+  - { w: "ken", m: "a house" }
+  - { w: "bousing ken", m: "an alehouse" }
+  - { w: "bowse", m: "drink" }
+  - { w: "darkmans", m: "the night" }
+  - { w: "lightmans", m: "the day" }
+  - { w: "ruffmans", m: "the woods, the hedges" }
+  - { w: "glimmer", m: "fire; a light" }
+  - { w: "lour", m: "money" }
+  - { w: "cly", m: "a pocket or a purse" }
+  - { w: "bung", m: "a purse" }
+  - { w: "nip", m: "to cut a purse; one who does" }
+  - { w: "foist", m: "to pick a pocket; one who does" }
+  - { w: "stall", m: "the one who distracts the mark" }
+  - { w: "prig", m: "to steal" }
+  - { w: "fence", m: "a receiver of stolen goods; to sell to one" }
+  - { w: "upright man", m: "the chief of a crew" }
+  - { w: "dimber damber", m: "the head of a gang; the best of them" }
+  - { w: "harmanbeck", m: "a constable" }
+  - { w: "queer cuffin", m: "a justice; the magistrate" }
+  - { w: "beak", m: "a magistrate" }
+  - { w: "harmans", m: "the stocks" }
+  - { w: "stalling ken", m: "a house that takes stolen goods" }
+  - { w: "trine", m: "to hang" }
+  - { w: "chats", m: "the gallows" }
+  - { w: "nab", m: "the head; to catch" }
+  - { w: "pannam", m: "bread" }
+  - { w: "caffan", m: "cheese" }
+  - { w: "cackling cheat", m: "a hen" }
+  - { w: "prancer", m: "a horse" }
+  - { w: "bene", m: "good" }
+  - { w: "rum", m: "fine, first-rate" }
+  - { w: "queer", m: "bad, false, dangerous" }
+  - { w: "cant", m: "to speak; the speech itself" }
+  - { w: "stow you", m: "shut up" }
+  - { w: "bing awast", m: "get away, quickly" }
+  - { w: "togeman", m: "a cloak" }
+  - { w: "duds", m: "clothes" }
+  - { w: "fullams", m: "loaded dice: high men throw high, low men low" }
+  - { w: "nose", m: "an informer" }
+  - { w: "bawd", m: "the keeper of a bawdy house" }
+  - { w: "doxy", m: "a beggar's woman; a whore" }
+  - { w: "crossbite", m: "to rob a man by catching him with a whore" }
+  - { w: "kinchin", m: "a child" }
+  - { w: "abram", m: "naked, or feigning madness" }
+  - { w: "mumper", m: "a beggar" }
+  - { w: "maund", m: "to beg" }
+  - { w: "owler", m: "a smuggler, who works at night like an owl" }
+  - { w: "jingler", m: "a horse-dealer" }
+  - { w: "stamp", m: "to walk; the road" }
+  - { w: "deuseaville", m: "the country" }
+  - { w: "romeville", m: "the city" }
+  - { w: "gan", m: "the mouth" }
+  - { w: "peck", m: "food" }
+  - { w: "rogue's march", m: "being whipped out of town" }
+
+# What a crew member says to a stranger, by rank (our own lines).
+openers:
+  nips: ["(bumps into you, all apologies, and is gone into the crowd)", "“Mind your step, master, the cobbles are cruel.” (a hand is near your belt)", "“Lost, are you? I know a short way through.”"]
+  crackers: ["“Fine house, that one. Wonder who lives there.”", "(is studying the shutters across the lane, and looks away when you see)", "“Anything heavy to carry? I'll do it for a penny.”"]
+  pads: ["“Late to be walking, friends. Dark lanes hereabout.”", "(steps out of a doorway, sees how many of you there are, and steps back in)", "“Spare a penny for an old soldier? No? Pity.”"]
+  mumpers: ["“Alms, for the love of God, for a poor man maimed in the wars!”", "(rolls up a sleeve to show a weeping sore, very carefully)", "“A penny, master, and I'll pray for you at every church in the town.”"]
+  cheats: ["“Strangers! You'll take a cup with me. There's a friendly game in the back room, small stakes.”", "“My cousin's at the dice in there, losing his shirt. Come and see the fun.”", "“You look like men of the world. Do you play?”"]
+  stews: ["“Tired from the road? There's a bathhouse round the corner with very warm water.”", "(smiles from a doorway, and nods towards the stair)", "“Looking for company, sirs? I know a quiet house.”"]
+  owlers: ["“You didn't see a boat. Nobody saw a boat.”", "“Wool? What wool? I'm a carter.”", "(tips his hat and keeps on walking, quickly)"]
+  clippers: ["“Change your silver, master? Good weight, good weight.”", "“Fine coin you have there. I'll give you a fair rate for it.”", "(weighs a penny in his palm without seeming to)"]
+  bullies: ["“Strangers in this street pay their way. Ask anyone.”", "“Nice shop, that. Shame if anything happened to it.”", "(blocks the lane, arms folded, and smiles)"]
+  prancers: ["“Fine horse. Where are you stabling him tonight?”", "“Want a horse? I can get you a horse. Don't ask where.”", "(runs a hand down your horse's leg, admiringly)"]
+  boss: ["“I hear you've come to town. I make it my business to hear things.”", "“Sit, sit. Have a drink on me. We should be friends, you and I.”"]
+  fence: ["“Anything to sell? I buy anything, no questions. Well, small questions.”", "“I deal in second-hand goods, master. Very second-hand.”"]
+  knife: ["“Good day.” (and nothing in the eyes at all)", "“Strangers? I keep myself to myself, and I advise the same.”"]
+  thiefTaker: ["“Strangers, eh? I'll be keeping an eye on you. I keep an eye on everyone.”", "“If anything goes missing while you're here, I'll know where to look first.”"]
+
+# The tellings of crimes as talk: the truth, grown, and the wrong person.
+# {a} victim, {c} an innocent neighbour who gets the blame, {items}, {loot},
+# {where}, {crew} the crew's name, {who} the culprit (arrests only), {fate}.
+talk:
+  cutpurse:
+    - "{a} had a purse cut in the market, with {loot} in it"
+    - "{a} had a purse cut in the market, with {more} in it, the way it's told now"
+    - "{c} was standing right next to {a} when the purse went, they say"
+  pickpocket:
+    - "{a}'s pocket was picked, {loot} gone"
+    - "{a} lost {more} to a gang of children, in broad daylight"
+    - "{c} was close by when {a}'s pocket was picked, and has new shoes"
+  burglary:
+    - "{a}'s house was broken into in the night: {items} taken"
+    - "{a}'s house was broken into in the night, and the family slept through it all, or say they did"
+    - "it was {c} who broke into {a}'s house, they say; who else knew where things were kept?"
+  robbery:
+    - "{a} was knocked down and robbed after dark: {items}"
+    - "{a} was set on by three men in the dark and robbed of {more}, they say"
+    - "{c} was seen loitering in the lane where {a} was robbed"
+  dice:
+    - "{a} lost {loot} at dice at {where}, to strangers"
+    - "{a} lost the house and the horse at dice, near enough"
+    - "{c} was in on the dicing that fleeced {a}"
+  crossbite:
+    - "{a} was robbed at the stews, and can't very well complain to the watch"
+    - "{a} was caught at the stews by a woman's 'husband' and paid {loot} to keep it quiet"
+    - "{c} was seen coming out of the stews the same night"
+  smuggle:
+    - "lights on the water at night: owlers running wool past the customs"
+    - "a whole ship's load went out under the customs' noses"
+    - "{c} has more money than a carter ought to have"
+  coin:
+    - "clipped pennies are turning up in the market; the money-changers weigh everything now"
+    - "half the silver in town is clipped, and the king's men are coming"
+    - "{c} paid for bread in pennies so light they floated"
+  smash:
+    - "{a}'s shop was smashed up in the night"
+    - "{a}'s shop was smashed up in the night and a warning chalked on the door"
+    - "{c} smashed up {a}'s shop over an old grudge, they say"
+  horse:
+    - "a horse was taken from the stables at {where} in the night"
+    - "three horses were taken from {where} and nobody heard a thing"
+    - "{c} has a horse nobody can account for"
+  linen:
+    - "{a}'s washing went off the hedge"
+    - "{a}'s washing went off the hedge, and the hens with it"
+    - "{c} has been wearing a shirt very like one of {a}'s"
+  killing:
+    - "{a} is dead: {death}"
+    - "{a} is dead, and it was no accident, whatever the coroner says"
+    - "{c} had cause to want {a} dead, people are saying"
+  arrest:
+    - "{who} was taken by the watch for {crime}"
+    - "{who} was taken by the watch for {crime}, and half the gang besides"
+    - "{who} was taken by the watch for {crime}; or {c} was, depending who's telling it"
+  sentence:
+    - "{who}, for {crime}: {fate}"
+    - "{who}, for {crime}: {fate}; and the whole town turned out to see it"
+    - "{who}, for {crime}: {fate}"
+
+# {more} is the loot as it's told a week later: three or four times over.
+# Secret ties between people, as talk when they come out. Same shape as
+# gossip's topics: {a} from, {b} to, {c} the wrong person, {about}.
+topics:
+  in_gang:
+    leak: 0.06
+    tellings:
+      - "{a} runs with {b}"
+      - "{a} is one of the worst of {b}"
+      - "{c} runs with {b}"
+  fence_for:
+    leak: 0.12
+    tellings:
+      - "{a} buys stolen goods from {b}'s crew"
+      - "{a}'s back room is full of other people's things"
+      - "{c} buys stolen goods"
+  harbours:
+    leak: 0.1
+    tellings:
+      - "{a} lets {b}'s crew meet in the back room"
+      - "{a} hides thieves from the watch"
+      - "{c} hides thieves from the watch"
+  pays_off:
+    leak: 0.3
+    tellings:
+      - "{b} takes money from {a} to look the other way"
+      - "{b} is in the pay of every thief in the ward"
+      - "{c} takes money to look the other way"
+  protection:
+    leak: 0.25
+    tellings:
+      - "{a} pays {b} every week, and it isn't for nothing"
+      - "every shop in the street pays {b}, and {a} pays double"
+      - "{c} pays {b} every week"
+  informs_on:
+    leak: 0.2
+    tellings:
+      - "{a} is a nose: tells {b} everything"
+      - "{a} has sold half the town's thieves to {b}"
+      - "{c} is a nose, tells the watch everything"
+  blackmails:
+    leak: 0.3
+    tellings:
+      - "{a} has something on {b}, and {b} is paying"
+      - "{a} has been bleeding {b} dry for a year"
+      - "{c} has something on {b}"
+  tithe_to:
+    leak: 0.05
+    tellings:
+      - "{a} pays a tenth of the take to {b}"
+      - "{b} is the real master of every thief in town"
+      - "{c} pays a tenth of the take to {b}"
+  hired_knife:
+    leak: 0.4
+    tellings:
+      - "{a} paid {b} to have someone killed"
+      - "{a} has paid to have more than one person killed"
+      - "{c} paid to have someone killed"

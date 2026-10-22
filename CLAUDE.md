@@ -16,7 +16,9 @@ Low-fantasy, human-only, mundane medieval settlement generator for D&D. The desi
 
 - Never copy, port or consult GPL code, in particular Settlemaker or watabou's Medieval Fantasy City Generator (both GPL-3). The layout is clean-room.
 - No runtime dependencies. YAML is converted to JSON at build time (see `vite.config.ts`). Before adding a runtime dependency, check its licence is permissive and ask first.
-- Gygax's *Living Fantasy* is copyrighted. Use its numbers and structures, write every row in our own words, and cite the page in `source`.
+- Gygax's *Living Fantasy* (LF) and *The Canting Crew* (CC) are copyrighted. Use their numbers and structures, write every row in our own words, and cite the page in `source`. The cant itself is period slang (Harman, Dekker), defined in our own words.
+- The *Low Fantasy Population Generator* (LFP, The Welsh Piper) is CC BY-SA, after S. John Ross's *Medieval Demographics Made Easy*. Take its numbers only (people per trade, officers, regional spread), never its text, and cite "LFP": copying its prose would bring share-alike in.
+- Check the era before adding an office, a material or a custom: justices of the peace and magistrates, brick, pews, chimneys for all, thief-takers and St Hugh are later than 1203. `tests/lint.test.ts` catches some of these.
 
 ## Rules for generators
 
@@ -31,13 +33,16 @@ Low-fantasy, human-only, mundane medieval settlement generator for D&D. The desi
 - **Town modules must do nothing in hamlets** unless you mean to change hamlet output (and then update the golden and say so). Check `isStreetPlan(town)` or the size class.
 - **Big settlements: avoid all-pairs loops.** Use grids or indexes; keep the small-settlement path identical.
 - **Generation must not read `town.clock`.** Store dated things relative to now; work out the year when displaying.
+- **A routine hook must not call `whereabouts()`**, and nothing the crime or lives calendars call may either: whereabouts asks the hooks. Hooks run for every person every block, so index by date (see `dayIndex` in lives) rather than scanning events.
+- **"Urban" means `isUrban(town)`** (core): a market town of 1,001 or more. Don't test `sizeClass` for town|city to decide town ways of life.
+- **Every line of character text needs an age band**, and town- or country-only lines a `setting`. Give pronouns as `{they}`/`{their}` and verbs as `{verb}`; build possessives with `poss()`.
 - **Content goes in `content/*.yaml` or the module's `content/`**, with `id`, optional `era`, and `source`.
 - **Version bumps:** if a change alters output for an existing seed, bump that module's major `version` (it goes into the RNG key) and add a line to `CHANGELOG.md`. The golden test in `tests/core.test.ts` catches this. Nothing is released yet, so until 1.0 of the app you may update the golden snapshot (`npx vitest run -u`) instead, but say so.
 
 ## Layout
 
 ```
-src/core/       addresses, rng, dmath, calendar, registry, town (entities, overlay, ctx, society phase), save, loader
+src/core/       addresses, rng, dmath, calendar (feasts, fasts, seasons, whenOf), text (poss, tidy), registry, town (entities, overlay, ctx, society phase), save, loader
 src/modules/    one folder per module: index.ts + content/*.yaml
   core          tiers, bases, sizes, materials, edge kinds, L0 settlement facts
   uses          building uses and occupations; the building plan (urban.ts above 1,000 people); L2 construction
@@ -54,14 +59,24 @@ src/modules/    one folder per module: index.ts + content/*.yaml
   civic         street plans: ward and gate names, government, watch, police, criers, courts, services
   guilds        towns: merchant and craft guilds, wardens, journeymen, demarcation quarrels
   lodging       inns, taverns, rooming houses, hostels: grades, prices, guests tonight
-  gossip        rumours as a pure function of the clock: leaks, news, chatter, spread, tellings, knownByAt
+  gossip        rumours as a pure function of the clock: leaks, news, chatter, spread, tellings, knownByAt; rumourTopics and rumourSources registries
   visitors      the visitors calendar: visitsIn(year), visitorsOn(date); pure functions
-  routines      six-block daily routines, errands to shops, visits to friends; whereabouts(), occupancy(); clock panels
+  routines      six-block daily routines, errands to shops, visits to friends; whereabouts(), occupancy(); clock panels; routineHooks registry
+  crime         street plans of 1,000+: the underworld (found.ts, society phase: crews, fences, boss, payoffs, informers, rackets, blackmail, knives, chalk marks),
+                world() (a structured view), the crime calendar (calendar.ts: incidents, arrests, gaol, assizes, statuses; pure, worked forward from 1200)
+  weather       a seeded day's weather and the light by block (pure; routines and Nearby read it)
+  region        where the roads go, the shire town, neighbours, ruins, carriers, news from outside
+  lore          tales tied to buildings, customs, a rhyme, wonders told now and then
+  market        the year's harvest, prices that follow it, what each shop has on its board
+  lives         from Michaelmas 1203: deaths, births, weddings, funerals, fires, floods, sickness (pure, worked forward)
+  politics      factions, the Michaelmas choosing, the quarrel of the year, who can be leaned on
+  hire          hirelings and travelled old hands, chosen in the society phase
   sifters       plot-hook sifters over the graph (capped at 2 each)
 src/ui/         library.ts (your towns, the URL key), party.ts (nearby report, encounters, job board; pure), map.ts (pure SVG renderer), discover.ts (who knows, lenses, search, lists, almanac, a person's day; pure), main.ts (app), style.css
 tests/          core (determinism, isolation, stubs, overlay, saves, golden), people (calendar, society, routines),
                 bases (all five economies, terrain, visitors), manor, town (street plans and town institutions), gossip, discover,
-                design (town plans), character (people and their days), library, party
+                design (town plans), character (people and their days), library, party, crime, features (the lived-in town),
+                lint (text: broken templates, wrong-century words, overused lines)
                 SAMPLE=1 / PERF=1 enable sample.test.ts / perf.test.ts
 ```
 

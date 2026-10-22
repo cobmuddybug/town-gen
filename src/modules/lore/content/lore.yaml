@@ -1,0 +1,39 @@
+# Place lore: what people say about the places they live among. Tied to a
+# building by its use; {saint} is a church's saint, {name} a family name of
+# the place, {years} a span of years. All our own.
+tales:
+  well: ["the well never ran dry in the hungry year, and its water is good for sore eyes", "a girl drowned in the well, and on still nights you can hear her singing", "the well is bottomless, the children say; a dropped stone never lands"]
+  church: ["the bell in the tower rang by itself the night the old lord died", "there is a door in the north wall that is opened only for christenings, to let the devil out", "the font is older than the church, and nobody knows who carved the faces on it", "a saint's finger is kept in a box behind the altar and brought out on the patron's day", "the yew in the churchyard is older than the church, and nobody cuts its branches"]
+  inn: ["a king once slept here, they claim, and the bed is still shown for a penny", "the cellar runs under the street to somewhere nobody will say", "a pedlar was murdered in the upstairs room and his pack never found", "the landlord's grandfather won the house at dice from a knight"]
+  alehouse: ["the alewife's ale cured a fever once, and she has dined out on it since", "a ghostly drinker sits by the fire on winter nights and is served without anyone noticing"]
+  old: ["the house is cursed: three heads of it have died in the same chair", "a hoard was buried under the floor in the war, and never dug up", "the empty house at the end of the row has a light in it some nights", "the old woman who lived here was a witch, and her cat still comes back"]
+  mill: ["the miller's thumb is gold, as the saying goes; this one's is said to be solid", "the wheel stopped by itself the night before the great flood"]
+  gate: ["a traitor's head was spiked over this gate in the old king's time", "the gate was never shut in living memory but once, the year of the sickness"]
+  gaol: ["a man walked out of the gaol through the wall, and was never seen again", "the deepest cell floods at every high water, and the gaoler charges to be moved"]
+  market: ["the market cross marks where a saint preached, and bargains struck at it must be kept", "a stone in the market is said to be where they buried the last dragon, which nobody believes"]
+customs:
+  - "On Plough Monday the ploughboys drag a plough through the streets and plough up the step of anyone who won't give."
+  - "At Rogationtide the parish beats the bounds, and the boys are bumped on the marker stones so they'll remember them."
+  - "On St Thomas' Day the old women go a-Thomasing from door to door, and every house gives a measure of corn."
+  - "A bride is lifted over the threshold of her new house, so she never trips on it."
+  - "Nobody sweeps a floor between Christmas and Twelfth Night, or the luck goes out with the dust."
+  - "The first lamb of the spring belongs to the church, and the priest blesses the rest."
+  - "A sprig of rowan over the byre door keeps the cows in milk."
+  - "On Midsummer Eve the young leap the bonfires in the street, and the watch pretends not to see."
+  - "When a man of the town dies, his bees are told, and their hives turned, or they'll leave."
+  - "Strangers are offered bread and salt at the first door they knock on, and must not refuse."
+rhymes:
+  - "Ring the bell and hang the thief, / bread is dear and beer is brief."
+  - "One for the rook and one for the crow, / one to rot and one to grow."
+  - "Mother Haggett's on her broom, / tap three times and leave the room."
+  - "Watchman, watchman, what's the hour? / Past the curfew, bar the door."
+  - "Hob and Dick went up the hill / to see the miller grind his mill."
+  - "Tell me true and tell me plain, / when will my true love come again?"
+# Wonders and frights, told now and then: ghosts seen, miracles claimed.
+wonders:
+  - "a light was seen moving in the churchyard after midnight, and the sexton won't go in"
+  - "a woman was cured at the saint's altar, and is going about telling everyone"
+  - "a calf was born with two heads out past the gate, and the priest has been sent for"
+  - "the bells rang by themselves in the night, and three people heard them"
+  - "a black dog walked down the high street at midnight and vanished at the cross"
+  - "a weeping was heard from the empty house, and two neighbours swear to it"

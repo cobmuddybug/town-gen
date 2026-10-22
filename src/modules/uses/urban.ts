@@ -55,13 +55,14 @@ export function planUrban(
   if (urban) {
     const temples = Math.max(1, Math.round(pop / 12000));
     for (let i = 0; i < temples; i++) worship.push("temple");
-    for (let i = 0, n = count(pop / 950); i < n; i++) worship.push("fane");
+    for (let i = 0, n = count(pop / 800); i < n; i++) worship.push("fane");
     for (let i = 0, n = count(pop / 2200); i < n; i++) worship.push("chapel");
     for (let i = 0, n = count(pop / 3200); i < n; i++) worship.push("chantry");
     for (let i = 0, n = count(pop / 1800); i < n; i++) worship.push("shrine");
   } else {
+    // A market town has a parish church for every few hundred souls, as the old towns did.
     worship.push("fane");
-    for (let i = 0, n = count((pop - 1000) / 2500); i < n; i++) worship.push("fane");
+    for (let i = 0, n = count((pop - 1000) / 900); i < n; i++) worship.push("fane");
     for (let i = 0, n = count(pop / 1800); i < n; i++) worship.push("chapel");
     for (let i = 0, n = count(pop / 1200); i < n; i++) worship.push("shrine");
     if (r.chance(0.3)) worship.push("chantry");

@@ -1,3 +1,5 @@
+import { poss } from "../../core/text";
+import { addDays, describeDate, easter } from "../../core/calendar";
 import { data } from "../../core/content";
 import type { Entity, Town } from "../../core/town";
 import type { EdgeKind, Module, PanelRow, Sifter } from "../../core/types";
@@ -9,8 +11,42 @@ import religionYaml from "./content/religion.yaml";
 // their own court (LF p.88).
 
 interface Seat { id: string; label: string; clergy: string; supports: string; tithes: string }
-interface ReligionData { seats: Seat[]; saints: string[]; friars: string[]; hospital: string[]; lazar: string[]; misdeeds: string[]; grudges: string[] }
+interface ReligionData { seats: Seat[]; saints: string[]; friars: string[]; hospital: string[]; lazar: string[]; misdeeds: string[]; grudges: string[]; feasts: Record<string, string> }
 const content = data<ReligionData>(religionYaml);
+
+/** The saint a church is dedicated to, if it has one. */
+export function patronOf(town: Town, church: string): string | undefined {
+  const b = town.find(church);
+  if (!b || b.type !== "building") return undefined;
+  return town.settlement().get<Record<number, string> | undefined>("dedications")?.[(b as Entity).generated<number>("planIndex")];
+}
+
+/** The date of a church's patronal feast in a year ("MM-DD" resolved), if its saint has one. */
+export function patronalDate(town: Town, church: string, year: number): string | undefined {
+  const saint = patronOf(town, church);
+  const md = saint ? content.feasts[saint] : undefined;
+  if (!md) return undefined;
+  if (md === "trinity") return addDays(easter(year), 56);
+  return `${year}-${md}`;
+}
+
+const patronalMemo = new WeakMap<Town, Map<number, Map<string, string[]>>>();
+/** The parish churches keeping their patron's feast on a date. */
+export function patronalOn(town: Town, date: string): string[] {
+  const y = Number(date.slice(0, 4));
+  let byYear = patronalMemo.get(town);
+  if (!byYear) patronalMemo.set(town, (byYear = new Map()));
+  let m = byYear.get(y);
+  if (!m) {
+    byYear.set(y, (m = new Map()));
+    if (isStreetPlan(town)) for (const b of town.children(town.root, "building")) {
+      if (!PARISH.includes(b.get<string>("use"))) continue;
+      const d = patronalDate(town, b.address, y);
+      if (d) { const l = m.get(d); if (l) l.push(b.address); else m.set(d, [b.address]); }
+    }
+  }
+  return m.get(date) ?? [];
+}
 
 export const WORSHIP = ["grand_temple", "temple", "fane", "chapel", "chantry", "shrine", "friary", "priory", "nunnery", "hospital", "lazar_house"];
 const PARISH = ["grand_temple", "temple", "fane"];
@@ -18,19 +54,19 @@ const SEE = "see";
 
 /** A worship building's name, e.g. "St Mary's" or "the Grey Friars". */
 function dedicationName(use: string, d: string): string {
-  const poss = d === "All Saints" || d === "Holy Trinity" ? d : `${d}'s`;
+  const possd = d === "All Saints" || d === "Holy Trinity" ? d : poss(d);
   switch (use) {
     case "grand_temple": return `the Cathedral of ${d}`;
-    case "temple": return `${poss} Minster`;
-    case "fane": return `${poss}`;
-    case "chapel": return `${poss} chapel`;
+    case "temple": return `${possd} Minster`;
+    case "fane": return `${possd}`;
+    case "chapel": return `${possd} chapel`;
     case "chantry": return `the ${d} chantry`;
     case "shrine": return `the shrine of ${d}`;
     case "friary": return d;
-    case "priory": return `${poss} Priory`;
+    case "priory": return `${possd} Priory`;
     case "nunnery": return `the nunnery of ${d}`;
     case "hospital": return `the Hospital of ${d}`;
-    case "lazar_house": return `${poss} lazar house`;
+    case "lazar_house": return `${possd} lazar house`;
   }
   return d;
 }
@@ -49,7 +85,7 @@ function worshipHeads(town: Town): { b: Entity; head: Entity; use: string }[] {
 
 export const religion: Module = {
   id: "religion",
-  version: "1.0.0",
+  version: "2.0.0",
   requires: ["core", "uses", "layout", "households", "names"],
   register(add) {
     add<EdgeKind>("edgeKinds", [{ id: "tithes_to", label: "pays tithes to", inverse: "receives tithes from" }]);
@@ -166,6 +202,8 @@ export const religion: Module = {
           const clergy = town.children(h.address, "person").filter((p) => p.get("role") === "cleric").length;
           if (clergy) rows.push({ label: "Clergy", value: `${clergy + 1} in all, living in` });
         }
+        const pd = patronalDate(town, b.address, Number(town.clock.date.slice(0, 4)));
+        if (pd) rows.push({ label: "Patronal feast", value: `${poss(patronOf(town, b.address)!)} day, ${describeDate(pd)}: a procession round the parish, and a church-ale after` });
         if (PARISH.includes(use)) {
           let n = 0, hh = 0;
           for (const x of town.children(town.root, "building")) for (const y of town.children(x.address, "household")) {

@@ -1,3 +1,4 @@
+import { poss } from "../../core/text";
 import type { Town } from "../../core/town";
 import type { Module, Sifter, SifterMatch } from "../../core/types";
 import { COUNCIL } from "../council";
@@ -51,7 +52,7 @@ export const judgeInOwnCause: Sifter = {
       const judge = sitting[0], other = judge === d.from ? d.to : d.from;
       out.push({
         title: this.title,
-        summary: `${town.label(judge)} sits on the council that must settle ${town.label(other)}'s complaint over ${d.facts?.about ?? "their quarrel"}.`,
+        summary: `${town.label(judge)} sits on the council that must settle ${poss(town.label(other))} complaint over ${d.facts?.about ?? "their quarrel"}.`,
         involves: [judge, other],
       });
     }
@@ -218,7 +219,7 @@ export const sameBandTooSoon: Sifter = {
       .filter((v) => v.kind === "band" && v.tooSoon && Math.abs(jdn(parseDate(v.start)) - j) <= 120)
       .map((v) => ({
         title: this.title,
-        summary: `${v.who} ${v.start >= date ? "are expected" : "came"} ${describeDate(v.start, date)}, only ${parseDate(v.start).y - v.tooSoon!.last} years after their last visit. Someone remembers what happened then.`,
+        summary: `${v.who} ${v.start >= date ? "are expected" : "came"} ${describeDate(v.start, date)}, only ${parseDate(v.start).y - v.tooSoon!.last === 1 ? "a year" : `${parseDate(v.start).y - v.tooSoon!.last} years`} after their last visit. Someone remembers what happened then.`,
         involves: [],
       }));
   },

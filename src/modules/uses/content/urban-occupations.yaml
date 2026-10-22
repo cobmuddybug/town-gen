@@ -13,11 +13,11 @@
 - { id: vintner, label: vintner, tier: middle_middle, byname: Vintner, guild: vintners, servants: [1, 2], apprentices: [0, 1], routine: shopkeeper, source: "LF p.59" }
 - { id: spicer, label: spicer, tier: middle_middle, byname: Spicer, guild: grocers, servants: [1, 2], apprentices: [0, 1], routine: shopkeeper, source: "LF p.59" }
 # Lodging
-- { id: innkeeper, label: innkeeper, tier: middle_middle, servants: [3, 6], routine: alehouse, source: "LF pp.59, 93" }
-- { id: tavern_keeper, label: "tavern keeper", tier: upper_lower, byname: Taverner, servants: [1, 2], routine: alehouse, source: "LF pp.61, 93" }
-- { id: rooming_keeper, label: "keeper of a rooming house", tier: upper_lower, servants: [0, 1], routine: alehouse, source: "LF p.94" }
-- { id: hostel_keeper, label: "hostel keeper", tier: middle_lower, servants: [0, 1], routine: alehouse, source: "LF p.94" }
-- { id: sleeping_keeper, label: "keeper of a sleeping house", tier: middle_lower, routine: alehouse, source: "LF p.94" }
+- { id: innkeeper, label: innkeeper, tier: middle_middle, servants: [3, 6], routine: innkeeper, source: "LF pp.59, 93" }
+- { id: tavern_keeper, label: "tavern keeper", tier: upper_lower, byname: Taverner, servants: [1, 2], routine: taverner, source: "LF pp.61, 93" }
+- { id: rooming_keeper, label: "keeper of a rooming house", tier: upper_lower, servants: [0, 1], routine: innkeeper, source: "LF p.94" }
+- { id: hostel_keeper, label: "hostel keeper", tier: middle_lower, servants: [0, 1], routine: innkeeper, source: "LF p.94" }
+- { id: sleeping_keeper, label: "keeper of a sleeping house", tier: middle_lower, routine: innkeeper, source: "LF p.94" }
 # Cloth and clothes
 - { id: fuller, label: fuller, tier: upper_lower, byname: Fuller, guild: fullers, apprentices: [0, 2], routine: craftsman, source: "LF p.62" }
 - { id: dyer, label: dyer, tier: upper_lower, byname: Dyer, guild: dyers, apprentices: [0, 2], routine: craftsman, source: "LF p.62" }
@@ -29,6 +29,7 @@
 - { id: glover, label: glover, tier: upper_lower, byname: Glover, guild: glovers, apprentices: [0, 1], routine: craftsman, source: "LF p.62" }
 - { id: skinner, label: skinner, tier: lower_middle, byname: Skinner, guild: skinners, apprentices: [0, 2], routine: craftsman, source: "LF p.60" }
 - { id: cordwainer, label: cordwainer, tier: upper_lower, byname: Cordwainer, guild: cordwainers, apprentices: [0, 2], routine: craftsman, source: "LF p.62" }
+- { id: potter, label: potter, tier: middle_lower, byname: Potter, routine: craftsman, source: "LFP (after Ross)" }
 - { id: cobbler, label: cobbler, tier: middle_lower, byname: Cobbler, routine: craftsman, source: "LF p.63" }
 # Metal
 - { id: cutler, label: cutler, tier: lower_middle, byname: Cutler, guild: cutlers, apprentices: [0, 2], routine: craftsman, source: "LF p.60" }
@@ -57,7 +58,7 @@
 - { id: physician, label: physician, tier: upper_middle, byname: Leech, servants: [2, 3], routine: clerk, source: "LF p.57" }
 - { id: barber, label: "barber-surgeon", tier: upper_lower, byname: Barber, guild: barbers, apprentices: [0, 1], routine: shopkeeper, source: "LF p.62" }
 - { id: apothecary, label: apothecary, tier: middle_middle, guild: grocers, servants: [0, 1], apprentices: [0, 1], routine: shopkeeper, source: "LF p.59" }
-- { id: bath_keeper, label: "keeper of the bathhouse", tier: upper_lower, servants: [1, 3], routine: alehouse, source: "LF p.62" }
+- { id: bath_keeper, label: "keeper of the bathhouse", tier: upper_lower, servants: [1, 3], routine: bathhouse, source: "LF p.62" }
 - { id: painter, label: "painter and stainer", tier: upper_lower, byname: Painter, guild: painters, apprentices: [0, 1], routine: craftsman, source: "LF p.61" }
 - { id: carver, label: carver, tier: upper_lower, byname: Carver, guild: carpenters, apprentices: [0, 1], routine: craftsman, source: "LF p.61" }
 - { id: schoolmaster, label: schoolmaster, tier: lower_middle, routine: clerk, source: "LF p.87" }

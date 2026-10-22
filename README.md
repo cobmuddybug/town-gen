@@ -2,6 +2,8 @@
 
 A generator for mundane medieval settlements, for D&D and other tabletop games. It's human-only, has no working magic, and leans on the grinding plausibility of a real hamlet: debts, boundary stones, short measure at the mill.
 
+**Use it in your browser: https://cobmuddybug.github.io/town-gen/** (nothing to install; your towns are kept in your own browser).
+
 Click a building to find out who lives there. Click a person for their family, their temper, and who they're quarrelling with. Nothing is generated until you look at it, and the same seed always gives the same town.
 
 ```sh

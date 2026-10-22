@@ -1,113 +1,349 @@
 # What a DM needs to play a person: what they want and fear, how they talk,
 # what they're good at, how they take to strangers. All our own; no book source.
 # Rows: text, weight, and optional conditions as in people/history.yaml:
-# minAge, maxAge, sex, roles, occ, minRank, maxRank, setting (country or town).
-# {they}/{their}/{them} are pronouns. Write wants as "to ..." and fears as a
-# noun phrase, so nothing has to agree with a pronoun.
+# minAge, maxAge, sex, roles, occ (the person's or household's trade), minRank,
+# maxRank, setting (country or town), bases (the settlement's economy).
+# `clash` lists things that can't stand beside this line, as field:id
+# (want, fear, speech, habit, knack, strangers, faith, health, trait).
+# A clash is checked both ways, so it needs writing on one side only.
+# {they}/{their}/{them}/{themself} are pronouns and {verb} agrees with them.
+# Write wants as "to ..." or a noun phrase and fears as a noun phrase.
+# Babies (under 3) get no want, fear or speech; `babes` gives them a temper.
 
 wants:
+  # Land and living
   - { id: land, text: "a few more acres, and the strip next to {their} own above all", weight: 4, minAge: 18, setting: country, maxRank: 7 }
+  - { id: house, text: "a house with a second chamber and a proper chimney", weight: 3, minAge: 20, maxRank: 6 }
+  - { id: house_town, text: "a house on the main street, not three rooms up a back stair", weight: 3, minAge: 20, maxRank: 6, setting: town }
+  - { id: horse, text: "a horse of {their} own", weight: 2, minAge: 16, maxRank: 7, clash: [fear:horses] }
+  - { id: cow, text: "a cow, so there's milk for the children", weight: 3, minAge: 20, maxRank: 4, setting: country, roles: [head, spouse] }
+  - { id: pig, text: "a pig to fatten for Martinmas", weight: 3, minAge: 18, maxRank: 5 }
+  - { id: boat, text: "a boat of {their} own, and no more crewing for other men", weight: 4, minAge: 16, maxRank: 6, bases: [fishing] }
+  - { id: flock, text: "twenty more ewes and the grazing to keep them", weight: 4, minAge: 18, bases: [herding] }
+  - { id: lode, text: "to strike a good vein before {their} lungs give out", weight: 4, minAge: 16, bases: [mining] }
+  - { id: stall, text: "a stall of {their} own in the market, under cover", weight: 3, minAge: 18, maxRank: 5, setting: town }
+  - { id: shop, text: "a shop with a window onto the street", weight: 3, minAge: 20, maxRank: 6, setting: town, roles: [head, spouse, sibling] }
+  - { id: lease, text: "the lease of the house next door, before someone else gets it", weight: 2, minAge: 30, minRank: 6, setting: town, roles: [head] }
+  - { id: mill_share, text: "a share in the mill, and the toll that comes with it", weight: 1, minAge: 30, minRank: 6, setting: country, roles: [head] }
+  # Money
+  - { id: debt_free, text: "to be clear of debt before Michaelmas", weight: 3, minAge: 20, maxRank: 7 }
+  - { id: money, text: "money, as much of it as can be got, by any means that won't hang {them}", weight: 2, minAge: 18, maxRank: 5 }
+  - { id: dowry, text: "enough put by for a daughter's dowry", weight: 3, minAge: 30, roles: [head, spouse], maxRank: 7 }
+  - { id: own_dowry, text: "a dowry of {their} own, saved a penny at a time", weight: 3, minAge: 14, maxAge: 26, sex: f, maxRank: 6 }
+  - { id: rent, text: "to make the quarter's rent without selling the bed", weight: 3, minAge: 20, maxRank: 4, setting: town, roles: [head, spouse] }
+  - { id: wager, text: "to win back what {they} lost at dice last Easter", weight: 1, minAge: 18, maxRank: 6 }
+  - { id: venture, text: "a share in a cargo, just once, to see if the merchants are right", weight: 2, minAge: 25, minRank: 6, setting: town }
+  - { id: wealth_show, text: "a silver cup on the board, so the neighbours can see it", weight: 2, minAge: 25, minRank: 6, maxRank: 8 }
+  # Family
   - { id: daughter_wed, text: "to see a daughter married above {their} station", weight: 3, minAge: 35, roles: [head, spouse] }
   - { id: son_trade, text: "to get a son apprenticed to a better trade than {their} own", weight: 3, minAge: 30, roles: [head, spouse], setting: town }
-  - { id: debt_free, text: "to be clear of debt before Michaelmas", weight: 3, minAge: 20, maxRank: 7 }
-  - { id: away, text: "to get away from here, to anywhere bigger", weight: 3, minAge: 14, maxAge: 30 }
+  - { id: son_priest, text: "to see a son made a priest, and the family prayed for ever after", weight: 2, minAge: 35, roles: [head, spouse] }
+  - { id: heir, text: "a son to leave the place to", weight: 2, minAge: 25, maxAge: 50, roles: [head], sex: m }
+  - { id: cure, text: "a cure for a sick child at home", weight: 2, minAge: 22, maxAge: 50, roles: [head, spouse] }
+  - { id: remarry, text: "to marry again, and soon, for the children's sake", weight: 3, minAge: 25, roles: [head], maxRank: 6 }
+  - { id: marry, text: "to be married by harvest, and out of {their} father's house", weight: 3, minAge: 16, maxAge: 26, roles: [child] }
+  - { id: brother_home, text: "word from a brother who went for a soldier", weight: 2, minAge: 18 }
+  - { id: grandchild, text: "to hold a grandchild before {they} {die}", weight: 3, minAge: 45, roles: [head, spouse, parent] }
+  - { id: reconcile, text: "to make it up with a sister {they} {have} not spoken to in years", weight: 2, minAge: 30 }
+  - { id: parent_care, text: "someone else to sit up with the old one at night, for a week", weight: 2, minAge: 30, maxAge: 55, roles: [head, spouse] }
+  # Standing
   - { id: respect, text: "to be asked to sit on the council, or at least to be listened to", weight: 2, minAge: 30, sex: m, setting: country }
   - { id: office, text: "a place among the town's officers, and the gown that goes with it", weight: 2, minAge: 30, minRank: 6, setting: town }
+  - { id: freeman, text: "to be sworn a freeman of the town, whatever it costs", weight: 3, minAge: 20, maxRank: 6, setting: town, roles: [head, sibling, servant] }
   - { id: guild, text: "to be made a master of {their} guild before {they} {grow} old", weight: 3, minAge: 18, maxAge: 40, roles: [apprentice, servant, sibling, child], setting: town }
-  - { id: revenge, text: "to see a certain neighbour brought low, and to be there when it happens", weight: 2, minAge: 20 }
-  - { id: quiet, text: "a quiet life; nothing more", weight: 4, minAge: 40 }
-  - { id: heir, text: "a son to leave the place to", weight: 2, minAge: 25, maxAge: 50, roles: [head], sex: m }
-  - { id: love, text: "someone in particular to notice {them}", weight: 3, minAge: 14, maxAge: 28 }
-  - { id: pilgrimage, text: "to make a pilgrimage before {they} {die}", weight: 2, minAge: 45 }
-  - { id: house, text: "a house with a second chamber and a proper chimney", weight: 3, minAge: 20, maxRank: 6 }
-  - { id: horse, text: "a horse of {their} own", weight: 2, minAge: 16, maxRank: 7 }
+  - { id: warden, text: "to be warden of the guild, and walk at the front on the saint's day", weight: 2, minAge: 35, minRank: 6, setting: town, roles: [head] }
   - { id: name, text: "to have the family name mean something again", weight: 2, minAge: 25, minRank: 5 }
-  - { id: money, text: "money, as much of it as can be got, by any means that won't hang {them}", weight: 2, minAge: 18, maxRank: 5 }
+  - { id: reeve, text: "to be chosen reeve, so nobody can push {them} about again", weight: 2, minAge: 30, sex: m, setting: country, maxRank: 6 }
+  - { id: better_pew, text: "the place at the front of the procession that another family has had for years", weight: 1, minAge: 35, minRank: 5 }
+  - { id: gentle, text: "a coat of arms, and to be called master by everyone", weight: 2, minAge: 30, minRank: 8 }
   - { id: favour, text: "the lord's favour, or failing that the steward's", weight: 2, minAge: 25, setting: country }
-  - { id: cure, text: "a cure for a sick child at home", weight: 2, minAge: 22, maxAge: 50, roles: [head, spouse] }
-  - { id: secret_kept, text: "to keep one particular thing buried until {they} {die}", weight: 2, minAge: 25 }
+  - { id: charter, text: "the town's charter renewed on better terms, with {their} name on it", weight: 1, minAge: 40, minRank: 8, setting: town }
+  # Grudges and secrets
+  - { id: revenge, text: "to see a certain neighbour brought low, and to be there when it happens", weight: 2, minAge: 20 }
   - { id: trade_rival, text: "to ruin the rival across the street", weight: 2, minAge: 25, setting: town, roles: [head] }
+  - { id: secret_kept, text: "to keep one particular thing buried until {they} {die}", weight: 2, minAge: 25 }
+  - { id: clear_name, text: "to clear {their} name of a thing {they} didn't do", weight: 2, minAge: 20 }
+  - { id: proof, text: "proof of what the steward has been taking", weight: 1, minAge: 25, setting: country }
+  - { id: warden_proof, text: "proof that a warden of the guild gives short weight", weight: 1, minAge: 25, setting: town }
+  # Escape and adventure
+  - { id: away, text: "to get away from here, to anywhere bigger", weight: 3, minAge: 14, maxAge: 30, setting: country }
+  - { id: away_town, text: "to get out of the town and see the sea, or the king, or anything", weight: 2, minAge: 14, maxAge: 30, setting: town }
+  - { id: home_again, text: "to go home to {place} one more time", weight: 2, minAge: 30, setting: town }
+  - { id: sea, text: "to ship out on a trader and see where the wool goes", weight: 2, minAge: 14, maxAge: 26, sex: m, bases: [fishing] }
+  - { id: soldier, text: "to follow the lord to war and come back with a horse and a name", weight: 2, minAge: 15, maxAge: 25, sex: m }
+  - { id: pilgrimage, text: "to make a pilgrimage before {they} {die}", weight: 2, minAge: 45 }
+  - { id: city, text: "to see the great city once, and the cathedral", weight: 2, minAge: 16, setting: country }
+  - { id: fair_trade, text: "to take {their} own goods to the great fair and sell them there", weight: 2, minAge: 20, minRank: 4 }
+  # Inner life
+  - { id: quiet, text: "a quiet life; nothing more", weight: 4, minAge: 40 }
+  - { id: love, text: "someone in particular to notice {them}", weight: 3, minAge: 14, maxAge: 28 }
+  - { id: love_old, text: "a second chance with someone {they} let go years ago", weight: 1, minAge: 35 }
   - { id: learn, text: "to learn {their} letters, though {they} would never admit it", weight: 1, minAge: 14, maxRank: 6 }
+  - { id: song, text: "to make a song that's still sung after {they} {are} gone", weight: 1, minAge: 16 }
+  - { id: forgiven, text: "to be forgiven for something, by someone who is dead", weight: 1, minAge: 30 }
+  - { id: rest, text: "one whole day with nothing to do and nobody calling", weight: 3, minAge: 25, maxRank: 5, roles: [head, spouse] }
+  - { id: warm, text: "a winter without chilblains", weight: 2, minAge: 40, maxRank: 4 }
+  - { id: feast, text: "to eat meat every day for a week, just to know how it feels", weight: 2, minAge: 14, maxRank: 4 }
+  - { id: shoes, text: "a pair of shoes that fit, and that were nobody's before", weight: 2, minAge: 10, maxRank: 3 }
+  - { id: gown, text: "a dyed gown for the guild feast, and to be looked at in it", weight: 2, minAge: 16, sex: f, minRank: 5, setting: town }
+  - { id: ring, text: "a gold ring, to be buried with", weight: 1, minAge: 40, minRank: 5 }
+  - { id: chantry, text: "a priest paid to sing for {their} soul when {they} {are} gone", weight: 2, minAge: 50, minRank: 7 }
+  - { id: glass, text: "glass in the hall window, like the merchants have", weight: 2, minAge: 30, minRank: 7, setting: town }
+  - { id: bees, text: "a skep of bees of {their} own", weight: 1, minAge: 25, setting: country }
+  - { id: dog_old, text: "a good dog again; the last one died at Candlemas", weight: 1, minAge: 30 }
+  # Bound people
   - { id: freedom, text: "to buy {their} freedom from the lord", weight: 3, minAge: 18, setting: country, maxRank: 5 }
-  - { id: indenture, text: "to see out the indenture and never sweep another floor", weight: 4, roles: [apprentice, servant] }
-  - { id: wages, text: "the wages {they} {are} owed, and a place with a better master", weight: 3, roles: [servant] }
-  - { id: remarry, text: "to marry again, and soon, for the children's sake", weight: 3, minAge: 25, roles: [head], maxRank: 6 }
-  - { id: child_toy, text: "a wooden horse like the one the miller's boy has", weight: 3, maxAge: 9 }
-  - { id: child_fair, text: "to go to the fair, just once", weight: 3, maxAge: 13 }
+  - { id: indenture, text: "to see out the indenture and never sweep another floor", weight: 4, roles: [apprentice, servant], minAge: 12 }
+  - { id: wages, text: "the wages {they} {are} owed, and a place with a better master", weight: 3, roles: [servant], minAge: 14 }
+  - { id: own_bed, text: "a bed of {their} own, and a door that shuts", weight: 2, roles: [servant, apprentice] }
+  - { id: masterpiece, text: "to pass the masterpiece first time, and show them", weight: 3, roles: [apprentice], minAge: 15, setting: town }
+  # Clergy
+  - { id: c_living, text: "a better living, with a house that doesn't let the rain in", weight: 4, roles: [cleric], minAge: 20 }
+  - { id: c_bishop, text: "the bishop's notice, and a canon's stall one day", weight: 2, roles: [cleric], minAge: 20 }
+  - { id: c_books, text: "books; any books; {they} {have} read the three in the parish twice", weight: 2, roles: [cleric] }
+  - { id: c_roof, text: "the chancel roof mended before it comes down on the altar", weight: 3, roles: [cleric], minAge: 25 }
+  # Children
+  - { id: child_toy, text: "a wooden horse like the one the miller's boy has", weight: 3, minAge: 3, maxAge: 9, setting: country }
+  - { id: child_toy_town, text: "a wooden sword like the one the cordwainer's boy has", weight: 3, minAge: 3, maxAge: 9, setting: town, sex: m }
+  - { id: child_doll, text: "a rag doll with a real face sewn on", weight: 3, minAge: 3, maxAge: 9, sex: f }
+  - { id: child_top, text: "a whipping top that hums", weight: 2, minAge: 4, maxAge: 11 }
+  - { id: child_fair, text: "to go to the fair, just once", weight: 2, minAge: 4, maxAge: 13, setting: country }
+  - { id: child_fair_town, text: "to see the tumblers again, and learn to stand on {their} hands", weight: 2, minAge: 4, maxAge: 13, setting: town }
   - { id: child_grown, text: "to be grown, so nobody can tell {them} what to do", weight: 3, minAge: 8, maxAge: 15 }
-  - { id: child_dog, text: "a dog of {their} own", weight: 2, maxAge: 12 }
+  - { id: child_dog, text: "a dog of {their} own", weight: 2, minAge: 3, maxAge: 12 }
+  - { id: child_kitten, text: "to keep the kitten from the barn, and call it something", weight: 2, minAge: 3, maxAge: 10 }
+  - { id: child_honey, text: "honey; all of it; in one go", weight: 2, minAge: 3, maxAge: 8 }
+  - { id: child_apple, text: "the apples on the priest's tree, which are the best ones", weight: 2, minAge: 5, maxAge: 12, setting: country }
+  - { id: child_bell, text: "to ring the church bell, just once, really hard", weight: 2, minAge: 5, maxAge: 12 }
+  - { id: child_boats, text: "to go out in the boats with the men", weight: 3, minAge: 6, maxAge: 13, sex: m, bases: [fishing] }
+  - { id: child_tower, text: "to climb the town walls at night and see the watch go by", weight: 2, minAge: 7, maxAge: 14, setting: town }
+  - { id: child_shoes, text: "shoes, so the other children stop laughing", weight: 2, minAge: 5, maxAge: 13, maxRank: 3 }
+  - { id: child_school, text: "to go to the school with the clerk's boys", weight: 1, minAge: 6, maxAge: 12, maxRank: 6 }
+  - { id: child_play, text: "the day off for the fair, and the day after too", weight: 2, minAge: 6, maxAge: 14, roles: [apprentice, servant, child] }
+  - { id: child_sweet, text: "a sugared almond, like the one the merchant's girl had", weight: 2, minAge: 4, maxAge: 10, setting: town }
+  - { id: child_secret, text: "to find out what's behind the locked door at the inn", weight: 1, minAge: 7, maxAge: 13, setting: town }
 
 fears:
-  - { id: fire, text: "fire; {they} {check} the hearth three times before bed", weight: 3 }
+  - { id: fire, text: "fire; {they} {check} the hearth three times before bed", weight: 3, minAge: 18 }
+  - { id: fire_town, text: "fire in the street; the last one took four houses in an hour", weight: 3, minAge: 15, setting: town }
   - { id: hunger, text: "another hungry year", weight: 4, minAge: 25, maxRank: 6 }
+  - { id: prices, text: "the price of bread going up again before the harvest is in", weight: 3, minAge: 20, maxRank: 5, setting: town }
   - { id: hell, text: "dying unshriven", weight: 3, minAge: 30 }
+  - { id: purgatory, text: "how long purgatory is, and whether the masses will be enough", weight: 2, minAge: 45, minRank: 5 }
   - { id: lord, text: "the lord's steward, and what the next look at the accounts might turn up", weight: 2, minAge: 20, setting: country }
   - { id: sheriff, text: "the sheriff's men, for a reason {they} {keep} to {themself}", weight: 2, minAge: 18, maxRank: 5 }
-  - { id: water, text: "deep water", weight: 2 }
-  - { id: dark, text: "the dark, and what walks the lanes in it", weight: 2 }
-  - { id: plague, text: "sickness: the flux, the sweat, the pox, any of it", weight: 3 }
+  - { id: water, text: "deep water", weight: 1, minAge: 6, clash: [knack:swimming] }
+  - { id: sea, text: "the sea, which has had two of {their} family already", weight: 3, minAge: 12, bases: [fishing] }
+  - { id: rockfall, text: "the roof of the working, and the sound it makes before it comes down", weight: 4, minAge: 12, bases: [mining] }
+  - { id: murrain, text: "murrain in the flock; one cough and {they} can't sleep", weight: 4, minAge: 16, bases: [herding] }
+  - { id: dark, text: "the dark, and what walks the lanes in it", weight: 2, minAge: 10, setting: country }
+  - { id: dark_town, text: "the alleys after curfew, and who waits in them", weight: 2, minAge: 12, setting: town }
+  - { id: plague, text: "sickness: the flux, the sweat, the pox, any of it", weight: 2, minAge: 14 }
+  - { id: leprosy, text: "a patch of skin that won't heal, and what it might be", weight: 1, minAge: 20 }
   - { id: alone, text: "being left alone in old age", weight: 3, minAge: 40 }
-  - { id: shame, text: "being shamed in front of the whole parish", weight: 3, minAge: 14 }
+  - { id: workhouse, text: "being too old to work, with nobody to take {them} in", weight: 3, minAge: 45, maxRank: 4 }
+  - { id: shame, text: "being shamed in front of the whole parish", weight: 2, minAge: 14 }
+  - { id: pillory, text: "the pillory, and the street laughing", weight: 1, minAge: 16, setting: town }
+  - { id: lost_trade, text: "{their} hands going, and with them the trade", weight: 2, minAge: 40, roles: [head] }
+  - { id: lepers, text: "the lepers on the road, and their clappers", weight: 1, minAge: 10 }
+  - { id: famine_t, text: "the town's granary running out before spring, as it did once", weight: 1, minAge: 30, setting: town }
+  - { id: daughter_shame, text: "a daughter getting talked about in the alehouses", weight: 1, minAge: 35, roles: [head, spouse] }
+  - { id: magic, text: "witchcraft; {they} {keep} a horseshoe over every door", weight: 1, minAge: 20 }
+  - { id: secret_sin, text: "dying with a sin {they} never dared confess", weight: 1, minAge: 30 }
+  - { id: soldiers_f, text: "soldiers in the town, after what happened last time", weight: 1, minAge: 25 }
   - { id: found_out, text: "being found out", weight: 2, minAge: 18 }
   - { id: war, text: "the levy being called again", weight: 2, minAge: 16, sex: m }
   - { id: childbed, text: "childbed, after what happened to {their} sister", weight: 2, minAge: 16, maxAge: 40, sex: f }
   - { id: ruin, text: "losing the business, and the house with it", weight: 3, minAge: 25, roles: [head], setting: town }
+  - { id: ship_lost, text: "a ship that's three weeks late with {their} money in it", weight: 3, minAge: 25, minRank: 7, setting: town }
+  - { id: guild_fine, text: "the wardens' search, and the fine if they find bad work", weight: 2, minAge: 20, setting: town, roles: [head] }
   - { id: thieves, text: "thieves; {they} {sleep} with the strongbox under the bed", weight: 2, minRank: 6 }
   - { id: strangers, text: "strangers, foreigners and anyone who talks too smoothly", weight: 2, minAge: 30 }
-  - { id: witch, text: "the old woman at the end of the lane, who {they} {are} sure has the evil eye", weight: 2, setting: country }
-  - { id: dogs, text: "dogs, ever since one went for {them} as a child", weight: 1 }
+  - { id: witch, text: "the old woman at the end of the lane, who {they} {are} sure has the evil eye", weight: 2, minAge: 6, setting: country }
+  - { id: curse, text: "a curse {they} {believe} was laid on the family two generations back", weight: 1, minAge: 20 }
+  - { id: dogs, text: "dogs, ever since one went for {them} as a child", weight: 1, minAge: 6 }
   - { id: master, text: "the master's temper", weight: 4, roles: [apprentice, servant] }
-  - { id: horses, text: "horses", weight: 1 }
-  - { id: heights, text: "heights; {they} won't go up a ladder", weight: 1 }
-  - { id: child_whip, text: "a beating, mostly", weight: 3, maxAge: 13 }
-  - { id: child_dark, text: "the dark, and the thing under the bed", weight: 3, maxAge: 10 }
+  - { id: horses, text: "horses", weight: 1, minAge: 5 }
+  - { id: heights, text: "heights; {they} won't go up a ladder", weight: 1, minAge: 8, clash: [knack:climbing] }
+  - { id: crowds, text: "crowds; market day turns {their} stomach", weight: 1, minAge: 16, setting: town }
+  - { id: bells, text: "the passing bell; {they} {count} the strokes every time", weight: 1, minAge: 40 }
+  - { id: eviction, text: "the landlord's man, and the next rent day", weight: 3, minAge: 20, maxRank: 4, setting: town, roles: [head, spouse] }
+  - { id: husband, text: "the drink, and what it does to {their} husband", weight: 2, minAge: 18, sex: f, roles: [spouse] }
+  - { id: sons, text: "{their} sons turning out like {their} brother", weight: 1, minAge: 35, roles: [head, spouse] }
+  - { id: blind, text: "going blind, as {their} mother did", weight: 1, minAge: 40 }
+  - { id: gaol, text: "the gaol; {they} {have} been in once and won't go back", weight: 2, minAge: 18, maxRank: 4 }
+  - { id: debt_coll, text: "the man who comes about the debt", weight: 2, minAge: 20, maxRank: 5 }
+  - { id: thunder, text: "thunder; {they} {hide} under the table and {pray}", weight: 1 }
+  - { id: graves, text: "the churchyard after dark", weight: 1, minAge: 8 }
+  - { id: fever_dream, text: "the fever coming back, as it does every spring", weight: 1, minAge: 20 }
+  - { id: drowning_kin, text: "losing a son to the sea, as {their} mother did", weight: 3, minAge: 25, bases: [fishing], roles: [head, spouse] }
+  - { id: storms, text: "the autumn gales, and the boats that don't come back", weight: 2, minAge: 12, bases: [fishing] }
+  - { id: idleness, text: "being idle; {they} can't sit still for fear of it", weight: 1, minAge: 20 }
+  - { id: poverty, text: "the parish having to bury {them}", weight: 2, minAge: 45, maxRank: 4 }
+  - { id: c_bishop, text: "the bishop's visitation, and what the churchwardens will tell", weight: 4, roles: [cleric] }
+  - { id: c_doubt, text: "that the bread stays bread, and {they} alone can tell", weight: 1, roles: [cleric], clash: [faith:devout_clergy] }
+  - { id: child_whip, text: "a beating, mostly", weight: 2, minAge: 3, maxAge: 13 }
+  - { id: child_dogs, text: "the big dog at the tanner's", weight: 2, minAge: 3, maxAge: 10 }
+  - { id: child_ghost, text: "the ghost in the empty house at the end of the row", weight: 2, minAge: 5, maxAge: 12 }
+  - { id: child_thunder, text: "thunder, and being sent to bed alone in it", weight: 2, minAge: 3, maxAge: 8 }
+  - { id: child_school, text: "the schoolmaster's rod", weight: 2, minAge: 6, maxAge: 13, minRank: 5 }
+  - { id: child_mother, text: "{their} mother dying, as the neighbour's did", weight: 1, minAge: 5, maxAge: 13 }
+  - { id: child_dark, text: "the dark, and the thing under the bed", weight: 3, minAge: 3, maxAge: 10 }
+  - { id: child_geese, text: "the geese on the green, which hiss", weight: 2, minAge: 3, maxAge: 8, setting: country }
+  - { id: child_bear, text: "the dancing bear, though {they} would never say so", weight: 2, minAge: 3, maxAge: 9 }
+  - { id: child_gallows, text: "the gallows outside the gate, and the thing that hangs there", weight: 2, minAge: 4, maxAge: 12, setting: town }
+  - { id: child_beadle, text: "the beadle and his staff", weight: 2, minAge: 5, maxAge: 13, setting: town }
+  - { id: child_well, text: "the well, since someone said a boy fell down it", weight: 2, minAge: 3, maxAge: 10 }
+  - { id: child_priest, text: "the priest finding out about the apples", weight: 1, minAge: 5, maxAge: 12 }
+  - { id: child_lost, text: "getting lost on market day", weight: 2, minAge: 3, maxAge: 8, setting: town }
+  - { id: child_wolf, text: "wolves, though nobody has seen one in years", weight: 2, minAge: 3, maxAge: 10, setting: country }
+  - { id: child_sent_away, text: "being sent away into service, like {their} sister", weight: 2, minAge: 7, maxAge: 13, maxRank: 5 }
 
 speech:
-  - { id: slow, text: "slow and careful, as if every word costs money", weight: 3 }
-  - { id: fast, text: "fast, and never finishes one story before starting the next", weight: 3 }
+  - { id: slow, text: "slow and careful, as if every word costs money", weight: 2, minAge: 14 }
+  - { id: fast, text: "fast, and never finishes one story before starting the next", weight: 2, minAge: 7, clash: [trait:quiet] }
   - { id: proverbs, text: "in proverbs, most of them half remembered", weight: 2, minAge: 30 }
   - { id: curse, text: "with an oath in every sentence", weight: 2, minAge: 14 }
   - { id: pious, text: "with a saint's name in every sentence", weight: 2, minAge: 25 }
-  - { id: quiet, text: "barely above a mumble; people lean in", weight: 2 }
-  - { id: loud, text: "loudly, as though everyone were across a field", weight: 2 }
-  - { id: broad, text: "in a thick country burr that townsfolk laugh at", weight: 3, setting: country }
-  - { id: french, text: "with French words dropped in to show {they} can", weight: 2, minRank: 7 }
-  - { id: questions, text: "in questions, answering one with another", weight: 2 }
-  - { id: stutter, text: "with a stammer that gets worse when {they} {are} pressed", weight: 1 }
-  - { id: gossip, text: "lowering {their} voice for the good bits, which is most of it", weight: 3 }
-  - { id: blunt, text: "bluntly; {they} {say} what {they} {think} and {are} proud of it", weight: 3 }
-  - { id: flattering, text: "with flattery laid on thick, especially to {their} betters", weight: 2, maxRank: 7 }
-  - { id: cant, text: "in a thieves' cant that honest folk only half follow", weight: 3, maxRank: 2 }
-  - { id: lisp, text: "with a lisp", weight: 1 }
-  - { id: few, text: "hardly at all; yes, no, and a nod", weight: 2 }
-  - { id: child_chatter, text: "nonstop, to anyone, about anything", weight: 3, maxAge: 11 }
+  - { id: quiet, text: "barely above a mumble; people lean in", weight: 2, minAge: 13, clash: [trait:boastful] }
+  - { id: loud, text: "loudly, as though everyone were across a field", weight: 2, minAge: 7, clash: [trait:quiet, trait:timid] }
+  - { id: broad, text: "in a thick country burr that townsfolk laugh at", weight: 1, minAge: 7, setting: country }
+  - { id: incomer, text: "with the country still in {their} voice, years after coming in", weight: 2, minAge: 25, setting: town }
+  - { id: street, text: "in the quick, clipped way of the back lanes", weight: 2, minAge: 10, setting: town, maxRank: 4 }
+  - { id: french, text: "with French words dropped in to show {they} can", weight: 2, minRank: 7, minAge: 12 }
+  - { id: questions, text: "in questions, answering one with another", weight: 2, minAge: 10 }
+  - { id: stutter, text: "with a stammer that gets worse when {they} {are} pressed", weight: 1, minAge: 5 }
+  - { id: gossip, text: "lowering {their} voice for the good bits, which is most of it", weight: 2, minAge: 14, clash: [trait:quiet, trait:secretive] }
+  - { id: blunt, text: "bluntly; {they} {say} what {they} {think} and {are} proud of it", weight: 2, minAge: 14, clash: [trait:quiet, trait:timid, trait:sly] }
+  - { id: flattering, text: "with flattery laid on thick, especially to {their} betters", weight: 2, maxRank: 7, minAge: 14, clash: [trait:honest, trait:proud] }
+  - { id: cant, text: "in a thieves' cant that honest folk only half follow", weight: 3, maxRank: 2, minAge: 10 }
+  - { id: lisp, text: "with a lisp", weight: 1, minAge: 4 }
+  - { id: few, text: "hardly at all; yes, no, and a nod", weight: 2, minAge: 10, clash: [trait:gossip, trait:boastful, trait:storyteller] }
+  - { id: sing_song, text: "in a sing-song, as if every sentence were a question", weight: 1, minAge: 10 }
+  - { id: precise, text: "precisely, with every word in its place, like a clerk reading a deed", weight: 2, minAge: 18, minRank: 6 }
+  - { id: sermon, text: "as if from the pulpit, even about the weather", weight: 1, minAge: 30, clash: [trait:quiet] }
+  - { id: laugh, text: "with a laugh in it, even at bad news", weight: 2, minAge: 10, clash: [trait:melancholy, trait:sullen] }
+  - { id: sighs, text: "in sighs and half-sentences", weight: 1, minAge: 18, clash: [trait:cheerful, trait:boastful] }
+  - { id: nautical, text: "in the boatmen's words for everything, wind and tide in every sentence", weight: 3, minAge: 12, bases: [fishing] }
+  - { id: hushed, text: "in a whisper, glancing at the door", weight: 1, minAge: 18, clash: [trait:bold] }
+  - { id: foreign, text: "in careful English with a foreign tune to it", weight: 6, occ: [foreign_merchant] }
+  - { id: latin, text: "with Latin tags, and a pause after each so people notice", weight: 3, roles: [cleric] }
+  - { id: grumble, text: "in a long grumble, about the weather, the prices and the young", weight: 2, minAge: 35 }
+  - { id: whistles, text: "through a gap in {their} teeth, with a whistle on every s", weight: 1, minAge: 12 }
+  - { id: hoarse, text: "hoarsely, as if {they} had been shouting all morning, which {they} {have}", weight: 1, minAge: 16 }
+  - { id: tales, text: "in stories: every answer starts with \"I remember when\"", weight: 2, minAge: 40 }
+  - { id: sharp, text: "sharply, and expects to be answered the same", weight: 2, minAge: 18, clash: [trait:timid, trait:gentle] }
+  - { id: soft, text: "softly and kindly, like someone talking to a nervous horse", weight: 2, minAge: 14, clash: [trait:quarrelsome, trait:hot_tempered] }
+  - { id: echoes, text: "by repeating the last thing said to {them}, then answering it", weight: 1, minAge: 14 }
+  - { id: names, text: "using everyone's name, often, to show {they} {remember} it", weight: 1, minAge: 18 }
+  - { id: humble, text: "humbly, cap in hand, \"saving your presence\" every few words", weight: 2, minAge: 16, maxRank: 4 }
+  - { id: lordly, text: "as if giving orders, even when asking the way", weight: 2, minAge: 20, minRank: 7 }
+  - { id: dialect, text: "in the old words of the hill country, which take some following", weight: 2, minAge: 20, bases: [herding, mining] }
+  - { id: jokes, text: "in jokes, most of them at {their} own expense", weight: 2, minAge: 14, clash: [trait:sullen, trait:melancholy] }
+  - { id: mutter, text: "half to {themself}, so it's hard to tell when {they} {are} talking to you", weight: 1, minAge: 30 }
+  - { id: bargaining, text: "as if everything were a bargain, and {they} meant to win it", weight: 2, minAge: 20, minRank: 4 }
+  - { id: pious_soft, text: "piously, with \"God willing\" after every plan", weight: 2, minAge: 20 }
+  - { id: child_chatter, text: "nonstop, to anyone, about anything", weight: 2, minAge: 3, maxAge: 11 }
+  - { id: child_bossy, text: "in orders, to anyone smaller", weight: 2, minAge: 6, maxAge: 12 }
+  - { id: child_rhymes, text: "in rhymes and nonsense, half of it rude", weight: 2, minAge: 5, maxAge: 12 }
+  - { id: child_grownup, text: "like a little old man, in {their} grandfather's words", weight: 1, minAge: 5, maxAge: 11 }
+  - { id: child_shout, text: "at a shout, always, as if across a yard", weight: 2, minAge: 4, maxAge: 11 }
+  - { id: child_secrets, text: "in whispers, everything a secret", weight: 2, minAge: 5, maxAge: 12 }
+  - { id: child_boasts, text: "in boasts: {their} father could beat anyone's father", weight: 2, minAge: 5, maxAge: 12 }
+  - { id: child_mimic, text: "in other people's voices, the priest's mostly", weight: 1, minAge: 6, maxAge: 13 }
+  - { id: youth_swagger, text: "with a swagger and the new oaths, learned off the carters", weight: 2, minAge: 13, maxAge: 19, sex: m }
+  - { id: youth_giggle, text: "between giggles, with a friend's hand over {their} mouth", weight: 2, minAge: 12, maxAge: 18, sex: f }
+  - { id: child_shy, text: "into {their} sleeve, when {they} {speak} at all", weight: 3, minAge: 3, maxAge: 9 }
+  - { id: child_whys, text: "in whys; every answer gets another why", weight: 2, minAge: 3, maxAge: 8 }
+  - { id: child_lisp, text: "with a lisp {they} will grow out of, the mother says", weight: 1, minAge: 3, maxAge: 7 }
 
 habits:
-  - { id: knuckles, text: "cracks {their} knuckles when thinking", weight: 2 }
-  - { id: cross, text: "crosses {themself} at every bad word", weight: 2 }
-  - { id: whittles, text: "whittles while {they} {talk}, and leaves shavings everywhere", weight: 2, sex: m }
+  - { id: knuckles, text: "cracks {their} knuckles when thinking", weight: 2, minAge: 12 }
+  - { id: cross, text: "crosses {themself} at every bad word", weight: 2, minAge: 6 }
+  - { id: whittles, text: "whittles while {they} {talk}, and leaves shavings everywhere", weight: 2, sex: m, minAge: 10 }
   - { id: spins, text: "never without a distaff, spinning as {they} {walk}", weight: 3, sex: f, minAge: 10 }
-  - { id: spits, text: "spits before answering", weight: 2 }
+  - { id: knits, text: "is never without a net to mend, even at mass", weight: 2, minAge: 10, bases: [fishing] }
+  - { id: spits, text: "spits before answering", weight: 2, minAge: 12 }
   - { id: counts, text: "counts coins twice, then a third time", weight: 2, minAge: 16 }
-  - { id: hums, text: "hums the same three bars of a hymn", weight: 2 }
-  - { id: eyes, text: "won't meet anyone's eye", weight: 2 }
-  - { id: touches, text: "touches people's arms when talking to them", weight: 2 }
-  - { id: chews, text: "chews a straw, or a twig, or {their} nails", weight: 2 }
-  - { id: laughs, text: "laughs at {their} own jokes before reaching the end", weight: 2 }
-  - { id: relic, text: "keeps fingering a little bag of something round {their} neck", weight: 2 }
-  - { id: sniffs, text: "sniffs at food before eating it", weight: 1 }
-  - { id: early, text: "is always somewhere a little before anyone else", weight: 1 }
-  - { id: borrows, text: "borrows things and forgets to give them back", weight: 2 }
-  - { id: smooths, text: "smooths {their} clothes whenever {their} betters pass", weight: 2, maxRank: 7 }
-  - { id: ring, text: "turns a ring on {their} finger, round and round", weight: 2, minRank: 6 }
-  - { id: child_hides, text: "hides behind the nearest grown-up", weight: 3, maxAge: 8 }
+  - { id: hums, text: "hums the same three bars of a hymn", weight: 1, minAge: 5 }
+  - { id: ears, text: "pulls at an earlobe while thinking", weight: 1, minAge: 8 }
+  - { id: lips, text: "moves {their} lips when reading, or when listening", weight: 1, minAge: 12 }
+  - { id: stares, text: "stares a little too long at strangers", weight: 1, minAge: 10 }
+  - { id: sleeves, text: "wipes {their} nose on {their} sleeve", weight: 1, minAge: 5, maxRank: 5 }
+  - { id: rocks, text: "rocks on {their} heels while talking", weight: 1, minAge: 10 }
+  - { id: proverb_nod, text: "taps {their} nose to show {they} {know} more than {they} {say}", weight: 1, minAge: 20 }
+  - { id: salts, text: "throws salt over {their} shoulder at every spill", weight: 1, minAge: 14 }
+  - { id: touches_wood, text: "touches wood, or iron, against bad luck, all day long", weight: 1, minAge: 10 }
+  - { id: sighs_h, text: "sighs heavily before anything that needs doing", weight: 1, minAge: 16 }
+  - { id: sings_work, text: "sings bawdy songs at work, hymns in company", weight: 1, minAge: 14 }
+  - { id: eats, text: "is always eating something: a crust, a turnip, an apple", weight: 1, minAge: 6 }
+  - { id: fidgets, text: "can't keep {their} hands still", weight: 1, minAge: 6 }
+  - { id: eyes, text: "won't meet anyone's eye", weight: 2, minAge: 5, clash: [trait:bold] }
+  - { id: touches, text: "touches people's arms when talking to them", weight: 2, minAge: 12, clash: [trait:suspicious] }
+  - { id: chews, text: "chews a straw, or a twig, or {their} nails", weight: 2, minAge: 5 }
+  - { id: laughs, text: "laughs at {their} own jokes before reaching the end", weight: 2, minAge: 10, clash: [trait:sullen, trait:melancholy] }
+  - { id: relic, text: "keeps fingering a little bag of something round {their} neck", weight: 2, minAge: 8 }
+  - { id: sniffs, text: "sniffs at food before eating it", weight: 1, minAge: 5 }
+  - { id: early, text: "is always somewhere a little before anyone else", weight: 1, minAge: 14 }
+  - { id: borrows, text: "borrows things and forgets to give them back", weight: 2, minAge: 10, clash: [trait:honest] }
+  - { id: smooths, text: "smooths {their} clothes whenever {their} betters pass", weight: 2, maxRank: 7, minAge: 14 }
+  - { id: ring, text: "turns a ring on {their} finger, round and round", weight: 2, minRank: 6, minAge: 16 }
+  - { id: tally, text: "notches a stick for every debt owed to {them}, and keeps the sticks", weight: 2, minAge: 25, maxRank: 7 }
+  - { id: weather, text: "looks at the sky before answering anything", weight: 2, minAge: 25, setting: country }
+  - { id: door, text: "sits facing the door, always", weight: 1, minAge: 18 }
+  - { id: bread_crumbs, text: "rolls bread into little balls while {they} {listen}", weight: 1, minAge: 10 }
+  - { id: humming_work, text: "sings at work and stops dead when anyone comes in", weight: 2, minAge: 12 }
+  - { id: prayer_beads, text: "tells {their} beads under {their} breath when nervous", weight: 2, minAge: 14 }
+  - { id: news_first, text: "is first to the door whenever a cart comes in", weight: 2, minAge: 14, clash: [trait:timid] }
+  - { id: scratch, text: "scratches; the fleas in that house are famous", weight: 1, maxRank: 4, minAge: 5 }
+  - { id: knife_out, text: "picks {their} teeth with the point of {their} knife", weight: 1, minAge: 16, maxRank: 5 }
+  - { id: wipes, text: "wipes {their} hands on {their} apron before shaking anyone's", weight: 2, minAge: 18, roles: [head, spouse] }
+  - { id: shop_door, text: "stands in the shop door and calls out to everyone who passes", weight: 3, minAge: 16, setting: town, roles: [head, spouse, apprentice], clash: [trait:timid, trait:quiet] }
+  - { id: bites_coin, text: "bites every penny {they} {take}", weight: 2, minAge: 18, setting: town }
+  - { id: corners, text: "keeps to the wall when walking, out of the way of carts", weight: 1, minAge: 30, setting: town }
+  - { id: pockets, text: "keeps {their} hands in {their} sleeves, always", weight: 1, minAge: 12 }
+  - { id: nods, text: "nods along to everything, agreeing or not", weight: 2, minAge: 14 }
+  - { id: limps_show, text: "limps more when there's work to be done", weight: 1, minAge: 20 }
+  - { id: whistling, text: "whistles the same tune all day, badly", weight: 2, minAge: 10 }
+  - { id: hat, text: "takes {their} hood off and puts it back on when nervous", weight: 1, minAge: 16 }
+  - { id: sniffs_air, text: "sniffs the air like a dog when anyone new comes in", weight: 1, minAge: 20 }
+  - { id: counts_bells, text: "stops whatever {they} {are} doing to count the bells", weight: 1, minAge: 30 }
+  - { id: feeds_birds, text: "feeds the sparrows with crumbs {they} can't spare", weight: 1, minAge: 30 }
+  - { id: prays_meals, text: "says a long grace over every crust", weight: 2, minAge: 20 }
+  - { id: child_hides, text: "hides behind the nearest grown-up", weight: 3, minAge: 2, maxAge: 8 }
+  - { id: child_thumb, text: "sucks {their} thumb, and is teased for it", weight: 2, minAge: 3, maxAge: 7 }
+  - { id: child_follows, text: "follows the older children everywhere, a few steps behind", weight: 3, minAge: 3, maxAge: 9 }
+  - { id: child_collects, text: "collects things: snail shells, nails, a dead bird once", weight: 2, minAge: 4, maxAge: 11 }
+  - { id: child_sings, text: "sings rude rhymes about the beadle, quietly", weight: 2, minAge: 6, maxAge: 13, setting: town }
+  - { id: child_climbs, text: "is up a tree, or a wall, or a roof, whenever {they} {are} wanted", weight: 2, minAge: 5, maxAge: 13 }
+  - { id: child_runs, text: "runs everywhere; has never been known to walk", weight: 2, minAge: 3, maxAge: 10 }
+  - { id: child_sticks, text: "always has a stick, and hits things with it", weight: 2, minAge: 3, maxAge: 10, sex: m }
+  - { id: child_flowers, text: "picks every flower {they} {pass} and gives them away", weight: 2, minAge: 3, maxAge: 10 }
+  - { id: child_questions, text: "asks the same question until somebody answers it", weight: 2, minAge: 3, maxAge: 9 }
+  - { id: child_dirty, text: "is filthy within an hour of being washed", weight: 2, minAge: 3, maxAge: 10 }
+
+# Under three: no wants or fears to speak of, only a temper.
+babes:
+  - { id: placid, text: "placid; sleeps through the bells", weight: 3 }
+  - { id: colicky, text: "colicky; cries from dusk until the watch goes round", weight: 3 }
+  - { id: fat, text: "a fat, cheerful baby the whole street dotes on", weight: 2 }
+  - { id: small, text: "born small, and not expected to live; still here", weight: 2 }
+  - { id: teething, text: "teething, and the whole house knows it", weight: 3, minAge: 1 }
+  - { id: walking, text: "just walking, and into everything", weight: 3, minAge: 1 }
+  - { id: grabs, text: "grabs at anything shiny, beards included", weight: 2 }
+  - { id: stares, text: "stares at strangers without blinking", weight: 2 }
+  - { id: laughs, text: "laughs at the dog, at the cat, at nothing", weight: 2 }
+  - { id: nursed, text: "still at the breast, and loud about it", weight: 2, maxAge: 1 }
+  - { id: nurse, text: "with a wet nurse two streets away, visited on Sundays", weight: 3, minRank: 8 }
+  - { id: words, text: "has three words, and one of them is no", weight: 3, minAge: 2 }
 
 knacks:
   - { id: herbs, text: "knows which herbs ease a fever, and which ones kill", weight: 3, minAge: 25 }
   - { id: singing, text: "sings well; asked for at every wake and wedding", weight: 2, minAge: 10 }
   - { id: stories, text: "tells a ghost story that keeps the alehouse silent", weight: 2, minAge: 20 }
-  - { id: horses, text: "good with horses, even the ones that bite", weight: 2, minAge: 12 }
+  - { id: horses, text: "good with horses, even the ones that bite", weight: 2, minAge: 12, clash: [fear:horses] }
   - { id: weather, text: "can smell rain a day off, and is usually right", weight: 2, minAge: 30, setting: country }
+  - { id: tides, text: "knows the tides and the shoals without looking", weight: 4, minAge: 16, bases: [fishing] }
   - { id: reckoning, text: "quick at reckoning; can tally a cartload in {their} head", weight: 2, minAge: 14 }
   - { id: locks, text: "can open most locks with a bent nail, and has", weight: 1, minAge: 14, maxRank: 5 }
   - { id: archery, text: "a fair shot with a bow; practises at the butts every Sunday", weight: 2, minAge: 14, sex: m }
@@ -120,32 +356,89 @@ knacks:
   - { id: haggling, text: "drives a hard bargain; traders sigh when {they} {come} to the stall", weight: 2, minAge: 18 }
   - { id: needle, text: "fine needlework that sells at the fair", weight: 2, minAge: 12, sex: f }
   - { id: cards, text: "wins at dice more often than is natural", weight: 1, minAge: 16 }
-  - { id: climbing, text: "climbs anything: trees, roofs, the church tower once", weight: 2, maxAge: 25 }
+  - { id: climbing, text: "climbs anything: trees, roofs, the church tower once", weight: 2, minAge: 6, maxAge: 25, clash: [fear:heights] }
   - { id: swimming, text: "can swim, which few here can", weight: 1, minAge: 8 }
-  - { id: none, text: "nothing in particular, though {they} would argue the point", weight: 3 }
+  - { id: memory, text: "can say the whole of a long ballad, or a charter, after one hearing", weight: 1, minAge: 12 }
+  - { id: carving, text: "carves; the little saints on the rood screen are {their} work", weight: 1, minAge: 20 }
+  - { id: cooking, text: "makes a pie the cookshop would steal if it could", weight: 2, minAge: 16 }
+  - { id: dogs, text: "any dog will follow {them} home", weight: 1, minAge: 8, clash: [fear:dogs] }
+  - { id: lies, text: "lies so well that even {their} mother believes {them}", weight: 1, minAge: 12, clash: [trait:honest] }
+  - { id: coins, text: "knows a clipped penny at a glance, and a bad one by the ring", weight: 2, minAge: 20, setting: town }
+  - { id: weights, text: "can tell the weight of a fleece, a cheese or a pig by eye, to the pound", weight: 2, minAge: 25 }
+  - { id: streets, text: "knows every back way in the town, and the gaps in the wall", weight: 2, minAge: 10, setting: town }
+  - { id: languages, text: "picks up foreign words from the merchants, and uses them", weight: 1, minAge: 12, setting: town }
+  - { id: nets, text: "mends a net faster than anyone on the strand", weight: 2, minAge: 12, bases: [fishing] }
+  - { id: sheep, text: "knows every ewe in the flock by her face", weight: 3, minAge: 10, bases: [herding] }
+  - { id: ore, text: "can tell good ore from bad by the weight in {their} hand", weight: 3, minAge: 16, bases: [mining] }
+  - { id: trees, text: "can drop a tree exactly where {they} {say} it will fall", weight: 3, minAge: 16, bases: [woodcutting] }
+  - { id: midwife, text: "has brought half the street into the world", weight: 2, minAge: 35, sex: f }
+  - { id: letters_k, text: "writes a fair hand, and is asked to write other people's letters", weight: 3, minAge: 16, minRank: 6 }
+  - { id: none, text: "nothing in particular, though {they} would argue the point", weight: 2, minAge: 14 }
+  - { id: child_hide, text: "the best hider in the street; never found at hide-and-seek", weight: 2, minAge: 4, maxAge: 12 }
+  - { id: child_birds, text: "can call any bird down out of a tree", weight: 2, minAge: 5, maxAge: 13 }
+  - { id: child_eels, text: "catches eels with {their} bare hands", weight: 2, minAge: 6, maxAge: 14, setting: country }
+  - { id: child_tricks, text: "can walk on {their} hands the length of the street", weight: 2, minAge: 6, maxAge: 14 }
+  - { id: child_counting, text: "can count to a thousand, and does, loudly", weight: 2, minAge: 5, maxAge: 10 }
+  - { id: child_songs, text: "knows every verse of every song the players sang", weight: 2, minAge: 5, maxAge: 13 }
+  - { id: child_animals, text: "the geese, the dogs and the bull all follow {them} about", weight: 2, minAge: 4, maxAge: 12 }
+  - { id: child_find, text: "finds lost things: a ring, a knife, a strayed lamb", weight: 2, minAge: 5, maxAge: 13 }
+  - { id: child_errands, text: "runs an errand across town and back faster than a horse", weight: 2, minAge: 6, maxAge: 14, setting: town }
+  - { id: child_knots, text: "ties knots the sailors ask to be shown", weight: 2, minAge: 6, maxAge: 14, bases: [fishing] }
+  - { id: child_whistle, text: "whistles through {their} fingers loud enough to stop a cart", weight: 2, minAge: 6, maxAge: 14 }
+  - { id: child_stones, text: "can hit a crow with a stone at twenty paces", weight: 2, minAge: 6, maxAge: 14 }
+  - { id: child_quick, text: "quick as a cat, through any gap", weight: 1, minAge: 4, maxAge: 12 }
 
 strangers:
-  - { id: welcome, text: "friendly; will point the way and want to hear the news in return", weight: 4 }
-  - { id: wary, text: "wary; answers questions with questions, and remembers faces", weight: 4 }
-  - { id: hostile, text: "cold; strangers mean trouble, and {they} would tell the bailiff", weight: 2, minAge: 30 }
+  - { id: welcome, text: "friendly; will point the way and want to hear the news in return", weight: 3, minAge: 10 }
+  - { id: wary, text: "wary; answers questions with questions, and remembers faces", weight: 3, minAge: 14, clash: [trait:curious] }
+  - { id: hostile, text: "cold; strangers mean trouble, and {they} would tell the bailiff", weight: 2, minAge: 30, setting: country }
+  - { id: hostile_town, text: "cold; strangers mean trouble, and {they} would fetch the watch", weight: 2, minAge: 30, setting: town }
   - { id: mark, text: "sees a purse first and a person second", weight: 2, minAge: 14, maxRank: 4 }
   - { id: ale, text: "will talk freely for a jug of ale, and invent a little for a second", weight: 3, minAge: 18 }
   - { id: news, text: "hungry for news from outside, and will trade gossip for it", weight: 3, minAge: 14 }
   - { id: proud, text: "polite and distant, until {they} {know} who the stranger's people are", weight: 3, minRank: 7 }
-  - { id: trade, text: "keen; a stranger is a customer who doesn't know the prices", weight: 3, setting: town, roles: [head] }
-  - { id: frightened, text: "frightened; goes indoors and bars the door", weight: 1 }
-  - { id: curious, text: "curious; follows strangers about at a distance", weight: 3, maxAge: 14 }
+  - { id: trade, text: "keen; a stranger is a customer who doesn't know the prices", weight: 3, setting: town, roles: [head, spouse], minAge: 18 }
+  - { id: frightened, text: "frightened; goes indoors and bars the door", weight: 1, minAge: 10, clash: [trait:bold] }
+  - { id: curious, text: "curious; follows strangers about at a distance", weight: 3, minAge: 4, maxAge: 14 }
+  - { id: sizing, text: "sizes them up: their boots, their sword, their purse, in that order", weight: 2, minAge: 18 }
+  - { id: helpful, text: "helpful past the point of usefulness; will walk them there", weight: 2, minAge: 14, clash: [trait:suspicious] }
+  - { id: pious_s, text: "asks first whether they've heard mass today", weight: 1, minAge: 30 }
+  - { id: lodger, text: "will offer a bed, at a price, before they've asked", weight: 2, minAge: 25, roles: [head, spouse], maxRank: 5 }
+  - { id: soldiers, text: "civil enough, but counts the weapons and remembers them", weight: 2, minAge: 25 }
+  - { id: foreign_s, text: "takes them for foreigners whatever they say, and speaks slowly", weight: 1, minAge: 30, setting: country }
+  - { id: child_shy_s, text: "shy; peeps from behind a door", weight: 2, minAge: 3, maxAge: 9 }
+  - { id: child_bold_s, text: "bold as brass; asks where they're from and what's in the bag", weight: 2, minAge: 5, maxAge: 13 }
+  - { id: child_run_s, text: "runs to fetch a grown-up, shouting", weight: 2, minAge: 3, maxAge: 10 }
+  - { id: child_follow_s, text: "follows them to the edge of the street, and no further", weight: 2, minAge: 4, maxAge: 11 }
+  - { id: courteous, text: "courteous to a fault; offers bread and salt at the door", weight: 2, minAge: 25, setting: country }
+  - { id: mocking_s, text: "makes fun of them behind their backs, and not far enough behind", weight: 1, minAge: 14, maxAge: 30 }
+  - { id: gossip_s, text: "wants every detail: where from, where bound, whose kin", weight: 2, minAge: 25, clash: [trait:quiet] }
+  - { id: child_beg, text: "asks for a penny, then for a look at the sword", weight: 2, minAge: 4, maxAge: 12, maxRank: 4 }
 
 faith:
   - { id: devout, text: "devout: at mass more than the priest asks, and fasts strictly", weight: 2, minAge: 12 }
-  - { id: dutiful, text: "dutiful: goes when expected, pays tithe, thinks little more of it", weight: 6, minAge: 12 }
+  - { id: dutiful, text: "dutiful: goes when expected, pays tithe, thinks little more of it", weight: 3, minAge: 12 }
   - { id: lax, text: "lax: misses mass when the ale was good the night before", weight: 3, minAge: 14 }
-  - { id: superstitious, text: "more charms than prayers: horseshoes, rowan, a dead mouse in the thatch", weight: 3, minAge: 12 }
+  - { id: superstitious, text: "more charms than prayers: horseshoes, rowan, a dead mouse in the thatch", weight: 3, minAge: 12, setting: country }
+  - { id: superstitious_town, text: "more charms than prayers: a hare's foot, a holy-water flask, a lead badge for every ailment", weight: 3, minAge: 12, setting: town }
   - { id: doubting, text: "privately doubts, and has said so once in drink", weight: 1, minAge: 20 }
   - { id: pilgrim, text: "a great one for saints and shrines, and their relics", weight: 2, minAge: 25 }
-  - { id: child_prayers, text: "says {their} prayers when made to, and fidgets through mass", weight: 6, maxAge: 11 }
-  - { id: child_saints, text: "loves the saints' stories, the gorier the better", weight: 3, maxAge: 11 }
+  - { id: friars, text: "follows the friars' preaching and has no time for the parish priest", weight: 2, minAge: 18, setting: town }
+  - { id: guild_saint, text: "devoted to the guild's saint; pays for a candle every week", weight: 2, minAge: 25, setting: town, roles: [head] }
+  - { id: marian, text: "prays to Our Lady and nobody else, and talks to her aloud", weight: 2, minAge: 18, sex: f }
+  - { id: sailors, text: "says a prayer to St Nicholas at every tide", weight: 4, minAge: 12, bases: [fishing] }
+  - { id: bargain, text: "bargains with God like a market trader, and keeps a tally", weight: 1, minAge: 25 }
   - { id: anticlerical, text: "sour about priests and their tithes, but never misses mass", weight: 2, minAge: 25, maxRank: 7 }
+  - { id: penitent, text: "doing penance for something; walks barefoot to the shrine on Fridays", weight: 1, minAge: 20 }
+  - { id: child_prayers, text: "says {their} prayers when made to, and fidgets through mass", weight: 6, minAge: 4, maxAge: 11 }
+  - { id: child_saints, text: "loves the saints' stories, the gorier the better", weight: 3, minAge: 5, maxAge: 11 }
+  - { id: child_angels, text: "is sure there's an angel in the church roof, and has seen it", weight: 2, minAge: 4, maxAge: 9 }
+  - { id: child_choir, text: "sings in the choir for the cakes, not the singing", weight: 2, minAge: 7, maxAge: 13 }
+  - { id: child_fear_hell, text: "terrified of hell, since the friar's sermon", weight: 2, minAge: 6, maxAge: 13 }
+  - { id: candles, text: "lights a candle to every saint in the church, in turn, all year", weight: 1, minAge: 30 }
+  - { id: fasts_show, text: "fasts loudly, so the street knows", weight: 1, minAge: 25 }
+  - { id: indulgent, text: "buys pardons from every pardoner who passes, just in case", weight: 1, minAge: 35, minRank: 4 }
+  - { id: holy_well, text: "goes to the holy well every Midsummer, and swears by it", weight: 2, minAge: 20 }
 
 health:
   - { id: hale, text: "hale", weight: 10 }
@@ -155,29 +448,45 @@ health:
   - { id: eyes, text: "failing eyes; can't thread a needle any more", weight: 2, minAge: 45 }
   - { id: joints, text: "swollen joints, worse in the wet", weight: 3, minAge: 45 }
   - { id: limp, text: "a limp from a badly healed break", weight: 2, minAge: 10 }
-  - { id: fits, text: "falls in fits now and then, which frightens people", weight: 1 }
+  - { id: fits, text: "falls in fits now and then, which frightens people", weight: 0.2 }
   - { id: drink, text: "drinks more than is good for {them}, and it shows", weight: 2, minAge: 25 }
   - { id: frail, text: "frail; spends more time by the fire each year", weight: 3, minAge: 60 }
   - { id: with_child, text: "with child, and showing", weight: 2, minAge: 17, maxAge: 40, sex: f, roles: [spouse] }
   - { id: sickly, text: "sickly; one fever after another", weight: 2, maxAge: 10 }
+  - { id: lungs, text: "short of breath; the dust is in {their} lungs", weight: 4, minAge: 30, bases: [mining] }
+  - { id: hands, text: "hands cracked and raw from salt water", weight: 3, minAge: 16, bases: [fishing] }
+  - { id: ague, text: "the ague; shakes with it every spring", weight: 1, minAge: 10 }
+  - { id: deafness, text: "deaf in one ear, and pretends otherwise", weight: 1, minAge: 40 }
+  - { id: rupture, text: "a rupture, bound up with a strap, from lifting", weight: 1, minAge: 30, sex: m, maxRank: 5 }
+  - { id: stout, text: "stout, short of breath on the stairs, and fond of {their} dinner", weight: 2, minAge: 35, minRank: 7 }
+  - { id: scrofula, text: "the king's evil: swellings at the neck that come and go", weight: 0.5, minAge: 6 }
+  - { id: babe_well, text: "thriving", weight: 6, maxAge: 2 }
 
 # Odd things about them, besides coin. One or two, by station.
 pockets:
   - { id: knife, text: "a knife", weight: 8, minAge: 10 }
-  - { id: spoon, text: "a horn spoon", weight: 4 }
+  - { id: spoon, text: "a horn spoon", weight: 4, minAge: 4 }
   - { id: beads, text: "a string of wooden prayer beads", weight: 3, minAge: 12 }
   - { id: badge, text: "a lead pilgrim's badge", weight: 2, minAge: 20 }
   - { id: tally, text: "a notched tally stick for a debt", weight: 3, minAge: 18, maxRank: 7 }
   - { id: whetstone, text: "a whetstone", weight: 2, minAge: 14, sex: m }
   - { id: flint, text: "flint and steel", weight: 3, minAge: 12 }
-  - { id: bread, text: "a heel of bread wrapped in a cloth", weight: 3 }
+  - { id: bread, text: "a heel of bread wrapped in a cloth", weight: 3, minAge: 4 }
   - { id: dice, text: "a pair of bone dice, one a little heavy", weight: 1, minAge: 14, maxRank: 5 }
   - { id: needle, text: "a needle case and thread", weight: 3, minAge: 10, sex: f }
   - { id: keys, text: "the household keys on a cord", weight: 3, minAge: 20, roles: [head, spouse], sex: f }
   - { id: seal, text: "a seal ring", weight: 4, minRank: 8 }
   - { id: letter, text: "a folded letter {they} can't read", weight: 1, minAge: 16, maxRank: 5 }
-  - { id: charm, text: "a charm against fever sewn into a scrap of cloth", weight: 2 }
-  - { id: pebble, text: "a smooth pebble, a feather and a dead beetle", weight: 3, maxAge: 11 }
+  - { id: charm, text: "a charm against fever sewn into a scrap of cloth", weight: 2, minAge: 4 }
+  - { id: pebble, text: "a smooth pebble, a feather and a dead beetle", weight: 3, minAge: 3, maxAge: 11 }
   - { id: sling, text: "a sling and a few good stones", weight: 2, minAge: 7, maxAge: 16, sex: m }
   - { id: wax, text: "a wax tablet and stylus", weight: 3, minRank: 7, minAge: 12 }
   - { id: purse_town, text: "a purse cut-proof on a chain", weight: 2, minRank: 6, setting: town }
+  - { id: token, text: "a lover's token: a bent penny on a thread", weight: 1, minAge: 15, maxAge: 30 }
+  - { id: herbs_p, text: "a twist of dried herbs that smells of the hedge", weight: 1, minAge: 20 }
+  - { id: whistle, text: "a bone whistle", weight: 2, minAge: 5, maxAge: 14 }
+  - { id: hook, text: "a few hooks and a coil of line", weight: 3, minAge: 8, bases: [fishing] }
+  - { id: tinder, text: "a tinderbox and a stub of candle", weight: 2, minAge: 25, setting: town }
+  - { id: lead_token, text: "a lead token for the guild feast", weight: 2, minAge: 20, setting: town, roles: [head], minRank: 5 }
+  - { id: receipt, text: "a receipt for tolls paid at the gate, kept in case", weight: 2, minAge: 20, setting: town, minRank: 4 }
+  - { id: relic_p, text: "a scrap of cloth said to have touched a saint's bones", weight: 1, minAge: 18 }

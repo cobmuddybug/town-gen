@@ -1,3 +1,4 @@
+import { poss } from "../../core/text";
 import { addDays, easter, formatDate } from "../../core/calendar";
 import type { Rng } from "../../core/rng";
 import type { Entity, Town } from "../../core/town";
@@ -107,7 +108,7 @@ const boughtFreedom: Sifter = {
       const hh = town.get(town.parentOf(e.to)!);
       return {
         title: "Bought freedom",
-        summary: `${town.label(e.to)}'s family bought their freedom ${hh.get("manor.freedAgo")} years ago and now pay ${lsd(hh.get<number>("manor.rent"))} a year instead of working the demesne. ${town.label(reeve)}, the reeve, used to count on their labour, and on what he could squeeze from it.`,
+        summary: `${poss(town.label(e.to))} family bought their freedom ${hh.get("manor.freedAgo")} years ago and now pay ${lsd(hh.get<number>("manor.rent"))} a year instead of working the demesne. ${town.label(reeve)}, the reeve, used to count on their labour, and on what he could squeeze from it.`,
         involves: [e.to, reeve],
       };
     });
@@ -150,7 +151,7 @@ const leavingTheLand: Sifter = {
       const lord = officials(town).lord;
       out.push({
         title: this.title,
-        summary: `${town.label(p.address)}, a villein's son, has been gone ${fled.weeks} weeks. ${lord ? `${town.label(lord.address)}'s` : "The lord's"} steward wants him back. In ${fled.to}, a master has taken on a new apprentice who won't say where he's from.`,
+        summary: `${town.label(p.address)}, a villein's son, has been gone ${fled.weeks} weeks. ${lord ? `${poss(town.label(lord.address))}` : "The lord's"} steward wants him back. In ${fled.to}, a master has taken on a new apprentice who won't say where he's from.`,
         involves: [p.address, town.children(h.address, "person")[0].address],
       });
     }

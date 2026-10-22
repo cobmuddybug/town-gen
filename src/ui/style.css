@@ -208,3 +208,15 @@ details.plan.off > summary { opacity: .5; }
 ul.deeds { font-size: 13px; color: var(--ink-soft); }
 .job .pay { float: right; font: 14px var(--serif); color: var(--accent); }
 @media print { .m-party { display: none; } }
+
+/* The underworld: notes for the DM's eyes, set apart from what the players hear. */
+dl.rows dd.dm { border-left: 2px solid var(--accent); padding-left: 6px; }
+
+.src { color: var(--muted, #8a7f6a); font-size: 0.8em; cursor: help; margin-left: 0.3em; }
+.m-landmark { color: #5b4636; }
+.m-small { font-size: 6px; }
+.m-conduit { fill: #6d8fa8; }
+.scene { font-style: italic; line-height: 1.45; margin: 0.3em 0; }
+.lines { margin: 0.2em 0 0.6em 1.1em; padding: 0; font-style: italic; }
+.lines li { margin: 0.15em 0; }
+.m-burnt { fill: #3b302a !important; stroke: #1d1612 !important; opacity: 0.85; }

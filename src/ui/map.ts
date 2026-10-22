@@ -1,6 +1,7 @@
 // Renders the L1 map as an SVG string. Pure: no DOM, so tests and the
 // command-line preview can use it too. Buildings carry data-address.
 
+import { burntSince } from "../modules/lives";
 import type { Town } from "../core/town";
 import type { MapData } from "../modules/layout";
 import type { Poly, Pt } from "../modules/layout/geom";
@@ -203,7 +204,8 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
   const hi = new Set(opts.highlight ?? []);
   for (const b of buildings) {
     const use = b.get<string>("use");
-    const cls = `m-bld m-use-${useClass(town, use)}${opts.selected === b.address ? " sel" : ""}${hi.has(b.address) ? " m-hi" : ""}`;
+    const burnt = burntSince(town, b.address, town.clock.date);
+    const cls = `m-bld m-use-${useClass(town, use)}${burnt ? " m-burnt" : ""}${opts.selected === b.address ? " sel" : ""}${hi.has(b.address) ? " m-hi" : ""}`;
     const title = esc(town.label(b.address));
     out.push(`<g data-address="${esc(b.address)}"><title>${title}</title>`);
     for (const p of b.get<{ kind: string; poly: Poly }[]>("parts") ?? []) {
@@ -218,6 +220,11 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
     if (ft.kind === "cross") out.push(`<path class="m-feature" d="M${f(ft.p[0] - 2)},${f(ft.p[1])}h4M${f(ft.p[0])},${f(ft.p[1] - 2)}v4" stroke="currentColor" stroke-width=".9"><title>the market cross</title></path>`);
     if (ft.kind === "well") out.push(`<circle class="m-feature" cx="${f(ft.p[0])}" cy="${f(ft.p[1])}" r="1.2"><title>the well</title></circle>`);
     if (ft.kind === "stocks") out.push(`<rect class="m-feature" x="${f(ft.p[0] - 1.5)}" y="${f(ft.p[1] - 0.4)}" width="3" height="0.8"><title>the stocks</title></rect>`);
+    if (ft.kind === "pillory") out.push(`<path class="m-feature" d="M${f(ft.p[0])},${f(ft.p[1] + 2)}v-4M${f(ft.p[0] - 1.5)},${f(ft.p[1] - 1.4)}h3" stroke="currentColor" stroke-width=".8"><title>the pillory</title></path>`);
+    if (ft.kind === "conduit") out.push(`<rect class="m-feature m-conduit" x="${f(ft.p[0] - 1.6)}" y="${f(ft.p[1] - 1.6)}" width="3.2" height="3.2"><title>the conduit: the town's water, piped from a spring</title></rect>`);
+    if (ft.kind === "gallows") out.push(`<g class="m-landmark"><path d="M${f(ft.p[0] - 2.5)},${f(ft.p[1] + 3)}v-6h5v1.6" stroke="currentColor" stroke-width="1" fill="none"/><text class="m-label m-small" x="${f(ft.p[0] + 4)}" y="${f(ft.p[1] + 1)}">gallows</text><title>the common gallows, outside the gate</title></g>`);
+    if (ft.kind === "butts") out.push(`<g class="m-landmark"><rect x="${f(ft.p[0] - 4)}" y="${f(ft.p[1] - 1)}" width="2" height="2" fill="currentColor"/><rect x="${f(ft.p[0] + 3)}" y="${f(ft.p[1] - 1)}" width="2" height="2" fill="currentColor"/><title>the butts, where the men shoot on Sundays</title></g>`);
+    if (ft.kind === "bridge_chapel") out.push(`<g class="m-landmark"><path d="M${f(ft.p[0] - 1.5)},${f(ft.p[1] - 3.5)}h3M${f(ft.p[0])},${f(ft.p[1] - 5)}v3" stroke="currentColor" stroke-width=".8"/><title>the bridge chapel, where travellers give thanks and pay a penny for the bridge</title></g>`);
   }
 
   for (const g of m.greatFields) {

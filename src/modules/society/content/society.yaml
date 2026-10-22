@@ -1,41 +1,66 @@
 # Why people owe money, and why they fall out. Our own lists.
+# `setting` (country or town) keeps a reason where it makes sense; none means either.
+# Every rivalry is a noun phrase: it follows "over" in a sentence.
 debts:
-  - { id: seed_corn, text: "seed corn borrowed after a bad harvest", weight: 4 }
-  - { id: cow, text: "the price of a cow", weight: 2 }
-  - { id: heriot, text: "the heriot, when the old man died", weight: 2 }
+  - { id: seed_corn, text: "seed corn borrowed after a bad harvest", weight: 4, setting: country }
+  - { id: cow, text: "the price of a cow", weight: 2, setting: country }
+  - { id: heriot, text: "the heriot, when the old man died", weight: 2, setting: country }
   - { id: funeral, text: "a funeral and the priest's fee", weight: 2 }
   - { id: rent, text: "rent arrears, paid over on their behalf", weight: 3 }
-  - { id: plough, text: "a share in a plough team", weight: 2 }
-  - { id: fine, text: "a fine at the manor court", weight: 2 }
+  - { id: plough, text: "a share in a plough team", weight: 2, setting: country }
+  - { id: fine, text: "a fine at the manor court", weight: 2, setting: country }
   - { id: dowry, text: "a daughter's dowry", weight: 1 }
-  - { id: roof, text: "rethatching after the storm", weight: 2 }
+  - { id: roof, text: "rethatching after the storm", weight: 2, setting: country }
   - { id: bread, text: "bread and meal through the hungry gap", weight: 3 }
   - { id: horse, text: "a horse that went lame within the month", weight: 1 }
   - { id: fine_town, text: "a fine for a brawl, paid on their behalf", weight: 2 }
   - { id: wedding, text: "the cost of a wedding feast", weight: 2 }
   - { id: tools, text: "new tools, after the old ones were stolen", weight: 2 }
-  - { id: physic, text: "a physician for a sick child", weight: 1 }
+  - { id: physic, text: "a physician for a sick child", weight: 1, setting: town }
+  - { id: physic_c, text: "the wise woman's fee for a sick child", weight: 1, setting: country }
   - { id: dice, text: "losses at dice", weight: 1 }
   - { id: cloth, text: "cloth bought on credit for a new gown", weight: 1 }
   - { id: tax, text: "the tax when the sheriff's man came", weight: 2 }
+  - { id: stock, text: "a loan to stock the shop", weight: 4, setting: town }
+  - { id: entry, text: "the guild's entry fine, lent so the son could be made master", weight: 2, setting: town }
+  - { id: freedom, text: "the fee to be sworn a freeman of the town", weight: 2, setting: town }
+  - { id: lease, text: "a year's rent on the shop, paid up front", weight: 3, setting: town }
+  - { id: cargo, text: "a share in a cargo that came in spoiled", weight: 1, setting: town }
+  - { id: tiles, text: "new tiles after the fire-wardens condemned the thatch", weight: 1, setting: town }
+  - { id: wool, text: "wool bought on credit at the last fair", weight: 2, setting: town }
+  - { id: boat, text: "a share in a new boat", weight: 4, bases: [fishing] }
+  - { id: nets, text: "new nets after the storm took the old ones", weight: 3, bases: [fishing] }
+  - { id: ewes, text: "twenty ewes bought after the bad winter", weight: 3, bases: [herding] }
 rivalries:
-  - "a straying pig"
-  - "the better pew in the chapel"
-  - "who keeps the better plough team"
-  - "an old insult at a wedding"
-  - "a right of way across a croft"
-  - "a match that was broken off"
-  - "a dog that killed hens"
-  - "the water from the stream in a dry summer"
-  - "a will that left one of them out"
-  - "being passed over for reeve"
-  - "a game of dice that ended badly"
-  - "whose turn it was at the well"
-  - "a borrowed tool never returned"
-  - "who sings louder in church"
-  - "a cart left across a gate"
-  - "a dowry that was promised and never paid"
-  - "smoke from a bonfire over drying washing"
-  - "a song someone made up about the other"
-  - "a dog that bit a child"
-  - "the best stall on market day"
+  - { text: "a straying pig", setting: country }
+  - { text: "the better place in the Palm Sunday procession" }
+  - { text: "who keeps the better plough team", setting: country }
+  - { text: "an old insult at a wedding" }
+  - { text: "a right of way across a croft", setting: country }
+  - { text: "a match that was broken off" }
+  - { text: "a dog that killed hens" }
+  - { text: "the water from the stream in a dry summer", setting: country }
+  - { text: "a will that left one of them out" }
+  - { text: "being passed over for reeve", setting: country }
+  - { text: "a game of dice that ended badly" }
+  - { text: "whose turn it was at the well" }
+  - { text: "a borrowed tool never returned" }
+  - { text: "who sings louder in church" }
+  - { text: "a cart left across a gate", setting: country }
+  - { text: "a dowry that was promised and never paid" }
+  - { text: "smoke from a bonfire over drying washing" }
+  - { text: "a song someone made up about the other" }
+  - { text: "a dog that bit a child" }
+  - { text: "the best stall on market day" }
+  - { text: "a shop sign that hangs over the other's door", setting: town }
+  - { text: "a gutter that drains into the other's cellar", setting: town }
+  - { text: "an apprentice enticed away", setting: town }
+  - { text: "the last guild election", setting: town }
+  - { text: "a party wall that one of them pulled down", setting: town }
+  - { text: "a midden heaped against the other's door", setting: town }
+  - { text: "a customer poached in the street", setting: town }
+  - { text: "short measure, sworn to before the market clerk", setting: town }
+  - { text: "a window that looks into the other's yard", setting: town }
+  - { text: "a jetty built out over the other's light", setting: town }
+  - { text: "a stolen fishing mark", bases: [fishing] }
+  - { text: "a ram that got in among the other's ewes", bases: [herding] }

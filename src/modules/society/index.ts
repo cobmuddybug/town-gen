@@ -2,7 +2,7 @@ import { data } from "../../core/content";
 import type { Rng } from "../../core/rng";
 import type { Entity, Town } from "../../core/town";
 import type { Ctx, EdgeKind, Module } from "../../core/types";
-import type { Tier } from "../core";
+import { isUrban, type Tier } from "../core";
 import { COUNCIL } from "../council";
 import { centroid, dist, type Poly, type Pt } from "../layout/geom";
 import type { Occupation } from "../uses";
@@ -12,9 +12,10 @@ import societyYaml from "./content/society.yaml";
 // the whole resolved hamlet and draws from settlement-level streams, so no
 // result depends on what anyone looked at first (DESIGN §11a).
 
+interface Reason { id?: string; text: string; weight?: number; setting?: "country" | "town"; bases?: string[] }
 interface SocietyData {
-  debts: { id: string; text: string; weight: number }[];
-  rivalries: string[];
+  debts: Reason[];
+  rivalries: Reason[];
 }
 const content = data<SocietyData>(societyYaml);
 
@@ -59,7 +60,7 @@ const pair = (a: number, b: number) => (a < b ? a * 1e6 + b : b * 1e6 + a);
 
 export const society: Module = {
   id: "society",
-  version: "1.0.0",
+  version: "2.0.0",
   requires: ["core", "households", "names", "people", "council"],
   register(add) {
     add<EdgeKind>("edgeKinds", [{ id: "courting", label: "courting", symmetric: true }]);
@@ -85,6 +86,10 @@ export const society: Module = {
         if (ia !== undefined && ib !== undefined) pairs.add(pair(ia, ib));
       }
       const related = (a: Entity, b: Entity) => hid.get(a) === hid.get(b) || pairs.has(pair(pid.get(a)!, pid.get(b)!));
+      // Reasons that fit the place: no plough teams in a city, no guild fines in a hamlet.
+      const setting = isUrban(town) ? "town" : "country", base = town.settlement().get<string>("base");
+      const fit = (x: Reason) => (!x.setting || x.setting === setting) && (!x.bases || x.bases.includes(base));
+      reasons = { debts: content.debts.filter(fit), rivalries: content.rivalries.filter(fit) };
       employment(ctx, all, rng("employment"));
       apprentices(ctx, all, rng("apprentices"));
       debts(ctx, all, rng("debts"));
@@ -163,7 +168,7 @@ function brothers(ctx: Ctx, all: Hh[], r: Rng, kin: Set<string>) {
 function employment(ctx: Ctx, all: Hh[], r: Rng) {
   const town = ctx.town;
   const occs = ctx.registry<Occupation>("occupations");
-  if (/town|city/.test(town.settlement().get<string>("sizeClass"))) return townEmployment(ctx, all, r);
+  if (isUrban(town)) return townEmployment(ctx, all, r);
   const farms = all.filter((x) => x.h.get<number>("land") >= 12);
   const keeper = town.peek(`${town.root}/institution:${COUNCIL}`) ? `${town.root}/institution:${COUNCIL}` : undefined;
   for (const x of all) {
@@ -189,13 +194,20 @@ function townEmployment(ctx: Ctx, all: Hh[], r: Rng) {
   const grid = new Map<string, Hh[]>();
   const keyOf = (p: Pt, dx = 0, dy = 0) => `${Math.floor(p[0] / CELL) + dx},${Math.floor(p[1] / CELL) + dy}`;
   for (const h of hirers) { const k = keyOf(h.at); const l = grid.get(k); if (l) l.push(h); else grid.set(k, [h]); }
+  // A master takes on as many hands as his trade can use: a few for a craftsman,
+  // a dozen for a great merchant, never the whole street.
+  const hands = new Map<Hh, number>();
+  const room = (y: Hh) => (y.rank >= 8 ? 12 : y.rank >= 7 ? 6 : 3) - (hands.get(y) ?? 0);
   for (const x of all) {
     if (!TOWN_WORKERS.has(x.occ) || r.chance(0.3)) continue; // some take whatever comes, day by day
     let pool: Hh[] = [];
     for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) pool.push(...(grid.get(keyOf(x.at, dx, dy)) ?? []));
     if (!pool.length) pool = hirers;
-    const f = r.weighted(pool, (y) => y.h.get<number>("income") / (1 + dist(x.at, y.at) / 80));
+    pool = pool.filter((y) => room(y) > 0);
+    if (!pool.length) continue;
+    const f = r.weighted(pool, (y) => Math.sqrt(y.h.get<number>("income")) / (1 + dist(x.at, y.at) / 80));
     if (f === x) continue;
+    hands.set(f, (hands.get(f) ?? 0) + 1);
     ctx.edge({ from: f.head.address, to: x.head.address, kind: "employer", weight: r.range(-0.3, 0.4), facts: { as: occs.find(x.occ)?.label ?? x.occ } });
   }
 }
@@ -216,24 +228,30 @@ function apprentices(ctx: Ctx, all: Hh[], r: Rng) {
   }
 }
 
+let reasons: SocietyData = content;
+
 const DEBT_CHANCE: Record<number, number> = { 3: 0.45, 4: 0.4, 5: 0.35, 6: 0.2, 7: 0.1 };
 
 function debts(ctx: Ctx, all: Hh[], r: Rng) {
   const lenders = [...all].sort((a, b) => b.h.get<number>("savings") - a.h.get<number>("savings")).slice(0, Math.max(3, Math.round(all.length / 8)));
-  const alehouse = all.find((x) => x.use === "alehouse");
+  const loans = new Map<Hh, number>();
+  const alehouses = all.filter((x) => x.use === "alehouse" || x.use === "town_alehouse" || x.use === "tavern");
   for (const x of all) {
     if (lenders.includes(x)) continue;
     if (!r.chance(DEBT_CHANCE[x.rank] ?? 0.05)) continue;
     const income = x.h.get<number>("income");
+    const alehouse = alehouses.length ? alehouses.reduce((b, y) => (dist(y.at, x.at) < dist(b.at, x.at) ? y : b)) : undefined;
     if (alehouse && alehouse !== x && x.members.some((p) => p.get<string[]>("traits").includes("drinker")) && r.chance(0.6)) {
       const amount = Math.round(r.range(6, 40));
       ctx.edge({ from: x.head.address, to: alehouse.head.address, kind: "debtor_of", weight: amount, facts: { amount, reason: "the ale slate" }, knownBy: [x.head.address, alehouse.head.address] });
       continue;
     }
-    const able = lenders.filter((l) => l.rank >= x.rank && l !== x);
+    // Debts are owed near home, to someone of standing, and no lender carries the whole town.
+    const able = lenders.filter((l) => l.rank >= x.rank && l !== x && (loans.get(l) ?? 0) < (l.rank >= 8 ? 14 : 7));
     if (!able.length) continue;
-    const c = r.weighted(able, (l) => l.h.get<number>("savings"));
-    const reason = r.weighted(content.debts, (d) => d.weight);
+    const c = r.weighted(able, (l) => Math.sqrt(l.h.get<number>("savings")) / (1 + dist(x.at, l.at) / 200));
+    loans.set(c, (loans.get(c) ?? 0) + 1);
+    const reason = r.weighted(reasons.debts, (d) => d.weight ?? 1);
     const amount = Math.round(income * r.range(0.1, 0.9));
     ctx.edge({
       from: x.head.address, to: c.head.address, kind: "debtor_of", weight: amount,
@@ -294,7 +312,7 @@ function friendsAndRivals(ctx: Ctx, all: Hh[], r: Rng, related: (a: Entity, b: E
     if (!cands.length) continue;
     const b = r.weighted(cands, (c) => (c.occ === a.occ ? 3 : 1) / (1 + dist(a.at, c.at) / 40));
     done.add(dk(a.head, b.head));
-    ctx.edge({ from: a.head.address, to: b.head.address, kind: "rival", weight: -r.range(0.3, 0.9), facts: { about: r.pick(content.rivalries) } });
+    ctx.edge({ from: a.head.address, to: b.head.address, kind: "rival", weight: -r.range(0.3, 0.9), facts: { about: r.pick(reasons.rivalries).text } });
   }
 }
 
@@ -322,7 +340,8 @@ function courtship(ctx: Ctx, all: Hh[], r: Rng, related: (a: Entity, b: Entity) 
   // A married pair who should not be: rare, and secret.
   const married: Entity[] = [];
   for (const x of all) for (const p of x.members) if (p.get("marital") === "married" && age(p) <= 50) married.push(p);
-  const affairs = r.chance(0.6) ? 1 : 0;
+  // One in a hamlet, now and then; a handful in a town.
+  const affairs = (r.chance(0.6) ? 1 : 0) + Math.floor(married.length / 600);
   for (let i = 0; i < affairs && married.length > 3; i++) {
     const a = r.pick(married);
     const others = married.filter((b) => sex(b) !== sex(a) && !related(a, b) && Math.abs(age(a) - age(b)) <= 15);

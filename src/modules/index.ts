@@ -18,5 +18,13 @@ import { civic } from "./civic";
 import { guilds } from "./guilds";
 import { lodging } from "./lodging";
 import { gossip } from "./gossip";
+import { crime } from "./crime";
+import { weather } from "./weather";
+import { region } from "./region";
+import { lore } from "./lore";
+import { market } from "./market";
+import { lives } from "./lives";
+import { politics } from "./politics";
+import { hire } from "./hire";
 
-export const defaultModules: Module[] = [core, uses, layout, households, materials, names, people, character, council, society, visitors, manor, religion, civic, guilds, lodging, routines, gossip, sifters];
+export const defaultModules: Module[] = [core, weather, uses, layout, households, materials, names, people, character, council, society, visitors, manor, religion, civic, guilds, lodging, routines, gossip, region, lore, market, crime, lives, politics, hire, sifters];

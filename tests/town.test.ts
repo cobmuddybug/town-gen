@@ -11,12 +11,13 @@ import { whereabouts } from "../src/modules/routines";
 import { findHooks } from "../src/modules/sifters";
 import { visitsIn } from "../src/modules/visitors";
 
-let town: Town, village: Town, port: Town;
+let town: Town, village: Town, market: Town, port: Town;
 beforeAll(() => {
   town = generate("burgh-a", { pop: 8000 });
-  village = generate("vill-a", { pop: 2000 });
+  village = generate("vill-a", { pop: 900 });
+  market = generate("vill-a", { pop: 2000 });
   port = generate("port-a", { pop: 9000, base: "fishing" });
-  for (const t of [town, village, port]) t.society();
+  for (const t of [town, village, market, port]) t.society();
 }, 120000);
 
 const map = (t: Town) => t.settlement().get<MapData>("map");
@@ -65,8 +66,8 @@ describe("street plans", () => {
   test("the population comes out near what was asked for", () => {
     expect(people(town).length / 8000).toBeGreaterThan(0.95);
     expect(people(town).length / 8000).toBeLessThan(1.25);
-    expect(people(village).length / 2000).toBeGreaterThan(0.85);
-    expect(people(village).length / 2000).toBeLessThan(1.2);
+    expect(people(market).length / 2000).toBeGreaterThan(0.85);
+    expect(people(market).length / 2000).toBeLessThan(1.2);
   });
 
   test("ward values: suburbs are poor; somewhere is rich", () => {
@@ -94,6 +95,13 @@ describe("street plans", () => {
     for (const b of buildings(port)) expect(pointInPoly(centroid(b.get<Poly>("poly")), m.sea!)).toBe(false);
   });
 
+  test("a market town of 2,000 governs itself like a town: officers, a watch, a court, no elder", () => {
+    expect(market.find(`${market.root}/institution:council`)).toBeUndefined();
+    expect(market.find(`${market.root}/institution:watch`)).toBeDefined();
+    expect(offices(market, "constable").length).toBeGreaterThanOrEqual(1);
+    expect(market.settlement().get<string[]>("marketDays")).toHaveLength(2);
+  });
+
   test("a big village keeps its council and has no watch, gatehouses or guildhall", () => {
     expect(village.find(`${village.root}/institution:council`)).toBeDefined();
     expect(village.find(`${village.root}/institution:watch`)).toBeUndefined();
@@ -117,7 +125,9 @@ describe("town institutions", () => {
     expect(offices(town, "officer of the watch").length).toBeGreaterThanOrEqual(quarters * 4);
     expect(offices(town, "gate guard").length).toBeGreaterThanOrEqual(map(town).wall!.gates.length * 2);
     expect(offices(town, "town crier").length).toBeGreaterThanOrEqual(1);
-    expect(offices(town, "magistrate")).toHaveLength(1);
+    // 1203: the coroner holds felonies for the king's justices; no magistrates yet.
+    expect(offices(town, "coroner")).toHaveLength(1);
+    expect(offices(town, "magistrate")).toHaveLength(0);
     // Nobody holds two town offices.
     const holders = town.edges({ kind: "office_in" }).filter((e) => /institution:(town|watch|justice)$/.test(e.to)).map((e) => e.from);
     expect(new Set(holders).size).toBe(holders.length);
