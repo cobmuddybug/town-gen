@@ -168,3 +168,11 @@ export function boatPoly(c: Pt, u: Pt, l: number): Poly {
     add(add(c, mul(u, -l / 2)), mul(v, -l * 0.14)), add(add(c, mul(u, l * 0.2)), mul(v, -l * 0.18))];
 }
 
+
+/** How wide the market is (as a radius): it grows with the town, and on market day a fifth of the place is in it.
+ *  The radial plan's own formula, shared. */
+export function marketSize(o: { scale: Scale; market?: "small" | "large" }, need: number): number {
+  const urban = o.scale === "town" || o.scale === "city";
+  const base = urban ? 20 + 0.55 * Math.sqrt(need * 6) : o.scale === "village" ? 20 + 0.42 * Math.sqrt(need * 6) : 18 + 0.3 * Math.sqrt(need * 6);
+  return base * (o.market === "small" ? 0.7 : o.market === "large" ? 1.5 : 1);
+}

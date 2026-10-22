@@ -7,10 +7,10 @@ import type { Pt } from "./geom";
 
 /** A height field over a square of half-width `extent` about the origin. */
 export function heightField(r: Rng, extent: number): (p: Pt) => number {
-  const n = r.int(3, 5);
+  const n = r.int(4, 6);
   const bumps = Array.from({ length: n }, () => ({
     c: [r.range(-0.8, 0.8) * extent, r.range(-0.8, 0.8) * extent] as Pt,
-    s2: (r.range(0.35, 0.8) * extent) ** 2,
+    s2: (r.range(0.4, 0.9) * extent) ** 2,
     a: r.range(0.4, 1) * (r.chance(0.25) ? -0.5 : 1),
   }));
   const total = bumps.reduce((t, b) => t + Math.abs(b.a), 0) || 1;

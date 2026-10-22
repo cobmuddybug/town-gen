@@ -2,7 +2,8 @@ import { describe, expect, test } from "vitest";
 import { Rng } from "../src/core/rng";
 import { segPointDist, type Pt } from "../src/modules/layout/geom";
 import { heightField } from "../src/modules/layout/height";
-import { riverSite, sideOf, type RiverOpts } from "../src/modules/layout/river";
+import { riverSite, riverStreets, sideOf, type RiverOpts, type RiverSite, type StreetNet } from "../src/modules/layout/river";
+import { pointInPoly, polylinePolyDist } from "../src/modules/layout/geom";
 import { generate } from "../src/town-gen";
 import type { Design, FarBank, LayoutPlan } from "../src/core/types";
 
@@ -104,5 +105,92 @@ describe("the river site", () => {
     const s = riverSite(new Rng("sea"), OPTS(3000, { terrain: "coast" }));
     expect(s.sea).toBeDefined();
     for (const p of s.river) expect(p[0] * s.sea!.n[0] + p[1] * s.sea!.n[1]).toBeLessThanOrEqual(s.sea!.d + 1);
+  });
+});
+
+// ---- street-network helpers ------------------------------------------------
+const pairs = (pts: Pt[]) => pts.slice(1).map((b, i) => [pts[i], b] as [Pt, Pt]);
+/** One network: streets join where an end lies on another street, the market, or the bridge. */
+function connected(net: StreetNet): boolean {
+  const n = net.streets.length;
+  const parent = net.streets.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const join = (a: number, b: number) => { parent[find(a)] = find(b); };
+  const MARKET = n;
+  parent.push(MARKET);
+  for (let i = 0; i < n; i++) {
+    const s = net.streets[i];
+    for (const end of [s.points[0], s.points[s.points.length - 1]]) {
+      if (polylinePolyDist([end, end], net.market) < 2 || pointInPoly(end, net.market)) join(i, MARKET);
+      for (let j = 0; j < n; j++) if (j !== i && nearestDist(net.streets[j].points, end) < 1) join(i, j);
+    }
+  }
+  return net.streets.every((_, i) => find(i) === find(0));
+}
+function crossesRiverAwayFromBridge(s: RiverSite, a: Pt, b: Pt): boolean {
+  if (sideOf(s.river, a) === sideOf(s.river, b)) return false;
+  const m: Pt = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  return Math.hypot(m[0] - s.bridge.p[0], m[1] - s.bridge.p[1]) > s.width * 2;
+}
+/** Long side over short side, in the polygon's own principal axes. */
+function aspect(poly: Pt[]): number {
+  const cx = poly.reduce((a, p) => a + p[0], 0) / poly.length, cy = poly.reduce((a, p) => a + p[1], 0) / poly.length;
+  let sxx = 0, syy = 0, sxy = 0;
+  for (const p of poly) { const x = p[0] - cx, y = p[1] - cy; sxx += x * x; syy += y * y; sxy += x * y; }
+  const th = 0.5 * Math.atan2(2 * sxy, sxx - syy), u: Pt = [Math.cos(th), Math.sin(th)], v: Pt = [-u[1], u[0]];
+  const span = (d: Pt) => { const ps = poly.map((p) => p[0] * d[0] + p[1] * d[1]); return Math.max(...ps) - Math.min(...ps); };
+  const a = span(u), b = span(v);
+  return Math.max(a, b) / Math.max(1e-9, Math.min(a, b));
+}
+/** Gaps between the main roads' bearings, 60 units out from the market's centre. */
+function bearingGaps(net: StreetNet): number[] {
+  const cx = net.market.reduce((a, p) => a + p[0], 0) / net.market.length, cy = net.market.reduce((a, p) => a + p[1], 0) / net.market.length;
+  const bs = net.streets.filter((s) => s.kind === "main").map((s) => {
+    let acc = 0; let at = s.points[s.points.length - 1];
+    for (const [a, b] of pairs(s.points)) { const l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (acc + l >= 60) { const t = (60 - acc) / l; at = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; break; } acc += l; }
+    return Math.atan2(at[1] - cy, at[0] - cx);
+  }).sort((a, b) => a - b);
+  return bs.map((b, i) => (i + 1 < bs.length ? bs[i + 1] - b : bs[0] + 2 * Math.PI - b));
+}
+
+describe("the river town's streets", () => {
+  const net = (seed: string, need: number) => { const o = OPTS(need); const s = riverSite(new Rng(seed), o); return { s, net: riverStreets(new Rng(seed + "/streets"), s, o) }; };
+
+  test("streets form one connected network, crossing the river only at the bridge", () => {
+    for (let i = 0; i < 12; i++) {
+      const { s, net: n } = net(`n${i}`, 1500);
+      expect(connected(n)).toBe(true);
+      for (const st of n.streets) for (const [a, b] of pairs(st.points)) expect(crossesRiverAwayFromBridge(s, a, b), `${st.id}`).toBe(false);
+    }
+  });
+
+  test("the market meets at least two main roads and is not a disc", () => {
+    for (let i = 0; i < 8; i++) {
+      const { net: n } = net(`m${i}`, 3000);
+      const touching = n.streets.filter((st) => (st.kind === "main" || st.kind === "high") && polylinePolyDist(st.points, n.market) < 2);
+      expect(touching.length).toBeGreaterThanOrEqual(2);
+      expect(aspect(n.market)).toBeGreaterThan(1.3);
+    }
+  });
+
+  test("main roads do not radiate evenly", () => {
+    let uneven = 0;
+    for (let i = 0; i < 20; i++) {
+      const gaps = bearingGaps(net(`b${i}`, 5000).net);
+      if (Math.max(...gaps) / Math.min(...gaps) > 1.6) uneven++;
+    }
+    expect(uneven).toBeGreaterThanOrEqual(14);
+  });
+
+  test("there are back lanes, cross lanes, water lanes and a far-bank road", () => {
+    const { net: n } = net("kinds", 4000);
+    for (const k of ["high", "main", "back", "cross", "water", "far"]) expect(n.streets.some((s) => s.kind === k), k).toBe(true);
+  });
+
+  test("a walled town has gates on its main roads and one at the bridge", () => {
+    const { net: n } = net("gates", 4000);
+    expect(n.wallLine?.length).toBeGreaterThan(5);
+    expect(n.gates.length).toBeGreaterThanOrEqual(OPTS(4000).roads);
+    expect(n.gates.some((g) => g.road === "high")).toBe(true);
   });
 });
