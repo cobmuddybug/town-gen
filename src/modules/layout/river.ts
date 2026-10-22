@@ -113,7 +113,14 @@ export function riverSite(r: Rng, o: RiverOpts): RiverSite {
     const dl = hypot(down[0], down[1]) || 1;
     const sn: Pt = [down[0] / dl, down[1] / dl];
     sea = { n: sn, d: Math.max(R * 1.3, dot(bridge.p, sn) + R * 0.9) };
-    line = river.filter((p) => dot(p, sn) <= sea!.d);
+    // The river runs on until it meets the shore, and a little way out, so its mouth opens into the sea.
+    const k = river.findIndex((p) => dot(p, sn) > sea!.d);
+    if (k > 0) {
+      const a = river[k - 1], b = river[k];
+      const f = (sea.d - dot(a, sn)) / (dot(b, sn) - dot(a, sn));
+      const mouth = add(a, mul(sub(b, a), f));
+      line = [...river.slice(0, k), mouth, add(mouth, mul(sn, width))];
+    }
   }
   return { height, river: line, width, near, bridge, high, extent, radius: R, sea };
 }

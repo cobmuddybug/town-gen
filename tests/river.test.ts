@@ -109,7 +109,9 @@ describe("the river site", () => {
   test("on the coast the river stops at the sea", () => {
     const s = riverSite(new Rng("sea"), OPTS(3000, { terrain: "coast" }));
     expect(s.sea).toBeDefined();
-    for (const p of s.river) expect(p[0] * s.sea!.n[0] + p[1] * s.sea!.n[1]).toBeLessThanOrEqual(s.sea!.d + 1);
+    // Up to the shore, and its mouth a river's width out.
+    for (const p of s.river) expect(p[0] * s.sea!.n[0] + p[1] * s.sea!.n[1]).toBeLessThanOrEqual(s.sea!.d + s.width + 1);
+    expect(s.river.filter((p) => p[0] * s.sea!.n[0] + p[1] * s.sea!.n[1] > s.sea!.d + 1).length).toBe(1);
   });
 });
 
@@ -503,4 +505,19 @@ describe("river towns: small things", () => {
     expect(posterns.length).toBeGreaterThan(0);
     for (const b of posterns) expect(t.label(b.address)).toMatch(/^The (North|South|East|West) postern$/);
   }, 300000);
+});
+
+describe("fishing towns", () => {
+  const lineDist = (l: Pt[], p: Pt) => { let d = Infinity; for (let i = 0; i + 1 < l.length; i++) d = Math.min(d, segPointDist(p, l[i], l[i + 1])); return d; };
+  test("the river always runs into the sea, on the map", () => {
+    for (const layout of ["river", "radial"] as const) for (const pop of [1500, 6000]) for (let i = 0; i < 12; i++) {
+      const t = generate(`sea${i}`, { pop, base: "fishing", design: { layout } });
+      const m = t.settlement().get<MapData>("map");
+      expect(m.coast, `${layout} ${pop} sea${i}`).toBeTruthy();
+      const [bx, by, bw, bh] = m.bounds;
+      const onMap = m.stream.points.filter((p) => p[0] >= bx && p[0] <= bx + bw && p[1] >= by && p[1] <= by + bh);
+      const gap = Math.min(...onMap.map((p) => lineDist(m.coast!, p)));
+      expect(gap, `${layout} ${pop} sea${i}`).toBeLessThanOrEqual(2);
+    }
+  }, 600000);
 });

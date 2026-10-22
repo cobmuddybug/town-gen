@@ -357,7 +357,9 @@ export function layoutRadial(r: Rng, plan: Footprint[], o: TownOpts): TownLayout
 
   // ---- river ----------------------------------------------------------------
   const riverW = urban ? r.range(9, 14) : r.range(4, 6);
-  const riverPhi = coast ? seaPhi + PI * r.range(0.6, 1.4) : r.range(0, TAU);
+  // On the coast the river passes beside the town, on either hand, on its way down to the sea.
+  const side = coast ? r.range(-1, 1) : 0;
+  const riverPhi = coast ? seaPhi + (side < 0 ? -PI / 2 : PI / 2) + (Math.abs(side) - 0.5) * 0.7 : r.range(0, TAU);
   // The river runs hard under the wall on one side, as at most river towns: the
   // town grew at the crossing. Clear of its furthest point that way, which for
   // a lobed or long town is not the radius at that angle.
@@ -373,8 +375,18 @@ export function layoutRadial(r: Rng, plan: Footprint[], o: TownOpts): TownLayout
     const lateral = ramp * (sin(s / rwl + rph) - sin(rph));
     riverPts.push(qp(add(add(rv0, mul(ru, s)), mul(dirOf(riverPhi), lateral))));
   }
-  // On the coast the river runs down into the sea and stops there.
-  const river = coast ? riverPts.filter((p) => beyond(p) < seaD + 4) : riverPts;
+  // On the coast the river runs down into the sea, and a little way out, and stops there.
+  let river = riverPts;
+  if (coast) {
+    // It runs seaward along increasing s or decreasing s; keep the landward stretch up to the shore.
+    const pts = beyond(riverPts[riverPts.length - 1]) > beyond(riverPts[0]) ? riverPts : [...riverPts].reverse();
+    const k = pts.findIndex((p) => beyond(p) > seaD);
+    if (k > 0) {
+      const a = pts[k - 1], b = pts[k];
+      const mouth = add(a, mul(sub(b, a), (seaD - beyond(a)) / (beyond(b) - beyond(a))));
+      river = [...pts.slice(0, k), qp(mouth), qp(add(mouth, mul(seaN, riverW)))];
+    } else river = pts.filter((p) => beyond(p) < seaD + 4);
+  }
   const riverS0 = project(river, C);
   const bridges: Pt[] = [];
   for (const rd of roads) {
