@@ -305,9 +305,54 @@ function fitVillage(): [number, number, number, number] {
   return [x0 - (nw - w) / 2, y0, nw, h];
 }
 
+// The map is a big SVG: re-rendering it at a new viewBox costs a full repaint.
+// While a gesture is under way (wheel, drag, pinch) we move it with a CSS
+// transform, which the GPU does for free, and set the real viewBox only once
+// the gesture rests. `shown` is the viewBox the SVG is actually drawn at.
+let shown: [number, number, number, number] | undefined;
+let settle: ReturnType<typeof setTimeout> | undefined;
+let frame = 0;
+
 function applyView(svg = mapEl.querySelector("svg")!) {
+  if (settle) { clearTimeout(settle); settle = undefined; }
+  if (frame) { cancelAnimationFrame(frame); frame = 0; }
+  svg.style.transform = "";
   svg.setAttribute("viewBox", view!.map((n) => n.toFixed(2)).join(" "));
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  shown = [...view!] as [number, number, number, number];
+}
+
+/** How a viewBox sits in the map's box: scale and offset, as preserveAspectRatio "meet" does it. */
+function fitOf(v: [number, number, number, number]) {
+  const W = mapEl.clientWidth, H = mapEl.clientHeight;
+  const s = Math.min(W / v[2], H / v[3]);
+  return { s, ox: (W - v[2] * s) / 2, oy: (H - v[3] * s) / 2 };
+}
+
+/** Show `view` now, by transform, and set it properly when the gesture rests. */
+function previewView(restMs = 140) {
+  const svg = mapEl.querySelector("svg");
+  if (!svg || !view) return;
+  if (!shown) return applyView(svg);
+  if (!frame) frame = requestAnimationFrame(() => {
+    frame = 0;
+    if (!shown || !view) return;
+    const a = fitOf(shown), b = fitOf(view);
+    const k = b.s / a.s;
+    const tx = b.ox + (shown[0] - view[0]) * b.s - a.ox * k;
+    const ty = b.oy + (shown[1] - view[1]) * b.s - a.oy * k;
+    svg.style.transformOrigin = "0 0";
+    svg.style.transform = `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${k.toFixed(5)})`;
+  });
+  if (settle) clearTimeout(settle);
+  settle = setTimeout(() => applyView(svg), restMs);
+}
+
+/** A point on screen, in map coordinates, as the map looks now (mid-gesture too). */
+function screenToMap(clientX: number, clientY: number): [number, number] {
+  const r = mapEl.getBoundingClientRect();
+  const v = view!, f = fitOf(v);
+  return [v[0] + (clientX - r.left - f.ox) / f.s, v[1] + (clientY - r.top - f.oy) / f.s];
 }
 
 function markMap(highlight: Address[] = []) {
@@ -322,12 +367,12 @@ function markMap(highlight: Address[] = []) {
   });
 }
 
-function zoom(factor: number, cx?: number, cy?: number) {
+function zoom(factor: number, cx?: number, cy?: number, smooth = false) {
   const [x, y, w, h] = view!;
   const px = cx ?? x + w / 2, py = cy ?? y + h / 2;
   const nw = Math.min(Math.max(w * factor, 40), 4000), k = nw / w;
   view = [px - (px - x) * k, py - (py - y) * k, w * k, h * k];
-  applyView();
+  if (smooth) previewView(); else applyView();
 }
 
 function toMapCoords(svg: SVGSVGElement, clientX: number, clientY: number): [number, number] {
@@ -338,28 +383,55 @@ function toMapCoords(svg: SVGSVGElement, clientX: number, clientY: number): [num
 }
 
 let drag: { x: number; y: number; moved: boolean; view: [number, number, number, number] } | undefined;
+// Fingers on the map, for pinch-zoom: pointer id -> where it is now.
+const touches = new Map<number, { x: number; y: number }>();
+let pinch: { d: number; mid: [number, number] } | undefined;
+const pinchOf = () => {
+  const [a, b] = [...touches.values()];
+  return { d: Math.hypot(a.x - b.x, a.y - b.y), mid: [(a.x + b.x) / 2, (a.y + b.y) / 2] as [number, number] };
+};
+
 mapEl.addEventListener("pointerdown", (e) => {
-  if ((e.target as Element).closest(".zoom")) return;
-  drag = { x: e.clientX, y: e.clientY, moved: false, view: [...view!] as [number, number, number, number] };
+  if ((e.target as Element).closest(".zoom, .lens")) return;
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
   mapEl.setPointerCapture(e.pointerId);
+  if (touches.size === 2) { pinch = pinchOf(); drag = undefined; return; }
+  drag = { x: e.clientX, y: e.clientY, moved: false, view: [...view!] as [number, number, number, number] };
 });
 mapEl.addEventListener("pointermove", (e) => {
+  if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && touches.size === 2) {
+    // Zoom about the fingers' midpoint, and follow it as it moves.
+    const now = pinchOf();
+    const [mx, my] = screenToMap(pinch.mid[0], pinch.mid[1]);
+    zoom(pinch.d / Math.max(1, now.d), mx, my, true);
+    const f = fitOf(view!);
+    view = [view![0] - (now.mid[0] - pinch.mid[0]) / f.s, view![1] - (now.mid[1] - pinch.mid[1]) / f.s, view![2], view![3]];
+    previewView();
+    pinch = now;
+    return;
+  }
   if (!drag) return;
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
   drag.moved = true;
-  const svg = mapEl.querySelector("svg")!;
-  svg.classList.add("dragging");
-  const scale = drag.view[2] / svg.clientWidth;
-  const s = Math.max(scale, drag.view[3] / svg.clientHeight);
+  mapEl.querySelector("svg")!.classList.add("dragging");
+  const s = 1 / fitOf(drag.view).s;
   view = [drag.view[0] - dx * s, drag.view[1] - dy * s, drag.view[2], drag.view[3]];
-  applyView(svg);
+  previewView(400);
 });
-mapEl.addEventListener("pointerup", (e) => {
+const endPointer = (e: PointerEvent) => {
+  touches.delete(e.pointerId);
+  if (pinch) {
+    if (touches.size < 2) { pinch = undefined; drag = undefined; applyView(); }
+    return;
+  }
   const d = drag;
   drag = undefined;
   mapEl.querySelector("svg")?.classList.remove("dragging");
-  if (!d || d.moved) return;
+  if (!d) return;
+  if (d.moved) { applyView(); return; }
+  if (e.type === "pointercancel") return;
   if (placing && e.button === 0) {
     placing = false;
     mapEl.classList.remove("placing");
@@ -370,7 +442,9 @@ mapEl.addEventListener("pointerup", (e) => {
   const target = document.elementFromPoint(e.clientX, e.clientY);
   const g = target?.closest<SVGGElement>("g[data-address]");
   select(g?.dataset.address);
-});
+};
+mapEl.addEventListener("pointerup", endPointer);
+mapEl.addEventListener("pointercancel", endPointer);
 mapEl.addEventListener("contextmenu", (e) => {
   if (!(e.target as Element).closest("svg")) return;
   e.preventDefault();
@@ -378,9 +452,13 @@ mapEl.addEventListener("contextmenu", (e) => {
 });
 mapEl.addEventListener("wheel", (e) => {
   e.preventDefault();
-  const svg = mapEl.querySelector("svg")!;
-  const [x, y] = toMapCoords(svg, e.clientX, e.clientY);
-  zoom(e.deltaY > 0 ? 1.15 : 1 / 1.15, x, y);
+  // Zoom by how far the wheel or trackpad actually moved: a mouse notch is
+  // about 15%, a trackpad's stream of small deltas glides. A trackpad pinch
+  // arrives as a wheel with ctrlKey and wants more per unit.
+  const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+  const k = Math.exp(Math.max(-0.6, Math.min(0.6, px * (e.ctrlKey ? 0.01 : 0.0014))));
+  const [x, y] = screenToMap(e.clientX, e.clientY);
+  zoom(k, x, y, true);
 }, { passive: false });
 mapEl.addEventListener("click", (e) => {
   const b = (e.target as Element).closest<HTMLButtonElement>("[data-zoom]");
