@@ -1,7 +1,7 @@
 import { ancestors, typeOf, type Address } from "../core/address";
 import { load, serialize, withEdit, withEvent, withoutEvent, withPin, withReroll } from "../core/save";
 import type { Town } from "../core/town";
-import type { Era, PanelLink, PanelRow, PanelSpec, SaveFile } from "../core/types";
+import type { PanelLink, PanelRow, PanelSpec, SaveFile } from "../core/types";
 import type { MapData } from "../modules/layout";
 import { findHooks } from "../modules/sifters";
 import { defaultModules, generate } from "../town-gen";
@@ -10,7 +10,8 @@ import { BLOCKS, addDays, describeDate, parseDate, type Block, whenOf } from "..
 import { occupancy } from "../modules/routines";
 import { describeHour } from "../modules/gossip";
 import { almanac, dayOf, LENSES, lensView, LISTS, placeName, search, whoKnows, type Fact, type Lens } from "./discover";
-import { designFrom, fetchKept, forget, keep, listKept, townKey } from "./library";
+import { fetchKept, forget, keep, listKept, townKey } from "./library";
+import { MANOR_MAX, settingsFromForm } from "./newtown";
 import { encounter, jobBoard, nearestBuildingTo, partyName, reachOf, report, type Text } from "./party";
 import { lsd } from "../modules/households";
 import { crimeContent, world } from "../modules/crime";
@@ -174,8 +175,6 @@ function syncForm() {
   syncManor();
 }
 
-// A town of six thousand is not anybody's manor.
-const MANOR_MAX = 6000;
 function syncManor() {
   const pop = Number((form.elements.namedItem("pop") as HTMLInputElement).value) || 0;
   const box = form.elements.namedItem("manorial") as HTMLInputElement;
@@ -887,9 +886,8 @@ form.addEventListener("submit", (ev) => {
   $<HTMLDetailsElement>("#plan").open = false;
   const fd = new FormData(form);
   selected = undefined;
-  const pop = Math.min(30000, Math.max(50, Number(fd.get("pop")) || 200));
-  const design = pop > 700 ? designFrom((k) => fd.get(k) as string | null) : undefined;
-  setTown(fresh(String(fd.get("seed")) || randomSeed(), { pop, era: fd.get("era") as Era, base: String(fd.get("base") || "agricultural"), lordship: fd.get("manorial") && pop <= MANOR_MAX ? "manorial" : "free", ...(design ? { design } : {}) }));
+  const { seed, settings } = settingsFromForm((k) => fd.get(k) as string | null);
+  setTown(fresh(seed ?? randomSeed(), settings));
 });
 $("#random-seed").addEventListener("click", () => {
   (form.elements.namedItem("seed") as HTMLInputElement).value = randomSeed();
@@ -928,8 +926,7 @@ function start() {
     let saved: SaveFile | undefined;
     try { saved = JSON.parse(localStorage.getItem(STORE) ?? "null") ?? undefined; } catch { /* ignore */ }
     const seed = hash.get("seed")!;
-    const design = designFrom((k) => hash.get(k));
-    const settings = { pop: Number(hash.get("pop")) || 200, era: (hash.get("era") as Era) || "high_medieval", base: hash.get("base") || "agricultural", lordship: hash.get("manor") ? "manorial" as const : "free" as const, ...(design ? { design } : {}) };
+    const { settings } = settingsFromForm((k) => hash.get(k === "manorial" ? "manor" : k));
     const key = townKey({ town: { seed, era: settings.era, config: settings } });
     if (saved && townKey(saved) === key) return setTown(load(saved, modules));
     let kept: SaveFile | undefined;
