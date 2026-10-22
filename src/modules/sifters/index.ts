@@ -4,7 +4,7 @@ import type { Module, Sifter, SifterMatch } from "../../core/types";
 import { COUNCIL } from "../council";
 import { describeDate, jdn, parseDate } from "../../core/calendar";
 import { visitsIn } from "../visitors";
-import { centroid, dist, type Poly } from "../layout/geom";
+import { centroid, dist, type Poly, type Pt } from "../layout/geom";
 
 // Plot hooks are found, not rolled: each sifter is a pattern over the graph.
 
@@ -72,9 +72,22 @@ export const paidInFull: Sifter = {
   source: "DESIGN §9 (debt and courtship)",
   match(town) {
     const out: SifterMatch[] = [];
+    // Every courting or betrothed couple, found by either of them: a city has thousands of debts,
+    // and looking through every couple for each one took seconds.
+    const KINDS = ["courting", "betrothed"];
+    type Couple = { k: number; i: number; c: ReturnType<Town["edges"]>[number] };
+    const byPerson = new Map<string, Couple[]>();
+    KINDS.forEach((kind, k) => town.edges({ kind }).forEach((c, i) => {
+      for (const p of [c.from, c.to]) { const l = byPerson.get(p); if (l) l.push({ k, i, c }); else byPerson.set(p, [{ k, i, c }]); }
+    }));
     for (const d of town.edges({ kind: "debtor_of" })) {
       const a = childrenOf(town, d.from), b = childrenOf(town, d.to);
-      for (const kind of ["courting", "betrothed"]) for (const c of town.edges({ kind })) {
+      const seen = new Set<Couple>(), found: Couple[] = [];
+      for (const p of a) for (const x of byPerson.get(p) ?? []) if (!seen.has(x)) { seen.add(x); found.push(x); }
+      // In the order the couples were made, as before.
+      found.sort((u, v) => u.k - v.k || u.i - v.i);
+      for (const { k, c } of found) {
+        const kind = KINDS[k];
         const pair = [c.from, c.to];
         const x = pair.find((p) => a.includes(p)), y = pair.find((p) => b.includes(p));
         if (!x || !y) continue;
@@ -122,16 +135,27 @@ export const jumpedUp: Sifter = {
   source: "LF pp.58-60 (the showpiece room; resentment of climbers)",
   match(town) {
     const out: SifterMatch[] = [];
-    for (const b of town.children(town.root, "building")) for (const h of town.children(b.address, "household")) {
+    // Buildings by where they stand, so finding the neighbours looks at a few cells, not the whole town.
+    const all = town.children(town.root, "building");
+    const at = all.map((x) => centroid(x.get<Poly>("poly")));
+    const CELL = 70, grid = new Map<string, number[]>();
+    const key = (p: Pt) => `${Math.floor(p[0] / CELL)},${Math.floor(p[1] / CELL)}`;
+    at.forEach((p, i) => { const k = key(p); const l = grid.get(k); if (l) l.push(i); else grid.set(k, [i]); });
+    const near = (p: Pt): number[] => {
+      const cx = Math.floor(p[0] / CELL), cy = Math.floor(p[1] / CELL), out2: number[] = [];
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) out2.push(...(grid.get(`${cx + dx},${cy + dy}`) ?? []));
+      return out2.sort((u, v) => u - v);
+    };
+    all.forEach((b, bi) => { for (const h of town.children(b.address, "household")) {
       const room = h.get<string | null>("living.display");
       if (!room) continue;
       const head = heads(town, h.address)[0];
       if (!head) continue;
       const rivals = town.edges({ touching: head.address, kind: "rival" }).map((e) => (e.from === head.address ? e.to : e.from));
       // Envious neighbours count too.
-      const at = centroid(b.get<Poly>("poly"));
-      for (const ob of town.children(town.root, "building")) {
-        if (ob === b || dist(centroid(ob.get<Poly>("poly")), at) > 70) continue;
+      for (const oi of near(at[bi])) {
+        const ob = all[oi];
+        if (oi === bi || dist(at[oi], at[bi]) > 70) continue;
         for (const oh of town.children(ob.address, "household")) {
           const oHead = heads(town, oh.address)[0];
           if (oHead && oHead.get<string[]>("traits").includes("envious") && !rivals.includes(oHead.address)) rivals.push(oHead.address);
@@ -143,7 +167,7 @@ export const jumpedUp: Sifter = {
         summary: `${town.label(h.address)} has ${room.replace(/^one room/, "a room")}. ${list(rivals.map((r) => town.label(r)))} can't stand it.`,
         involves: [head.address, ...rivals],
       });
-    }
+    } });
     return out;
   },
 };
