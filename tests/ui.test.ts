@@ -205,3 +205,43 @@ describe("directory", () => {
     expect(d.rows.length).toBeGreaterThan(0);
   });
 });
+
+import { glance, starsOf } from "../src/ui/glance";
+import { defaultModules as modules } from "../src/town-gen";
+import { withEvent, withoutEvent } from "../src/core/save";
+
+describe("inspector card and stars", () => {
+  let hamlet: Town;
+  beforeAll(() => { hamlet = generate("ashby"); hamlet.society(); }, 120000);
+  const at = ["1203-10-01", "forenoon"] as const;
+
+  test("a person's card has trade, age, household and where they are now", () => {
+    const p = hamlet.allEntities().find((e) => e.type === "person")!;
+    const g = glance(hamlet, p.address, ...at);
+    expect(g.map((r) => r.label)).toEqual(["Trade", "Age", "Household", "Now"]);
+    expect(g[1].value).toEqual([String(p.get("age"))]);
+  });
+
+  test("a building's card has its use, households and who is inside", () => {
+    const b = hamlet.allEntities().find((e) => e.type === "building" && hamlet.children(e.address, "household").length)!;
+    expect(glance(hamlet, b.address, ...at).map((r) => r.label)).toEqual(["Use", "Households", "Inside now"]);
+  });
+
+  test("a household's card has its head, trade and income; the town has none", () => {
+    const h = hamlet.allEntities().find((e) => e.type === "household")!;
+    expect(glance(hamlet, h.address, ...at).map((r) => r.label)).toEqual(["Head", "Trade", "Income"]);
+    expect(glance(hamlet, hamlet.root, ...at)).toEqual([]);
+  });
+
+  test("a star leaves every panel's rows unchanged, and can be taken back", () => {
+    const p = hamlet.allEntities().find((e) => e.type === "person")!.address;
+    const rows = (t: Town) => JSON.stringify(modules.flatMap((m) => m.panels ?? []).filter((x) => x.for === "person").map((x) => x.rows(t, t.get(p))));
+    const before = rows(hamlet);
+    const t2 = withEvent(hamlet, modules, { kind: "star", target: p, text: "Age", date: "1203-10-01" });
+    t2.society();
+    expect(rows(t2)).toBe(before);
+    expect(starsOf(t2, p)).toEqual([{ label: "Age", index: t2.events.length - 1 }]);
+    const t3 = withoutEvent(t2, modules, starsOf(t2, p)[0].index);
+    expect(starsOf(t3, p)).toEqual([]);
+  });
+});

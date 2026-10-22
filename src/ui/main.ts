@@ -14,6 +14,7 @@ import { fetchKept, forget, keep, listKept, townKey } from "./library";
 import { MANOR_MAX, PLAN_MIN, newTownHtml, settingsFromForm, sizePreview } from "./newtown";
 import { clockLabel, stepClock, townMenuHtml } from "./topbar";
 import { History, isTypingTarget } from "./history";
+import { glance, starsOf } from "./glance";
 import { DIRECTORY_TABS, directory, directoryHtml, type DirTab } from "./directory";
 import { paletteGroups, paletteHtml, paletteItems, type PaletteGroup, type PaletteItem } from "./palette";
 import type { Occupation } from "../modules/uses";
@@ -586,12 +587,14 @@ function valueHtml(v: PanelRow["value"]): string {
   return Array.isArray(v) ? v.map(one).join(v.every((x) => typeof x === "object") ? ", " : "") : one(v);
 }
 
-function rowHtml(e: Address, r: PanelRow): string {
+function rowHtml(e: Address, r: PanelRow, starrable = false): string {
   const o = town.overlay[e]?.[r.key ?? ""];
   const edited = r.key !== undefined && o !== undefined;
   const editable = r.key !== undefined && typeof r.value !== "object" && !r.noEdit;
-  const tools = r.key
-    ? `<span class="tools">${editable ? `<button data-edit="${esc(r.key)}" title="Edit">✎</button>` : ""}${r.rerollable ? `<button data-reroll="${esc(r.key)}" title="Reroll">↻</button>` : ""}${edited ? `<button data-reset="${esc(r.key)}" title="Back to generated">×</button>` : ""}</span>`
+  const st = starrable && e !== town.root ? starsOf(town, e).find((x) => x.label === r.label) : undefined;
+  const star = starrable && e !== town.root ? `<button data-star="${esc(r.label)}" class="${st ? "on" : ""}" title="${st ? "Unstar" : "Star: keep this row at the top of the page"}" aria-pressed="${!!st}">${st ? "★" : "☆"}</button>` : "";
+  const tools = r.key || star
+    ? `<span class="tools">${star}${editable ? `<button data-edit="${esc(r.key)}" title="Edit">✎</button>` : ""}${r.rerollable ? `<button data-reroll="${esc(r.key)}" title="Reroll">↻</button>` : ""}${edited ? `<button data-reset="${esc(r.key)}" title="Back to generated">×</button>` : ""}</span>`
     : "";
   const cited = [...(typeof r.value === "string" ? sourcesOf(r.value) : []), ...(r.hint ? sourcesOf(r.hint) : []), ...(r.hint && SOURCE_ALONE.test(r.hint) ? [r.hint] : [])];
   const hintText = r.hint && !(SOURCE_ALONE.test(r.hint) && !showSources) ? unsourced(r.hint) : "";
@@ -607,10 +610,15 @@ function panelsFor(e: Address): PanelSpec[] {
   return modules.flatMap((m) => m.panels ?? []).filter((p) => p.for === type).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
-function panelHtml(e: Address, p: PanelSpec): string {
-  const rows = p.rows(town, town.get(e));
+// Sections you closed stay closed, per kind of page ("person:secrets").
+let shut = new Set<string>();
+try { shut = new Set(JSON.parse(localStorage.getItem("town-gen:shut") ?? "[]") as string[]); } catch { /* ignore */ }
+const shutKey = (e: Address, id: string) => `${town.get(e).type}:${id}`;
+
+function panelHtml(e: Address, p: PanelSpec, rows = p.rows(town, town.get(e))): string {
   if (!rows.length) return "";
-  return `<details class="panel" open data-panel="${p.id}"><summary>${esc(p.title)}</summary><dl class="rows">${rows.map((r) => rowHtml(e, r)).join("")}</dl></details>`;
+  const open = shut.has(shutKey(e, p.id)) ? "" : " open";
+  return `<details class="panel"${open} data-panel="${p.id}" id="panel-${p.id}"><summary>${esc(p.title)}</summary><dl class="rows">${rows.map((r) => rowHtml(e, r, true)).join("")}</dl></details>`;
 }
 
 function crumbs(e: Address): string {
@@ -842,20 +850,11 @@ function drawInspector() {
   drawRail();
   const h: string[] = [followingHtml()];
   h.push(`<div class="ihead"><span class="hist"><button data-hist="-1" aria-label="Back" title="Back  (Alt+←)"${hist.canBack ? "" : " disabled"}>◀</button><button data-hist="1" aria-label="Forward" title="Forward  (Alt+→)"${hist.canForward ? "" : " disabled"}>▶</button></span>${e !== town.root ? crumbs(e) : ""}</div>`);
-  h.push(`<button class="pin" data-print title="Print this page, with the map around it, as a handout or notes">Print</button>`);
-  if (ent.type === "person" || ent.type === "household") {
-    const on = !!town.pinned[e];
-    h.push(`<button class="pin${on ? " on" : ""}" data-pin="${on ? "off" : "on"}" title="Pinned entities keep their details through generator upgrades">${on ? "Pinned" : "Pin"}</button>`);
-  }
-  if (ent.type === "person") {
-    const on = follow === e;
-    h.push(`<button class="pin${on ? " on" : ""}" data-follow="${on ? "" : esc(e)}" title="Draw their day on the map">${on ? "Following" : "Follow"}</button>`);
-  }
   h.push(`<h2>${esc(town.label(e))}</h2>`);
 
   if (ent.type === "settlement") {
     const people = town.allEntities().filter((x) => x.type === "person").length;
-    h.push(`<p class="sub">${people} souls in ${town.children(e, "building").length} buildings. Click a building on the map.</p>`);
+    h.push(`<p class="sub">${people} souls in ${town.children(e, "building").length} buildings. Click a building on the map, or press / to search.</p>`);
     for (const w of town.warnings) h.push(`<p class="warn">${esc(w)}</p>`);
   } else if (ent.type === "building") {
     h.push(`<p class="sub">${esc(e.slice(e.lastIndexOf("/") + 1))}</p>`);
@@ -864,8 +863,35 @@ function drawInspector() {
     h.push(`<p class="sub">of ${link(hh)}, at ${link(town.parentOf(hh)!)}</p>`);
   }
 
+  // The card: the facts asked for most, then the ones the DM starred here.
+  const panels = panelsFor(e).map((p) => ({ p, rows: p.rows(town, town.get(e)) })).filter((x) => x.rows.length);
+  const stars = starsOf(town, e);
+  const starred = stars.flatMap((st) => {
+    const r = panels.flatMap((x) => x.rows).find((r) => r.label === st.label);
+    return r ? [r] : [];
+  });
+  const card = glance(town, e, town.clock.date, town.clock.block as Block);
+  if (card.length || starred.length) {
+    h.push(`<section class="glance" aria-label="At a glance"><dl class="rows">${card.map((r) => `<dt>${esc(r.label)}</dt><dd><span class="val">${valueHtml(r.value)}</span></dd>`).join("")}${starred.map((r) => rowHtml(e, r, true)).join("")}</dl>${!starred.length ? `<p class="glance-hint">Star a row (☆) to keep it here.</p>` : ""}</section>`);
+  }
+
+  // What you can do with it.
+  const acts: string[] = [];
+  if (ent.type === "person") {
+    const on = follow === e;
+    acts.push(`<button class="${on ? "on" : ""}" data-follow="${on ? "" : esc(e)}" title="Draw their day on the map">${on ? "Following" : "Follow their day"}</button>`);
+  }
+  if (ent.type === "person" || ent.type === "household") {
+    const on = !!town.pinned[e];
+    acts.push(`<button class="${on ? "on" : ""}" data-pin="${on ? "off" : "on"}" title="Pinned entities keep their details through generator upgrades">${on ? "Pinned" : "Pin"}</button>`);
+  }
+  acts.push(`<button data-print title="Print this page, with the map around it, as a handout or notes">Print</button>`);
+  h.push(`<div class="acts">${acts.join("")}</div>`);
+
+  if (panels.length > 2) h.push(`<nav class="jump" aria-label="Sections">${panels.map((x) => `<button data-jump="${esc(x.p.id)}">${esc(x.p.title)}</button>`).join("")}</nav>`);
+
   if (ent.type === "person" && follow === e) h.push(followHtml(e));
-  for (const p of panelsFor(e)) h.push(panelHtml(e, p));
+  for (const x of panels) h.push(panelHtml(e, x.p, x.rows));
 
   if (ent.type === "building") {
     const hs = town.children(e, "household");
@@ -921,6 +947,18 @@ insp.addEventListener("click", (ev) => {
   if (ud) { setTown(withoutEvent(town, modules, Number(ud.dataset.undeed)), true); return; }
   if (t.closest("[data-party-clear]")) { town.party = undefined; store(); drawParty(); drawInspector(); return; }
   const e = selected ?? town.root;
+  const sb = t.closest<HTMLElement>("[data-star]");
+  if (sb) {
+    const st = starsOf(town, e).find((x) => x.label === sb.dataset.star);
+    setTown(st ? withoutEvent(town, modules, st.index) : withEvent(town, modules, { kind: "star", target: e, text: sb.dataset.star!, date: town.clock.date }), true);
+    return;
+  }
+  const jp = t.closest<HTMLElement>("[data-jump]");
+  if (jp) {
+    const d = insp.querySelector<HTMLDetailsElement>(`#panel-${CSS.escape(jp.dataset.jump!)}`);
+    if (d) { d.open = true; insp.scrollTo({ top: d.offsetTop - insp.offsetTop - 8, behavior: "smooth" }); }
+    return;
+  }
   const pin = t.closest<HTMLElement>("[data-pin]");
   if (pin) { setTown(withPin(town, modules, e, pin.dataset.pin === "on"), true); return; }
   const rr = t.closest<HTMLElement>("[data-reroll]");
@@ -930,6 +968,15 @@ insp.addEventListener("click", (ev) => {
   const ed = t.closest<HTMLElement>("[data-edit]");
   if (ed) startEdit(e, ed.closest("dd")!, ed.dataset.edit!);
 });
+
+// "toggle" doesn't bubble: listen in the capture phase.
+insp.addEventListener("toggle", (ev) => {
+  const d = ev.target as HTMLElement;
+  if (!(d instanceof HTMLDetailsElement) || !d.dataset.panel || page !== "inspect" || document.body.classList.contains("printing")) return;
+  const k = shutKey(selected ?? town.root, d.dataset.panel);
+  if (d.open) shut.delete(k); else shut.add(k);
+  try { localStorage.setItem("town-gen:shut", JSON.stringify([...shut])); } catch { /* ignore */ }
+}, true);
 
 insp.addEventListener("keydown", (ev) => {
   const row = (ev.target as HTMLElement).closest<HTMLElement>("tr[data-go], tr[data-dir-trade]");
@@ -943,8 +990,9 @@ insp.addEventListener("mouseover", (ev) => {
 
 /** Print the inspector with every section open and a map inset: the whole place, or around the building. */
 function printPage() {
-  const shut = [...insp.querySelectorAll<HTMLDetailsElement>("details:not([open])")];
-  shut.forEach((d) => { d.open = true; });
+  document.body.classList.add("printing");
+  const closed = [...insp.querySelectorAll<HTMLDetailsElement>("details:not([open])")];
+  closed.forEach((d) => { d.open = true; });
   const svg = mapEl.querySelector("svg")!;
   const b = selected ? buildingOf(selected) : undefined;
   let box = fitVillage();
@@ -961,7 +1009,8 @@ function printPage() {
   (insp.querySelector("h2 + .sub") ?? insp.querySelector("h2"))!.after(fig);
   window.addEventListener("afterprint", () => {
     fig.remove();
-    shut.forEach((d) => { d.open = false; });
+    closed.forEach((d) => { d.open = false; });
+    setTimeout(() => document.body.classList.remove("printing"), 0);
   }, { once: true });
   window.print();
 }

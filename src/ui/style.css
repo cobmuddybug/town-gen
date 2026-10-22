@@ -298,3 +298,17 @@ table.dir tbody tr:hover, table.dir tbody tr:focus-visible { background: var(--p
 table.dir tbody tr td:first-child { color: var(--accent); }
 #inspector.wide { flex-basis: min(820px, 55vw); max-width: 62%; }
 table.dir td.money { white-space: nowrap; font-variant-numeric: tabular-nums lining-nums; }
+
+/* ---- the inspector: card, actions, jump chips ---- */
+.glance { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 12px 10px; margin: 4px 0 10px; }
+.glance dl.rows { margin: 0; }
+.glance-hint { margin: 6px 0 0; font-size: 12.5px; color: var(--ink-soft); font-style: italic; }
+.acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.acts button { font-size: 13px; }
+.acts button.on { border-color: var(--accent); color: var(--accent); }
+nav.jump { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+nav.jump button { font-size: 12.5px; padding: 1px 8px; border-radius: 11px; color: var(--ink-soft); }
+nav.jump button:hover { color: var(--accent); border-color: var(--accent); }
+.tools button[data-star].on { color: var(--accent); }
+dl.rows dd:has(.tools button[data-star].on) .tools { opacity: 1; }
+@media print { .acts, nav.jump, .glance-hint, .ihead .hist { display: none !important; } }
