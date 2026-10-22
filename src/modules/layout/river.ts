@@ -267,7 +267,10 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   // join the next street they meet, until there is frontage enough for the town.
   const streetW = urban ? 4.5 : 5;
   const plotW = urban ? 6.75 : o.scale === "village" ? 8.75 : 13.5;
-  let frontSum = streets.filter((x) => x.kind !== "far").reduce((t, x) => t + polyLen(x.points.filter((p) => d2(p, centre) < R * R)), 0) * 2;
+  // Only the inner reach of a main road counts: its outer length becomes ribbons along the road,
+  // and a town that counted it would be three spokes from a market with nothing between.
+  const inner2 = (R * 0.55) ** 2;
+  let frontSum = streets.filter((x) => x.kind !== "far").reduce((t, x) => t + polyLen(x.points.filter((p) => d2(p, centre) < inner2)), 0) * 2;
   const frontage = () => frontSum;
   // Junctions, lanes and corners lose plots: only about two-fifths of a street's frontage ends up built on.
   const wantFront = o.need * plotW * 2.6 * (o.room ?? 1) ** 2;
@@ -293,7 +296,10 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
     if (streets.some((x) => x.kind === "street" && d2(x.points[0], at) < (block * 0.7) ** 2)) continue;
     const t = norm2(sub(par.points[i + 1], par.points[i - 1]));
     // Most side streets run along the slope; some go straight down it, which ties the rows together.
-    const level = r.chance(0.85);
+    // Off a road that itself runs along the slope, a level street would only shadow it: go down the slope instead.
+    const t0 = norm2(sub(par.points[Math.min(par.points.length - 1, i + 1)], par.points[i - 1]));
+    let level = r.chance(0.85);
+    if (level && Math.abs(dot(contour(at, t0), t0)) > 0.8) level = false;
     const along = (p: Pt, prefer: Pt) => (level ? contour(p, prefer) : (() => { const c = contour(p, prefer); const d0 = perp(c); return dot(d0, prefer) >= 0 ? d0 : mul(d0, -1); })());
     let hd = along(at, rot(perp(t), r.chance(0.5) ? 0 : PI));
     // A street that would run along its parent is no side street.
@@ -327,7 +333,8 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   let wallLine: Pt[] | undefined;
   const gates: StreetNet["gates"] = [];
   // The wall goes round what was built, close about it, not round the room the town might have had.
-  const built = streets.filter((x) => x.kind !== "far").flatMap((x) => x.points).filter((p) => d2(p, centre) < R * R);
+  // What was built: the side streets, and only the inner reach of the main roads (their outer stretches are ribbons outside the gates).
+  const built = streets.filter((x) => x.kind !== "far").flatMap((x) => x.kind === "main" || x.kind === "high" ? x.points.filter((p) => d2(p, centre) < inner2) : x.points.filter((p) => d2(p, centre) < R * R));
   const reachAt = Array.from({ length: 72 }, () => 0);
   for (const p of built) {
     const k = Math.round(((atan2(p[1] - centre[1], p[0] - centre[0]) + TAU) % TAU) / TAU * 72) % 72;
@@ -1227,7 +1234,10 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const hull = convexHull(coreCorners.length ? coreCorners : market);
   // Fields start beyond most of what was built; ribbons along the roads run out among them.
   const dists = plots.filter((p) => p.used).map((p) => hypot(centroid(p.poly)[0] - mc[0], centroid(p.poly)[1] - mc[1])).sort((a, b) => a - b);
-  const reach = dists[Math.floor(dists.length * 0.9)] ?? R;
+  // Fields begin just beyond the town's core; the ribbons along the roads run out among them.
+  let coreReach = 0;
+  for (const p of hull) coreReach = Math.max(coreReach, hypot(p[0] - mc[0], p[1] - mc[1]));
+  const reach = Math.min(dists[Math.floor(dists.length * 0.9)] ?? R, coreReach);
   const fieldIn = reach + 30;
   const open = o.terrain === "farmland";
   const nFields = open ? 3 : 2;
@@ -1283,7 +1293,10 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       features.push({ kind: "gallows", p: qp(add(end, mul(perp(norm2(sub(end, prev))), (urban ? 7 : 6) + 14))) });
     }
   }
-  const extent = outerR + 140;
+  // The map reaches past the fields and past everything built: ribbons and the far bank can run further out.
+  let builtReach = 0;
+  for (const p of plots) if (p.used) for (const v of p.poly) builtReach = Math.max(builtReach, hypot(v[0] - mc[0], v[1] - mc[1]));
+  const extent = Math.max(outerR + 140, builtReach + 80);
   let coastLine: Pt[] | undefined, sea: Poly | undefined;
   if (site.sea) {
     const u = perp(site.sea.n), b0 = mul(site.sea.n, site.sea.d);

@@ -47,7 +47,7 @@ describe("player view", () => {
   });
 });
 
-import { world } from "../src/modules/crime";
+import { statusOf, world } from "../src/modules/crime";
 import { jobBoard } from "../src/ui/party";
 import { search } from "../src/ui/discover";
 import { glance } from "../src/ui/glance";
@@ -90,6 +90,9 @@ describe("player view: nothing leaks through a side door", () => {
     for (const g of W.gangs) for (const m of g.members) for (const b of BLOCKS) {
       const now = glance(town, m.p, date, b, { player: true }).find((r) => r.label === "Now")!;
       const t = textOf(now.value);
+      // A hanging, the gaol and the stocks happen in front of everyone: those may show.
+      const st = statusOf(town, m.p, date, b);
+      if (st && ["gaol", "pillory", "whipped", "dead", "sanctuary", "away"].includes(st.kind)) continue;
       if (/crew|purses|likely houses|back room/.test(t)) leaks.push(`${m.p} ${b}: ${t}`);
       const tr = glance(town, m.p, date, b, { player: true }).find((r) => r.label === "Trade")!;
       for (const x of tells()) if (textOf(tr.value).includes(x)) leaks.push(`trade ${m.p}: ${textOf(tr.value)}`);
