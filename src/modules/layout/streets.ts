@@ -51,6 +51,8 @@ export interface TownLayout extends HamletLayout {
   farBank?: FarBank;
   /** a river town: the high ground, for shading */
   high?: Poly[];
+  /** river towns: the old village's green over the bridge */
+  farGreen?: Poly;
 }
 
 /** A plot: front-left, front-right, back-right, back-left. */

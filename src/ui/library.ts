@@ -35,6 +35,9 @@ export function designFrom(get: (k: string) => string | null): Design | undefine
   const layout = get("layout"), farBank = get("farBank");
   if (layout === "radial" || layout === "river") d.layout = layout;
   if (farBank === "village" || farBank === "bridgend" || farBank === "abbey" || farBank === "wharf") d.farBank = farBank;
+  // The dialog hides a far bank on a radial web and a shape on a river town: those don't count.
+  if (d.layout === "radial") delete d.farBank;
+  if (d.layout === "river") delete d.shape;
   return Object.keys(d).length ? d : undefined;
 }
 

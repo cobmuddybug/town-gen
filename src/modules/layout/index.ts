@@ -146,7 +146,7 @@ export function footprint(poly: Poly): number {
 
 // People per square yard of ground floor, standing or sitting, by use.
 const DENSITY: Record<string, number> = {
-  grand_temple: 1.6, temple: 1.6, fane: 1.6, chapel: 1.6, chantry: 0.6, shrine: 0.3, friary: 1, priory: 0.8, nunnery: 0.5,
+  grand_temple: 1.6, temple: 1.6, fane: 1.6, chapel: 1.6, chantry: 0.6, shrine: 0.3, friary: 1, priory: 0.8, cell: 0.4, nunnery: 0.5,
   tavern: 0.9, town_alehouse: 0.9, alehouse: 0.9, inn: 0.7, cookshop: 0.6, bathhouse: 0.4, market_hall: 1.5, guildhall: 1.2, courthouse: 1.4,
 };
 

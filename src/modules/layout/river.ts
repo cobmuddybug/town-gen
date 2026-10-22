@@ -126,7 +126,7 @@ export interface StreetNet {
   streets: Street[];
   market: Pt[];
   gates: { p: Pt; t: Pt; road: string }[];
-  /** the town wall, an open line whose ends meet the river; absent when unwalled */
+  /** the town wall (or hedge), an open line whose ends meet the river; absent when open */
   wallLine?: Pt[];
   /** the far bank's own place: the old village's green or the abbey's precinct */
   farPlace?: Pt[];
@@ -353,7 +353,8 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
     return Math.max(lifted[i], t / 9) + depth + 8;
   });
   const wallR = Math.max(...wallAt);
-  if (walled) {
+  // A hedge and ditch follows the same line as a wall would, without gates or towers.
+  if (walled || o.enclosure === "hedge") {
     const ring: (Pt | undefined)[] = [];
     for (let i = 0; i < 72; i++) {
       const a = (i / 72) * TAU;
@@ -539,7 +540,7 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
     const sideSign = site.near === 1 ? 1 : -1;
     const qline = offsetLine(site.river, sideSign * (site.width / 2 + 6));
     const bi = qline.reduce((bi, p, i) => (d2(p, foot) < d2(qline[bi], foot) ? i : bi), 0);
-    const down = qline.slice(bi).filter((p) => bank(p) === site.near && !(wallLine && false));
+    const down = qline.slice(bi).filter((p) => bank(p) === site.near);
     if (down.length >= 3) streets.push({ id: "quay", kind: "quay", width: laneW + 2, points: [foot, ...down.slice(1)], bank: "near" });
   }
 
@@ -660,8 +661,10 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const n = plan.length;
   const want = Math.round(n * r.range(0.17, 0.22));
   const homesFirst = o.farBank === "village" ? ["cottage", "farmhouse", "fisher_house", "tenement", "poor_row"] : o.farBank === "bridgend" ? ["poor_row", "tenement", "cottage"] : ["tenement", "cottage", "poor_row", "journeyman_house", "farmhouse", "fisher_house"];
+  // Its own kind of people first, but never all of them: the town proper keeps some of every kind.
   for (const kind of [...homesFirst, ...HOUSING]) {
-    for (let i = n - 1; i >= 0 && farSet.size < want; i--) if (!farSet.has(i) && plan[i].kind === kind) farSet.add(i);
+    let left = Math.ceil(plan.filter((p) => p.kind === kind).length * 0.6);
+    for (let i = n - 1; i >= 0 && farSet.size < want && left > 0; i--) if (!farSet.has(i) && plan[i].kind === kind) { farSet.add(i); left--; }
   }
   // Never more than a quarter: the town proper keeps the rest.
   const cap = Math.floor(n * 0.23);
@@ -758,7 +761,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     for (const p of poly) { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }
     return [x0, y0, x1, y1];
   };
-  const clearWhy = (poly: Poly, own: string): string | undefined => {
+  const clearWhy = (poly: Poly, own: string, prev = -1): string | undefined => {
     // Cheap tests first: how far a segment is from the plot's middle, whether two boxes meet at all.
     const c = centroid(poly);
     let rad = 0;
@@ -775,7 +778,8 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     for (const k of keysOf(poly)) for (const j of pgrid.get(k) ?? []) {
       const o2 = boxes[j];
       if (o2[0] > bb[2] + 0.2 || o2[2] < bb[0] - 0.2 || o2[1] > bb[3] + 0.2 || o2[3] < bb[1] - 0.2) continue;
-      if (convexOverlap(poly, plots[j].poly, 0.15)) return "plot";
+      // The plot before it on the street shares a side with it: touching is fine, crossing isn't.
+      if (convexOverlap(poly, plots[j].poly, j === prev ? -0.2 : 0.15)) return "plot";
     }
     return obstacles.some((ob) => convexOverlap(poly, ob, 1) || poly.some((p) => pointInPoly(p, ob)) || ob.some((p) => pointInPoly(p, poly))) ? "obstacle" : undefined;
   };
@@ -807,7 +811,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       const mid = mul(add(fl, fr), 0.5);
       const kind = kindOf(mid);
       const dry = poly.every((p) => riverClear(p, 1) && bank(p) === (far ? -site.near : site.near));
-      if (!kind || !dry || clearWhy(poly, own)) { s += w * 0.5; if (idx) { run = runs++; idx = 0; } continue; }
+      if (!kind || !dry || clearWhy(poly, own, idx ? plots.length - 1 : -1)) { s += w * 0.5; if (idx) { run = runs++; idx = 0; } continue; }
       const c = centroid(poly);
       const sub_ = !far && kind === "suburb";
       const order = far ? hypot(c[0] - site.bridge.p[0], c[1] - site.bridge.p[1]) : hypot(c[0] - mc[0], c[1] - mc[1]);
@@ -1037,7 +1041,8 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       const yard = qpoly(net.farPlace);
       const c = centroid(yard);
       const w = wards.find((x) => x.bank === "far");
-      result[i] = { planIndex: i, poly: qpoly(rect(add(c, [0, -9]), [1, 0], 30, 9)), parts: [{ kind: "cloister", poly: qpoly(rect(add(c, [0, 8]), [1, 0], 20, 16)) }], plot: yard, plotKind: "precinct", front: qp(c), road: "far", ward: w?.id, block: "precinct" };
+      const k = p.kind === "cell" ? 0.6 : 1; // a cell is a few monks, not a convent
+      result[i] = { planIndex: i, poly: qpoly(rect(add(c, [0, -9 * k]), [1, 0], 30 * k, 9 * k)), parts: [{ kind: "cloister", poly: qpoly(rect(add(c, [0, 8 * k]), [1, 0], 20 * k, 16 * k)) }], plot: yard, plotKind: "precinct", front: qp(c), road: "far", ward: w?.id, block: "precinct" };
       return;
     }
     const onFar = farSet.has(i);
@@ -1172,7 +1177,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   orderIx.sort((a, b) => (farSet.has(a) ? 1 : 0) - (farSet.has(b) ? 1 : 0) || rank(plan[a]) - rank(plan[b]) || plotsFor(plan[b]) - plotsFor(plan[a]) || widthOf(plan[a]) - widthOf(plan[b]) || a - b);
   // The poorest housing spills out beyond the gates (LF p.84): the DM's Suburbs choice says how much.
   const spillShare = (urban ? 0.12 : 0.06) * (o.suburbs === "few" ? 0.25 : o.suburbs === "many" ? 2.5 : 1);
-  const spillOut = new Set(orderIx.filter((i) => !farSet.has(i) && !plan[i].site && plotsFor(plan[i]) === 1 && (plan[i].value?.[0] ?? 9) <= 1 && r.chance(Math.min(0.9, spillShare * 2))));
+  const spillOut = new Set(orderIx.filter((i) => !farSet.has(i) && (!plan[i].site || plan[i].kind === "poor_row") && plotsFor(plan[i]) === 1 && (plan[i].value?.[0] ?? 9) <= 1 && r.chance(Math.min(0.9, spillShare * 2))));
   const spill: number[] = [];
   for (const i of orderIx) {
     const p = plan[i];
@@ -1204,7 +1209,10 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
             if (!l) continue;
             const stride = Math.max(1, Math.floor(l.length / 32));
             for (let j = 0; j < l.length; j += stride) {
-              const c = l[j];
+              // The first free plot in each stretch of the street, so a filling town still has a choice.
+              let k = j;
+              while (k + 1 < Math.min(l.length, j + stride) && l[k].used) k++;
+              const c = l[k];
               if (c.used) continue;
               const seq = runFrom(c, m);
               if (!seq) continue;
@@ -1324,7 +1332,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const quayLine = net.streets.find((s) => s.kind === "quay")?.points;
   const high = contourLines(site.height, mc, R * 1.3, 28);
   const towers: Pt[] = [];
-  if (net.wallLine) for (let i = 0; i < net.wallLine.length; i += 4) towers.push(qp(net.wallLine[i]));
+  if (net.wallLine && walled) for (let i = 0; i < net.wallLine.length; i += 4) towers.push(qp(net.wallLine[i]));
   const roads: Road[] = net.streets.map((st) => ({
     id: st.id, kind: st.kind === "back" || st.kind === "cross" || st.kind === "water" ? "lane" as const : "road" as const, width: q(st.width), points: st.points.map(qp),
   }));
@@ -1333,6 +1341,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     kind: "town",
     plan: "river",
     farBank: o.farBank,
+    ...(o.farBank === "village" && net.farPlace ? { farGreen: qpoly(net.farPlace) } : {}),
     scale: o.scale,
     enclosure: o.enclosure,
     bounds: [q(mc[0] - extent), q(mc[1] - extent), q(extent * 2), q(extent * 2)],

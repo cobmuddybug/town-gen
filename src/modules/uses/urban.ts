@@ -166,9 +166,11 @@ function farBankUses(r: Rng, plan: string[], kind: FarBank, pop: number, base: B
     reserve(["livery_stable", "town_carter"]);
     move(["poor_row"], 6);
   } else if (kind === "abbey") {
-    reserve(["friary", "priory"].filter((u) => plan.includes(u)).concat("priory"));
+    // Below a friary's town the abbey keeps only a cell over the bridge: a prior and a few monks.
+    reserve(["friary", "priory"].filter((u) => plan.includes(u)).concat(pop >= 4500 ? "priory" : "cell"));
     far.push(plan.length); plan.push("chapel"); taken.add(plan.length - 1);
-    move(["mill", "watermill"], 1);
+    // The abbot's mill, which the town quarrels over.
+    reserve(["mill"]);
   } else {
     reserve(["warehouse"]);
     reserve(["boatwright"]);

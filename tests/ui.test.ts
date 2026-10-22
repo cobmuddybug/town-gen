@@ -313,6 +313,13 @@ describe("river towns in the UI", () => {
     expect(designFrom(get({ layout: "spiral", farBank: "moon" }))).toBeUndefined();
   });
 
+  test("designFrom drops the choices the dialog hides for the chosen layout", () => {
+    const get = (o: Record<string, string>) => (k: string) => o[k] ?? null;
+    expect(designFrom(get({ layout: "radial", farBank: "abbey", shape: "oval" }))).toEqual({ layout: "radial", shape: "oval" });
+    expect(designFrom(get({ layout: "river", farBank: "abbey", shape: "oval" }))).toEqual({ layout: "river", farBank: "abbey" });
+    expect(designFrom(get({ farBank: "abbey", shape: "oval" }))).toEqual({ farBank: "abbey", shape: "oval" });
+  });
+
   test("the new town dialog offers the layout and the far bank", () => {
     const h = newTownHtml();
     for (const s of ['name="layout"', 'name="farBank"', "river town", "radial web", "old village", "bridge-end", "abbey's side", "wharf side", 'id="farbank-field"', 'id="shape-field"']) expect(h).toContain(s);

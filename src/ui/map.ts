@@ -163,6 +163,7 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
     out.push(`<polygon class="m-townground" points="${pts(m.hedge)}"/>`);
     for (const g of m.gardens ?? []) out.push(`<polygon class="m-garden" points="${pts(g)}"/>`);
     out.push(`<polygon class="m-market" points="${pts(m.market!)}"><title>the market place</title></polygon>`);
+    if (m.farGreen) out.push(`<polygon class="m-green m-far-green" points="${pts(m.farGreen)}"><title>the village green</title></polygon>`);
     if (m.castle) out.push(`<polygon class="m-bailey" points="${pts(m.castle)}"><title>the castle bailey</title></polygon>`);
   } else out.push(`<path class="m-toftland" d="${smoothPath(m.hedge, true)}"/>`);
 

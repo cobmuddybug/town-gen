@@ -10,6 +10,7 @@ import { defaultModules, generate } from "../src/town-gen";
 import { withEdit } from "../src/core/save";
 import { clearLayoutCache } from "../src/modules/layout";
 import type { Design, FarBank, LayoutPlan } from "../src/core/types";
+import { renderMap } from "../src/ui/map";
 
 const settlement = (seed: string, pop: number, design?: Design, base = "agricultural") =>
   generate(seed, { pop, base, ...(design ? { design } : {}) }).settlement();
@@ -43,7 +44,7 @@ describe("rolling the layout and the far bank", () => {
     const sig: Record<FarBank, string[][]> = {
       village: [["chapel", "fane"]],
       bridgend: [["town_tannery"], ["inn", "hostel"], ["livery_stable", "town_carter"]],
-      abbey: [["priory", "friary"], ["chapel"]],
+      abbey: [["priory", "friary", "cell"], ["chapel"], ["mill"]],
       wharf: [["warehouse"], ["boatwright"]],
     };
     for (const k of Object.keys(sig) as FarBank[]) for (const pop of [750, 3000, 12000]) {
@@ -229,7 +230,7 @@ function overlaps(t: Town): string[] {
 const SIG: Record<FarBank, string[][]> = {
   village: [["chapel", "fane"]],
   bridgend: [["town_tannery"], ["inn", "hostel"]],
-  abbey: [["priory", "friary"]],
+  abbey: [["priory", "friary", "cell"], ["mill"]],
   wharf: [["warehouse"], ["boatwright"]],
 };
 
@@ -426,4 +427,80 @@ describe("river towns: review fixes", () => {
     for (let i = 0; i < 8; i++) expect(onRoad(generate(`cast${i}`, { pop: 3000, design: { layout: "river", castle: true } })), `cast${i}`).toEqual([]);
     expect(onRoad(riverTown("place30000", 30000).t)).toEqual([]);
   }, 900000);
+});
+
+describe("river towns: small things", () => {
+  test("a big town's trades that don't keep together are spread out, not in rows", () => {
+    const { t } = riverTown("spread", 12000);
+    const by = new Map<string, Pt[]>();
+    for (const b of t.children(t.root, "building")) {
+      const u = b.get<string>("use");
+      if (!["tailor", "town_weaver", "town_mason", "brewhouse", "town_smithy", "cordwainer", "skinner", "fripperer", "livery_stable", "merchant_house"].includes(u)) continue;
+      const p = b.get<Pt[]>("poly"), c: Pt = [p.reduce((s, q) => s + q[0], 0) / p.length, p.reduce((s, q) => s + q[1], 0) / p.length];
+      by.set(u, [...(by.get(u) ?? []), c]);
+    }
+    let n = 0, next = 0;
+    for (const c of by.values()) for (let k = 0; k < c.length; k++) {
+      n++;
+      if (c.some((q, j) => j !== k && Math.hypot(q[0] - c[k][0], q[1] - c[k][1]) < 14)) next++;
+    }
+    expect(n).toBeGreaterThan(30);
+    // Some will fall next door by chance; most should not.
+    expect(next / n).toBeLessThan(0.25);
+  }, 300000);
+
+  test("an old village over the bridge has its green drawn; other far banks don't", () => {
+    const v = riverTown("vgreen", 2000, "village");
+    expect(v.map.farGreen?.length).toBeGreaterThan(3);
+    expect(renderMap(v.t)).toContain('class="m-green m-far-green"');
+    const a = riverTown("vgreen", 2000, "abbey");
+    expect(a.map.farGreen).toBeUndefined();
+    expect(renderMap(a.t)).not.toContain("m-far-green");
+  }, 300000);
+
+  test("a hedged river town has its hedge drawn, without towers or gates", () => {
+    let hedged = 0;
+    for (let i = 0; i < 30 && hedged < 2; i++) {
+      const { t, map } = riverTown(`hedge${i}`, 1500);
+      if (map.enclosure !== "hedge") continue;
+      hedged++;
+      expect(map.wall!.line.length).toBeGreaterThan(5);
+      expect(map.wall!.towers).toEqual([]);
+      expect(map.wall!.gates).toEqual([]);
+      expect(renderMap(t)).toContain('class="m-hedge"');
+    }
+    expect(hedged).toBeGreaterThan(0);
+  }, 300000);
+
+  test("an old village's chapel shows its parish", () => {
+    const { t } = riverTown("farparish", 2000, "village");
+    const seat = defaultModules.flatMap((m) => m.panels ?? []).find((p) => p.id === "seat")!;
+    const chapels = t.children(t.root, "building").filter((b) => b.get("use") === "chapel" && wardOf(t, b)?.bank === "far");
+    expect(chapels.length).toBeGreaterThan(0);
+    const rows = chapels.flatMap((c) => seat.rows(t, c));
+    expect(rows.some((r) => r.label === "Parish" && /^[1-9]\d* households/.test(String(r.value)))).toBe(true);
+  }, 300000);
+
+  test("a small town's abbey side is a priory cell with its mill; a big one's is a priory", () => {
+    const farUses = (pop: number) => { const { t } = riverTown(`cell${pop}`, pop, "abbey"); return t.children(t.root, "building").filter((b) => wardOf(t, b)?.bank === "far").map((b) => b.get<string>("use")); };
+    const small = farUses(2000);
+    expect(small).toContain("cell");
+    expect(small).not.toContain("priory");
+    expect(small).toContain("mill");
+    const big = farUses(8000);
+    expect(big.some((u) => u === "priory" || u === "friary")).toBe(true);
+    expect(big).not.toContain("cell");
+    for (const base of ["fishing", "mining", "herding", "woodcutting"]) {
+      const { t } = riverTown(`cellmill${base}`, 2000, "abbey", base);
+      expect(t.children(t.root, "building").filter((b) => wardOf(t, b)?.bank === "far").map((b) => b.get<string>("use")), base).toContain("mill");
+    }
+  }, 300000);
+
+  test("a postern is named for the way it faces", () => {
+    // More gatehouses than roads through the wall on this seed: one is a postern.
+    const t = generate("pf5-1", { pop: 20000, design: { layout: "river", walls: "wall", gates: 5 } });
+    const posterns = t.children(t.root, "building").filter((b) => b.get("use") === "gatehouse" && b.get("road") === "postern");
+    expect(posterns.length).toBeGreaterThan(0);
+    for (const b of posterns) expect(t.label(b.address)).toMatch(/^The (North|South|East|West) postern$/);
+  }, 300000);
 });

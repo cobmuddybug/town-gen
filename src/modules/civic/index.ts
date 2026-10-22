@@ -357,6 +357,8 @@ export const civic: Module = {
     const use = e.get<string>("use");
     switch (use) {
       case "gatehouse": {
+        // A postern stands on the wall where no road goes through: named for the way it faces.
+        if (e.get("road") === "postern") return `The ${content.compass[compassOf(e.get<Pt>("front"))]} postern`;
         const gates = town.settlement().get<MapData>("map").wall?.gates ?? [];
         const i = gates.findIndex((g) => g.road === e.get("road"));
         return town.settlement().get<string[]>("gateNames")?.[i] ?? "The gatehouse";
@@ -489,7 +491,7 @@ export const civic: Module = {
 
 // What makes a building worth naming to a stranger, highest first.
 const NOTABLE: Record<string, number> = {
-  castle: 20, grand_temple: 19, temple: 18, guildhall: 17, market_hall: 16, friary: 15, priory: 15, nunnery: 15, courthouse: 14, gaol: 13,
+  castle: 20, grand_temple: 19, temple: 18, guildhall: 17, market_hall: 16, friary: 15, priory: 15, cell: 12, nunnery: 15, courthouse: 14, gaol: 13,
   inn: 12, hospital: 11, fane: 10, merchant_house: 9, goldsmith: 9, money_changer: 9, wine_merchant: 8, mercer: 8, spicer: 8, tavern: 7,
   bathhouse: 7, school: 7, apothecary: 6, physician: 6, gatehouse: 6, watch_house: 5,
 };

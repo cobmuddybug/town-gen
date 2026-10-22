@@ -26,7 +26,7 @@ type Lists = Record<Field, Line[]>;
 const content = data<Lists>(characterYaml);
 
 // Trades that live by the pen, or by the Church.
-const LEARNED = new Set(["clerk", "clerk_in_orders", "notary", "lawyer", "physician", "schoolmaster", "scrivener", "canon", "provost", "bishop", "parish_priest", "chantry_priest", "priest", "chaplain", "friar", "monk", "nun", "prior", "abbot"]);
+const LEARNED = new Set(["clerk", "clerk_in_orders", "notary", "lawyer", "physician", "schoolmaster", "scrivener", "canon", "provost", "bishop", "parish_priest", "chantry_priest", "priest", "chaplain", "friar", "monk", "nun", "prior", "cell_prior", "abbot"]);
 const FOREIGN = ["Flemish", "Italian", "Gascon French", "German", "Breton"];
 
 interface Who {
