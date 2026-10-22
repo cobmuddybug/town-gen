@@ -8,7 +8,7 @@
 
 import type { Rng } from "../../core/rng";
 import type { Registry } from "../../core/registry";
-import type { Design, Era } from "../../core/types";
+import type { Design, Era, FarBank, LayoutPlan } from "../../core/types";
 import type { Base } from "../core";
 import type { BuildingUse } from "./index";
 
@@ -16,7 +16,13 @@ export interface UrbanPlan {
   plan: string[];
   roads: number;
   quarters: number;
+  layout: LayoutPlan;
+  farBank?: FarBank;
+  /** indices into `plan` that stand on a river town's far bank */
+  far: number[];
 }
+
+const FAR_ODDS: [FarBank, number][] = [["village", 0.35], ["bridgend", 0.3], ["abbey", 0.15], ["wharf", 0.2]];
 
 // People per household in a shop or workshop, counting servants and apprentices (measured).
 const PEOPLE = 4.8;
@@ -117,5 +123,57 @@ export function planUrban(
     for (let i = 0, n = Math.round((rest * share * r.range(0.9, 1.1)) / per); i < n; i++) houses.push(u);
   }
   for (let i = 0, n = Math.round(houses.length * 0.01); i < n; i++) houses.push("empty");
-  return { plan: [...all, ...r.shuffle(houses)], roads, quarters };
+  const plan = [...all, ...r.shuffle(houses)];
+  return { plan, roads, quarters, ...rollLayout(r, plan, pop, base, useReg, design) };
+}
+
+/** A street plan's layout and far bank: drawn last and always, so a choice moves nothing else.
+ *  A coast town is radial unless the DM says otherwise: the radial plan has the sea.
+ *  For a river town, `plan` gains the far bank's signature buildings. */
+export function rollLayout(r: Rng, plan: string[], pop: number, base: Base, useReg: Registry<BuildingUse>, design?: Design): Pick<UrbanPlan, "layout" | "farBank" | "far"> {
+  const rolledPlan: LayoutPlan = r.chance(2 / 3) && base.terrain !== "coast" ? "river" : "radial";
+  let rolledBank = r.weighted(FAR_ODDS, ([, w]) => w)[0];
+  if (rolledBank === "wharf" && pop < 1001) rolledBank = "village";
+  const layout = design?.layout ?? rolledPlan;
+  if (layout !== "river") return { layout, far: [] };
+  const farBank = design?.farBank ?? rolledBank;
+  return { layout, farBank, far: farBankUses(r, plan, farBank, pop, base, useReg) };
+}
+
+/** The far bank's signature buildings: taken from the plan where it has them, added where it doesn't. Returns their indices. */
+function farBankUses(r: Rng, plan: string[], kind: FarBank, pop: number, base: Base, useReg: Registry<BuildingUse>): number[] {
+  const far: number[] = [];
+  const taken = new Set<number>();
+  // One of `ids` for the far bank: the last free one in the plan, or a new one (the first id that exists).
+  const reserve = (ids: string[], add = true) => {
+    for (let i = plan.length - 1; i >= 0; i--) if (ids.includes(plan[i]) && !taken.has(i)) { taken.add(i); far.push(i); return; }
+    const id = ids.find((u) => useReg.has(u));
+    if (!add || !id) return;
+    plan.push(id);
+    taken.add(plan.length - 1);
+    far.push(plan.length - 1);
+  };
+  const move = (ids: string[], n: number) => { for (let k = 0; k < n; k++) reserve(ids, false); };
+  if (kind === "village") {
+    far.push(plan.length); plan.push(pop >= 3000 ? "fane" : "chapel"); taken.add(plan.length - 1);
+    const homes = Object.keys(base.fill).filter((u) => useReg.has(u));
+    const want = r.int(3, 8);
+    for (let k = 0; k < want; k++) reserve(homes.length ? homes : ["cottage"], true);
+    far.push(plan.length); plan.push("town_alehouse"); taken.add(plan.length - 1);
+  } else if (kind === "bridgend") {
+    reserve(["town_tannery"]);
+    reserve([pop >= 1500 ? "inn" : "hostel"]);
+    reserve(["livery_stable", "town_carter"]);
+    move(["poor_row"], 6);
+  } else if (kind === "abbey") {
+    reserve(["friary", "priory"].filter((u) => plan.includes(u)).concat("priory"));
+    far.push(plan.length); plan.push("chapel"); taken.add(plan.length - 1);
+    move(["mill", "watermill"], 1);
+  } else {
+    reserve(["warehouse"]);
+    reserve(["boatwright"]);
+    move(["rooming_house", "tenement"], 3);
+    far.push(plan.length); plan.push("town_alehouse"); taken.add(plan.length - 1);
+  }
+  return far.sort((a, b) => a - b);
 }

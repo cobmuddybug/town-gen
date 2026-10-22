@@ -6,7 +6,7 @@ import usesYaml from "./content/uses.yaml";
 import occupationsYaml from "./content/occupations.yaml";
 import urbanYaml from "./content/urban.yaml";
 import urbanOccupationsYaml from "./content/urban-occupations.yaml";
-import { planUrban } from "./urban";
+import { planUrban, rollLayout, type UrbanPlan } from "./urban";
 
 export interface BuildingUse extends Row {
   label: string;
@@ -86,7 +86,7 @@ const CONDITIONS = ["sound", "sound", "sound", "weathered", "weathered", "in wan
 
 export const uses: Module = {
   id: "uses",
-  version: "1.0.0",
+  version: "2.0.0",
   requires: ["core"],
   provides: ["buildingUses", "occupations"],
   register(add) {
@@ -105,8 +105,11 @@ export const uses: Module = {
         // Big villages, towns and cities: see urban.ts.
         const enclosure = s.get<string>("enclosure");
         const walled = /wall|palisade/.test(enclosure);
-        const u = ctx.gen(s, "plan", (r) => planUrban(r, pop, sizeClass, base, ctx.era, useReg, walled, ctx.town.settings.lordship === "manorial", ctx.town.settings.design)) as unknown as { plan: string[]; roads: number; quarters: number };
+        const u = ctx.gen(s, "plan", (r) => planUrban(r, pop, sizeClass, base, ctx.era, useReg, walled, ctx.town.settings.lordship === "manorial", ctx.town.settings.design)) as unknown as UrbanPlan;
         ctx.set(s, "plan", u.plan);
+        ctx.set(s, "layoutPlan", u.layout);
+        ctx.set(s, "farBank", u.farBank);
+        ctx.set(s, "farUses", u.far);
         ctx.set(s, "mainRoads", u.roads);
         ctx.set(s, "quarters", u.quarters);
       } else ctx.gen(s, "plan", (r) => {
@@ -134,7 +137,18 @@ export const uses: Module = {
         if (r.chance(0.35)) houses.push("empty");
         return [...special.filter((u) => useReg.has(u)), ...r.shuffle(houses)];
       });
-      if (pop > STREET_PLAN_POP && pop <= URBAN_PLAN_POP) ctx.gen(s, "mainRoads", (r) => { const n = r.int(3, 4); return ctx.town.settings.design?.gates ?? n; });
+      if (pop > STREET_PLAN_POP && pop <= URBAN_PLAN_POP) {
+        ctx.gen(s, "mainRoads", (r) => { const n = r.int(3, 4); return ctx.town.settings.design?.gates ?? n; });
+        // A big village's street plan rolls its layout too; a river town's far bank adds to the plan.
+        const roll = ctx.gen(s, "layoutRoll", (r) => {
+          const plan = [...s.get<string[]>("plan")];
+          return { plan, ...rollLayout(r, plan, pop, base, useReg, ctx.town.settings.design) };
+        });
+        ctx.set(s, "plan", roll.plan);
+        ctx.set(s, "layoutPlan", roll.layout);
+        ctx.set(s, "farBank", roll.farBank);
+        ctx.set(s, "farUses", roll.far);
+      }
       const plan = s.get<string[]>("plan");
       // "Usually richest" (LF pp.72-75): one of the base's richest trades that
       // is actually practised here.

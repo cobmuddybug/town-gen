@@ -34,6 +34,11 @@ export interface Edge {
 
 export type Lordship = "free" | "manorial";
 
+/** How a street plan is laid out: the old radial web, or a town grown along a river. */
+export type LayoutPlan = "radial" | "river";
+/** What lies over the bridge in a river town. */
+export type FarBank = "village" | "bridgend" | "abbey" | "wharf";
+
 /** The DM's say over a street plan (over 700 people). Anything left out is rolled as usual. */
 export interface Design {
   walls?: "none" | "palisade" | "wall";
@@ -45,6 +50,10 @@ export interface Design {
   suburbs?: "few" | "many";
   /** how much crime: the underworld's size and nerve */
   crime?: "quiet" | "usual" | "rife";
+  /** the street plan: radial, or a river town */
+  layout?: LayoutPlan;
+  /** a river town's far bank */
+  farBank?: FarBank;
 }
 
 export interface Settings {
