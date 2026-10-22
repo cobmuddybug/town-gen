@@ -250,3 +250,54 @@ describe("inspector card and stars", () => {
     expect(starsOf(t3, p)).toEqual([]);
   });
 });
+
+import { keyAction } from "../src/ui/history";
+import { eventsWithDeed, eventsWithStar, starKey, starredRows } from "../src/ui/glance";
+import { load } from "../src/core/save";
+import { rumoursIn } from "../src/modules/gossip";
+
+describe("review fixes", () => {
+  test("no shortcut but Ctrl+K fires while typing", () => {
+    for (const e of [{ key: "ArrowLeft", altKey: true }, { key: "ArrowRight", altKey: true }, { key: "/" }, { key: "[" }, { key: "]" }, { key: "P", shiftKey: true }]) expect(keyAction(e, true)).toBeUndefined();
+    expect(keyAction({ key: "k", ctrlKey: true }, true)).toBe("search");
+    expect(keyAction({ key: "ArrowLeft", altKey: true }, false)).toBe("back");
+    expect(keyAction({ key: "ArrowRight", altKey: true }, false)).toBe("forward");
+    expect(keyAction({ key: "/" }, false)).toBe("search");
+    expect(keyAction({ key: "]" }, false)).toBe("later");
+    expect(keyAction({ key: "[" }, false)).toBe("earlier");
+    expect(keyAction({ key: "P", shiftKey: true }, false)).toBe("player");
+    expect(keyAction({ key: "p" }, false)).toBeUndefined();
+  });
+
+  test("starring and unstarring never changes who the town blames for a deed", () => {
+    const base = generate("ashby"); base.society();
+    const at = base.children(base.root, "building")[0].address;
+    const deed = { kind: "deed", date: "1203-10-01", block: "forenoon", at, text: "broke a window at the mill" };
+    const star = { kind: "star", target: at, text: "Use⁣mill", date: "1203-10-01" };
+    const tell = (events: typeof base.events) => {
+      const t = load({ ...base.toSave(), events }, modules); t.society();
+      return rumoursIn(t, 1203).filter((r) => r.topic === "deed").map((r) => `${r.id} ${r.texts[2]}`);
+    };
+    const plain = tell([deed]);
+    expect(plain.length).toBe(1);
+    expect(tell(eventsWithDeed(eventsWithStar([], star), deed))).toEqual(plain);
+    expect(tell(eventsWithStar([deed], star))).toEqual(plain);
+  });
+
+  test("a star picks out one row, not every row with that label", () => {
+    const rows = [{ label: "cousin of", value: "Ann" }, { label: "cousin of", value: "Bob" }, { label: "Age", value: 30 }];
+    const stars = [{ label: starKey(rows[1]), index: 0 }];
+    expect(starredRows(rows, stars)).toEqual([rows[1]]);
+    expect(starKey(rows[0])).not.toBe(starKey(rows[1]));
+  });
+
+  test("a trade filter keeps exactly that trade's people, not namesakes", () => {
+    const town = generate("burgh-a", { pop: 3000 }); town.society();
+    const occ = (e: ReturnType<Town["get"]>) => e.get<string | undefined>("occupation") ?? town.get(town.parentOf(e.address)!).get<string>("occupation");
+    const people = town.allEntities().filter((e) => e.type === "person");
+    const want = people.filter((e) => occ(e) === "smith").length;
+    const d = directory(town, "people", { date: "1203-10-01", block: "forenoon", trade: "smith" });
+    expect(d.rows.length).toBe(want);
+    expect(d.rows.every((r) => occ(town.get(r.address!)) === "smith")).toBe(true);
+  });
+});

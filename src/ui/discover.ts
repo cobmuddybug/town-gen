@@ -292,11 +292,11 @@ function index(town: Town): SearchEntry[] {
 }
 
 /** Everything whose name or trade matches all the words of the query. In player view, aliases neither match nor show. */
-export function search(town: Town, query: string, limit = 60, opts: { player?: boolean } = {}): { results: SearchEntry[]; total: number } {
+export function search(town: Town, query: string, limit = 60, opts: { player?: boolean; hide?: Set<Address> } = {}): { results: SearchEntry[]; total: number } {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return { results: [], total: 0 };
   const key = opts.player ? "plainText" : "text";
-  let hits = index(town).filter((x) => words.every((w) => x[key].includes(w)));
+  let hits = index(town).filter((x) => words.every((w) => x[key].includes(w)) && !opts.hide?.has(x.address));
   if (opts.player) hits = hits.map((x) => ({ ...x, detail: x.plain }));
   // Places first, then people.
   const rank = (x: SearchEntry) => (x.kind === "person" ? 1 : 0);

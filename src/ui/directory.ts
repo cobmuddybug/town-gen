@@ -6,11 +6,16 @@ import { lsd } from "../modules/households";
 import { isStreetPlan } from "../modules/layout";
 import type { Occupation } from "../modules/uses";
 import { LISTS, type Fact } from "./discover";
+import { COVER_TRADE, coverTrade, underworldOf } from "./player";
 
 export type DirTab = "people" | "households" | "buildings" | "trades" | "offices" | "wards" | `list:${string}`;
-export interface DirRow { address?: Address; cells: (string | number)[]; sort: (string | number)[]; fact?: Fact }
+export interface DirRow { address?: Address; cells: (string | number)[]; sort: (string | number)[]; fact?: Fact; trade?: string }
 export interface Directory { columns: string[]; rows: DirRow[] }
-export interface DirOpts { date: string; block: Block; filter?: string; sort?: { col: number; desc: boolean }; hiddenLists?: Set<string> }
+export interface DirOpts { date: string; block: Block; filter?: string; sort?: { col: number; desc: boolean }; hiddenLists?: Set<string>;
+  /** only people who follow this trade (an occupation id) */
+  trade?: string;
+  /** player view: thieves' trades read as a cover, and crews are not named */
+  player?: boolean }
 
 const FIXED: { id: DirTab; title: string }[] = [
   { id: "people", title: "People" },
@@ -38,19 +43,20 @@ const firstLink = (v: PanelRow["value"]): Address | undefined =>
 /** One tab of the Directory as a table: filtered by every word, sorted by a column. */
 export function directory(town: Town, tab: DirTab, opts: DirOpts): Directory {
   town.society();
+  const all = town.allEntities();
   const occs = town.registry<Occupation>("occupations");
-  const trade = (id: unknown) => (id ? occs.find(String(id))?.label ?? String(id) : "");
+  const trade = (id: unknown) => (!id ? "" : opts.player ? coverTrade(town, id) : occs.find(String(id))?.label ?? String(id));
+  const occOf = (e: (typeof all)[number]) => e.get<string | undefined>("occupation") ?? town.get(town.parentOf(e.address)!).get<string | undefined>("occupation");
   const label = (a: Address | undefined) => (a ? town.label(a) : "");
   const row = (address: Address | undefined, cells: (string | number)[], sort = cells, fact?: Fact): DirRow => ({ address, cells, sort, ...(fact ? { fact } : {}) });
-  const all = town.allEntities();
   let columns: string[];
   let rows: DirRow[];
 
   if (tab === "people") {
     columns = ["Name", "Trade", "Age", "Household", "Building"];
-    rows = all.filter((e) => e.type === "person").map((e) => {
+    rows = all.filter((e) => e.type === "person" && (!opts.trade || occOf(e) === opts.trade)).map((e) => {
       const hh = town.parentOf(e.address)!;
-      return row(e.address, [town.label(e.address), trade(e.get("occupation") ?? town.get(hh).get("occupation")), e.get<number>("age"), label(hh), label(town.parentOf(hh))]);
+      return row(e.address, [town.label(e.address), trade(occOf(e)), e.get<number>("age"), label(hh), label(town.parentOf(hh))]);
     });
   } else if (tab === "households") {
     columns = ["Household", "Trade", "Income", "Members", "Building"];
@@ -67,13 +73,16 @@ export function directory(town: Town, tab: DirTab, opts: DirOpts): Directory {
     columns = ["Trade", "People"];
     const n = new Map<string, number>();
     for (const e of all) if (e.type === "person") {
-      const id = e.get<string | undefined>("occupation") ?? town.get(town.parentOf(e.address)!).get<string | undefined>("occupation");
+      const id = occOf(e);
       if (id) n.set(id, (n.get(id) ?? 0) + 1);
     }
-    rows = [...n].map(([id, k]) => row(undefined, [trade(id), k]));
+    // In player view a covert trade counts under its cover.
+    if (opts.player) for (const [id, k] of [...n]) if (coverTrade(town, id) === COVER_TRADE && id !== "labourer") { n.delete(id); n.set("labourer", (n.get("labourer") ?? 0) + k); }
+    rows = [...n].map(([id, k]) => ({ ...row(undefined, [trade(id), k]), trade: id }));
   } else if (tab === "offices") {
     columns = ["Office", "Holder", "In"];
-    rows = town.edges({ kind: "office_in" }).map((e) => row(e.from, [String(e.facts?.office ?? "office"), town.label(e.from), town.label(e.to)]));
+    const under = opts.player ? underworldOf(town) : new Set<Address>();
+    rows = town.edges({ kind: "office_in" }).filter((e) => !under.has(e.to) && !under.has(e.from)).map((e) => row(e.from, [String(e.facts?.office ?? "office"), town.label(e.from), town.label(e.to)]));
   } else if (tab === "wards") {
     columns = ["Ward", "Buildings", "People"];
     rows = all.filter((e) => e.type === "ward").map((w) => {
@@ -107,11 +116,12 @@ const esc = (s: unknown) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;
 export const DIR_MAX = 400;
 
 /** The Directory page: tab chips, a filter, and the table. */
-export function directoryHtml(tabs: { id: DirTab; title: string; list?: boolean }[], tab: DirTab, d: Directory, filter: string, sort?: { col: number; desc: boolean }): string {
+export function directoryHtml(tabs: { id: DirTab; title: string; list?: boolean }[], tab: DirTab, d: Directory, filter: string, trade: string | undefined, sort?: { col: number; desc: boolean }): string {
   const chip = (t: { id: DirTab; title: string }) => `<button data-dir-tab="${esc(t.id)}" class="${t.id === tab ? "on" : ""}">${esc(t.title)}</button>`;
   const h: string[] = [`<h2>Directory</h2>`];
   h.push(`<div class="dir-tabs"><span class="dir-label">Index</span>${tabs.filter((t) => !t.list).map(chip).join("")}</div>`);
   h.push(`<div class="dir-tabs"><span class="dir-label">Lists</span>${tabs.filter((t) => t.list).map(chip).join("")}</div>`);
+  if (trade) h.push(`<p class="dir-trade">Trade: <strong>${esc(trade)}</strong> <button data-dir-untrade title="Show every trade">×</button></p>`);
   h.push(`<input id="dir-filter" class="find" type="search" placeholder="Filter these rows: a name, a trade, a street…" value="${esc(filter)}" autocomplete="off" />`);
   const shown = d.rows.slice(0, DIR_MAX);
   h.push(`<p class="sub dir-count">${d.rows.length.toLocaleString()} ${d.rows.length === 1 ? "row" : "rows"}${d.rows.length > shown.length ? `, showing the first ${shown.length}: filter to narrow` : ""}</p>`);
@@ -119,7 +129,7 @@ export function directoryHtml(tabs: { id: DirTab; title: string; list?: boolean 
   const arrow = (i: number) => (sort?.col === i ? (sort.desc ? " ▾" : " ▴") : "");
   h.push(`<table class="dir"><thead><tr>${d.columns.map((c, i) => `<th scope="col"><button data-sort="${i}" aria-sort="${sort?.col === i ? (sort.desc ? "descending" : "ascending") : "none"}">${esc(c) || "&nbsp;"}${arrow(i)}</button></th>`).join("")}</tr></thead><tbody>`);
   for (const r of shown) {
-    const attr = r.address ? ` data-go="${esc(r.address)}" data-involves="${esc(r.address)}" tabindex="0"` : tab === "trades" ? ` data-dir-trade="${esc(r.cells[0])}" tabindex="0"` : "";
+    const attr = r.address ? ` data-go="${esc(r.address)}" data-involves="${esc(r.address)}" tabindex="0"` : r.trade ? ` data-dir-trade="${esc(r.trade)}" tabindex="0"` : "";
     h.push(`<tr${attr}>${r.cells.map((c) => `<td${typeof c === "number" ? ' class="num"' : /^(?:£|\d+[sd]\b)/.test(String(c)) ? ' class="money"' : ""}>${esc(c)}</td>`).join("")}</tr>`);
   }
   h.push(`</tbody></table>`);

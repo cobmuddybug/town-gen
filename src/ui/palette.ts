@@ -2,6 +2,7 @@ import type { Address } from "../core/address";
 import type { Town } from "../core/town";
 import type { Occupation } from "../modules/uses";
 import { LISTS, search } from "./discover";
+import { coverTrade, underworldOf } from "./player";
 
 export type PaletteTitle = "People" | "Places" | "Trades" | "Offices" | "Lists";
 export interface PaletteItem { address?: Address; list?: string; label: string; detail: string }
@@ -30,16 +31,17 @@ function trades(town: Town) {
 
 /** What the search box offers for a query, grouped and capped. `hidden` = list ids not to offer. */
 export function paletteGroups(town: Town, query: string, opts: { player?: boolean; hiddenLists?: Set<string> } = {}): PaletteGroup[] {
+  const hide = opts.player ? underworldOf(town) : undefined;
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return [];
   const all = (t: string) => words.every((w) => t.toLowerCase().includes(w));
   const groups = new Map<PaletteTitle, PaletteItem[]>(ORDER.map((t) => [t, []]));
   // All matches, not a capped page: places sort first, and a cap would starve People.
-  for (const r of search(town, query, Infinity, { player: opts.player }).results) {
+  for (const r of search(town, query, Infinity, { player: opts.player, hide }).results) {
     const g = r.kind === "person" ? "People" : r.kind === "institution" ? "Offices" : "Places";
     groups.get(g)!.push({ address: r.address, label: r.label, detail: r.detail });
   }
-  for (const t of trades(town)) if (all(t.label)) groups.get("Trades")!.push({ list: `trade:${t.id}`, label: t.label, detail: `${t.n} ${t.n === 1 ? "person" : "people"}` });
+  for (const t of trades(town)) if (all(t.label) && !(opts.player && coverTrade(town, t.id) !== t.label)) groups.get("Trades")!.push({ list: `trade:${t.id}`, label: t.label, detail: `${t.n} ${t.n === 1 ? "person" : "people"}` });
   for (const l of LISTS) if (!opts.hiddenLists?.has(l.id) && all(l.title)) groups.get("Lists")!.push({ list: l.id, label: l.title, detail: "list" });
   return ORDER.map((title) => ({ title, items: groups.get(title)!.slice(0, PER_GROUP) })).filter((g) => g.items.length);
 }

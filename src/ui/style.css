@@ -350,3 +350,23 @@ input:focus-visible, select:focus-visible { outline-offset: 0; }
 body.player .bar { box-shadow: inset 0 3px 0 var(--accent); }
 body.player #player-toggle { background: var(--accent); border-color: var(--accent); color: var(--paper); }
 body.player .knows, body.player .tools, body.player dd.dm, body.player [data-party-clear], body.player .glance-hint, body.player [data-pin], body.player .src { display: none !important; }
+
+/* ---- narrow screens: the bar wraps, search gets its own row ---- */
+@media (max-width: 760px) {
+  .bar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px; }
+  .search-wrap { order: 5; flex: 1 1 100%; max-width: none; min-width: 0; }
+  #clock-label { min-width: 0; }
+  #player-toggle { margin-left: auto; }
+  #town-menu { max-width: 40vw; }
+  .palette { width: 100%; }
+  .pop { max-width: calc(100vw - 20px); }
+  #inspector.wide { max-width: none; }
+  #map .maptools { right: 12px; }
+}
+@media (max-width: 420px) {
+  #player-toggle { font-size: 0; padding: 0 8px; }
+  #player-toggle::before { content: "Players"; font-size: var(--fs-s); }
+  body.player #player-toggle::before { content: "Players ✓"; }
+}
+.dir-trade { margin: 2px 0 6px; font-size: var(--fs-s); color: var(--ink-soft); }
+.dir-trade button { padding: 0 6px; margin-left: 4px; }

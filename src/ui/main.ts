@@ -1,5 +1,5 @@
 import { ancestors, typeOf, type Address } from "../core/address";
-import { load, serialize, withEdit, withEvent, withoutEvent, withPin, withReroll } from "../core/save";
+import { load, serialize, withEdit, withoutEvent, withPin, withReroll } from "../core/save";
 import type { Town } from "../core/town";
 import type { PanelLink, PanelRow, PanelSpec, SaveFile } from "../core/types";
 import type { MapData } from "../modules/layout";
@@ -13,9 +13,9 @@ import { almanac, dayOf, LENSES, lensView, placeName, whoKnows, type Fact, type 
 import { fetchKept, forget, keep, listKept, townKey } from "./library";
 import { MANOR_MAX, PLAN_MIN, newTownHtml, settingsFromForm, sizePreview } from "./newtown";
 import { clockLabel, stepClock, townMenuHtml } from "./topbar";
-import { History, isTypingTarget } from "./history";
-import { glance, starsOf } from "./glance";
-import { HIDDEN_ALMANAC, HIDDEN_LISTS, playerPanels, playerRows } from "./player";
+import { History, isTypingTarget, keyAction } from "./history";
+import { eventsWithDeed, glance, starKey, starOf, starredRows, starsOf } from "./glance";
+import { HIDDEN_ALMANAC, HIDDEN_LISTS, coverTrade, maskDoing, playerJobs, playerPanels, playerRows, underworldOf } from "./player";
 import { DIRECTORY_TABS, directory, directoryHtml, type DirTab } from "./directory";
 import { paletteGroups, paletteHtml, paletteItems, type PaletteGroup, type PaletteItem } from "./palette";
 import type { Occupation } from "../modules/uses";
@@ -46,6 +46,7 @@ let fact: Fact | undefined;
 let dirTab: DirTab = "people";
 let dirFilter = "";
 let dirSort: { col: number; desc: boolean } | undefined;
+let dirTrade: string | undefined;
 let follow: Address | undefined;
 let lens: Lens = "none";
 // Player view: the screen is shared with the players, so the DM's secrets stay off it.
@@ -665,8 +666,8 @@ function rowHtml(e: Address, r: PanelRow, starrable = false): string {
   const edited = r.key !== undefined && o !== undefined;
   const editable = r.key !== undefined && typeof r.value !== "object" && !r.noEdit;
   starrable &&= !player;
-  const st = starrable && e !== town.root ? starsOf(town, e).find((x) => x.label === r.label) : undefined;
-  const star = starrable && e !== town.root ? `<button data-star="${esc(r.label)}" class="${st ? "on" : ""}" title="${st ? "Unstar" : "Star: keep this row at the top of the page"}" aria-pressed="${!!st}">${st ? "★" : "☆"}</button>` : "";
+  const st = starrable && e !== town.root ? starOf(r, starsOf(town, e)) : undefined;
+  const star = starrable && e !== town.root ? `<button data-star="${esc(starKey(r))}" class="${st ? "on" : ""}" title="${st ? "Unstar" : "Star: keep this row at the top of the page"}" aria-pressed="${!!st}">${st ? "★" : "☆"}</button>` : "";
   const tools = r.key || star
     ? `<span class="tools">${star}${editable ? `<button data-edit="${esc(r.key)}" title="Edit">✎</button>` : ""}${r.rerollable ? `<button data-reroll="${esc(r.key)}" title="Reroll">↻</button>` : ""}${edited ? `<button data-reset="${esc(r.key)}" title="Back to generated">×</button>` : ""}</span>`
     : "";
@@ -688,7 +689,7 @@ function panelsFor(e: Address): PanelSpec[] {
 /** A panel's rows, as the current view may show them. */
 function rowsOf(e: Address, p: PanelSpec): PanelRow[] {
   const rows = p.rows(town, town.get(e));
-  return player ? playerRows(town, rows) : rows;
+  return player ? playerRows(town, rows, { entity: e, panel: p.id }) : rows;
 }
 
 // Sections you closed stay closed, per kind of page ("person:secrets").
@@ -735,8 +736,9 @@ function dirPageHtml(): string {
   const hiddenLists = player ? HIDDEN_LISTS : undefined;
   const tabs = DIRECTORY_TABS(town, { hiddenLists });
   if (!tabs.some((t) => t.id === dirTab)) dirTab = "people";
-  const d = directory(town, dirTab, { date: town.clock.date, block: town.clock.block as Block, filter: dirFilter, sort: dirSort, hiddenLists });
-  return directoryHtml(tabs, dirTab, d, dirFilter, dirSort ?? (dirTab.startsWith("list:") ? undefined : { col: 0, desc: false }));
+  const d = directory(town, dirTab, { date: town.clock.date, block: town.clock.block as Block, filter: dirFilter, sort: dirSort, hiddenLists, player, trade: dirTab === "people" ? dirTrade : undefined });
+  const tradeLabel = dirTab === "people" && dirTrade ? (player ? coverTrade(town, dirTrade) : town.registry<Occupation>("occupations").find(dirTrade)?.label ?? dirTrade) : undefined;
+  return directoryHtml(tabs, dirTab, d, dirFilter, tradeLabel, dirSort ?? (dirTab.startsWith("list:") ? undefined : { col: 0, desc: false }));
 }
 
 // What the almanac shows. Crimes and deaths to come are the DM's foreknowledge,
@@ -781,6 +783,9 @@ function knowsHtml(): string {
 const textHtml = (x: Text) => x.map((v) => (typeof v === "object" ? link(v.address, v.text) : esc(v))).join("");
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** What someone is doing, as the current view may say it. */
+const doingOf = (p: Address, doing: string) => (player ? maskDoing(town, p, town.clock.date, town.clock.block as Block, doing) : doing);
+
 function nearbyHtml(): string {
   const h: string[] = [`<h2>Nearby</h2>`];
   const at = town.party?.at;
@@ -800,7 +805,7 @@ function nearbyHtml(): string {
     const e = encounter(town, at, date, block as Block, rolls);
     if (!e) h.push(`<p class="sub">Nobody about. The street is empty.</p>`);
     else {
-      h.push(`<div class="encounter" data-involves="${esc(e.p)}"><h3>${link(e.p)} <span class="sub">— ${textHtml(e.where)}, ${esc(e.doing)}</span></h3>`);
+      h.push(`<div class="encounter" data-involves="${esc(e.p)}"><h3>${link(e.p)} <span class="sub">— ${textHtml(e.where)}, ${esc(doingOf(e.p, e.doing))}</span></h3>`);
       h.push(`<p class="opener">${esc(e.opener)}</p>`);
       if (e.lines?.length) h.push(`<ul class="lines">${e.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`);
       h.push(`<dl class="rows">`);
@@ -814,13 +819,13 @@ function nearbyHtml(): string {
   // Here and now.
   h.push(`<details class="panel" open><summary>Here and now</summary><dl class="rows">`);
   for (const b of r.buildings.slice(0, 10)) {
-    const who = b.inside.map((x) => `${link(x.p)}: ${esc(x.doing)}`).join("; ");
+    const who = b.inside.map((x) => `${link(x.p)}: ${esc(doingOf(x.p, x.doing))}`).join("; ");
     const more = b.total > b.inside.length ? `; and ${b.total - b.inside.length} more` : "";
     h.push(`<dt>${Math.round(b.d)} m</dt><dd data-involves="${esc(b.a)}"><span class="val">${link(b.a)}${b.total ? ` — ${who}${more}` : ` <span class="sub">— empty</span>`}</span></dd>`);
   }
   if (!r.buildings.length) h.push(`<dt>—</dt><dd><span class="val">open ground; nobody within call</span></dd>`);
   h.push(`</dl></details>`);
-  if (r.street.length) h.push(`<details class="panel" open><summary>Out and about</summary><dl class="rows">${r.street.map((x) => `<dt></dt><dd data-involves="${esc(x.p)}"><span class="val">${link(x.p)}: ${esc(x.doing)}</span></dd>`).join("")}</dl></details>`);
+  if (r.street.length) h.push(`<details class="panel" open><summary>Out and about</summary><dl class="rows">${r.street.map((x) => `<dt></dt><dd data-involves="${esc(x.p)}"><span class="val">${link(x.p)}: ${esc(doingOf(x.p, x.doing))}</span></dd>`).join("")}</dl></details>`);
 
   if (r.crime && !player) h.push(crimeNearHtml(r.crime));
 
@@ -838,7 +843,8 @@ function nearbyHtml(): string {
   if (deeds.length && !player) h.push(`<ul class="links deeds">${deeds.map(({ ev, i }) => `<li>${esc(ev.date)}, ${esc((ev.block ?? "").replace("_", " "))}: ${esc(ev.text)}${ev.at ? `, at ${link(ev.at, town.label(ev.at).replace(/^The /, "the "))}` : ""} <button class="knows" data-undeed="${i}" title="Forget it was ever done">×</button></li>`).join("")}</ul>`);
   h.push(`</details>`);
 
-  if (r.jobs.length) h.push(`<details class="panel" open><summary>Work going nearby</summary>${r.jobs.map(jobHtml).join("")}<p><a href="#" data-page="jobs">All the work going in ${esc(town.label(town.root))}</a></p></details>`);
+  const jobs = player ? playerJobs(town, r.jobs) : r.jobs;
+  if (jobs.length) h.push(`<details class="panel" open><summary>Work going nearby</summary>${jobs.map(jobHtml).join("")}<p><a href="#" data-page="jobs">All the work going in ${esc(town.label(town.root))}</a></p></details>`);
   if (r.visitors.length) h.push(`<details class="panel" open><summary>In town today</summary><ul class="links">${r.visitors.map((v) => `<li>${esc(v)}</li>`).join("")}</ul></details>`);
   return h.join("");
 }
@@ -878,7 +884,7 @@ function jobHtml(j: ReturnType<typeof jobBoard>[number]): string {
 }
 
 function jobsHtml(): string {
-  const jobs = jobBoard(town, town.clock.date);
+  const jobs = player ? playerJobs(town, jobBoard(town, town.clock.date)) : jobBoard(town, town.clock.date);
   return `<h2>Work going</h2><p class="sub">What people in ${esc(town.label(town.root))} would pay to have done: debts, grudges, quarrels, worries. Pay is what the patron can actually spare. Hover a job to see who's in it.</p>` +
     (jobs.length ? jobs.map(jobHtml).join("") : `<p class="sub">Nobody wants anything done that they'd pay a stranger for.</p>`);
 }
@@ -951,11 +957,8 @@ function drawInspector() {
   // The card: the facts asked for most, then the ones the DM starred here.
   const panels = panelsFor(e).map((p) => ({ p, rows: rowsOf(e, p) })).filter((x) => x.rows.length);
   const stars = starsOf(town, e);
-  const starred = stars.flatMap((st) => {
-    const r = panels.flatMap((x) => x.rows).find((r) => r.label === st.label);
-    return r ? [r] : [];
-  });
-  const card = glance(town, e, town.clock.date, town.clock.block as Block);
+  const starred = player ? [] : starredRows(panels.flatMap((x) => x.rows), stars);
+  const card = glance(town, e, town.clock.date, town.clock.block as Block, { player });
   if (card.length || starred.length) {
     h.push(`<section class="glance" aria-label="At a glance"><dl class="rows">${card.map((r) => `<dt>${esc(r.label)}</dt><dd><span class="val">${valueHtml(r.value)}</span></dd>`).join("")}${starred.map((r) => rowHtml(e, r, true)).join("")}</dl>${!starred.length ? `<p class="glance-hint">Star a row (☆) to keep it here.</p>` : ""}</section>`);
   }
@@ -983,7 +986,8 @@ function drawInspector() {
     h.push(`<details class="panel" open><summary>Who lives here</summary>${hs.length ? `<ul class="links">${hs.map((x) => `<li>${link(x.address)} — ${town.children(x.address, "person").map((p) => link(p.address)).join(", ")}</li>`).join("")}</ul>` : "<p class=\"sub\">Nobody.</p>"}</details>`);
   }
   if (ent.type === "settlement") {
-    const council = town.children(e, "institution");
+    const under = player ? underworldOf(town) : new Set<Address>();
+    const council = town.children(e, "institution").filter((c) => !under.has(c.address));
     h.push(`<details class="panel" open><summary>Institutions</summary><ul class="links">${council.map((c) => `<li>${link(c.address)}</li>`).join("")}</ul></details>`);
     const hooks = player ? [] : findHooks(town);
     if (!player) h.push(`<details class="panel" open><summary>Hooks</summary>${hooks.length ? hooks.map((k) => `<div class="hook" data-involves="${esc(k.involves.join(" "))}"><h3>${esc(k.title)}</h3><p>${esc(k.summary)}</p><p>${k.involves.map((a) => link(a)).join(", ")}</p></div>`).join("") : '<p class="sub">Nothing has come to light. Try another seed, or look closer.</p>'}</details>`);
@@ -1008,7 +1012,8 @@ insp.addEventListener("click", (ev) => {
   const fk = t.closest<HTMLElement>("[data-fact]");
   if (fk) { fact = fk.dataset.fact as Fact; page = "knows"; drawInspector(); insp.scrollTop = 0; return; }
   const dt0 = t.closest<HTMLElement>("[data-dir-tab]");
-  if (dt0) { dirTab = dt0.dataset.dirTab as DirTab; dirSort = undefined; dirFilter = ""; drawInspector(); return; }
+  if (dt0) { dirTab = dt0.dataset.dirTab as DirTab; dirSort = undefined; dirFilter = ""; dirTrade = undefined; drawInspector(); return; }
+  if (t.closest("[data-dir-untrade]")) { dirTrade = undefined; drawInspector(); return; }
   const so = t.closest<HTMLElement>("[data-sort]");
   if (so) {
     const col = Number(so.dataset.sort);
@@ -1018,7 +1023,7 @@ insp.addEventListener("click", (ev) => {
     return;
   }
   const tr = t.closest<HTMLElement>("[data-dir-trade]");
-  if (tr) { dirTab = "people"; dirFilter = tr.dataset.dirTrade!; dirSort = undefined; drawInspector(); return; }
+  if (tr) { dirTab = "people"; dirTrade = tr.dataset.dirTrade!; dirFilter = ""; dirSort = undefined; drawInspector(); return; }
   const ak = t.closest<HTMLElement>("[data-almanac]");
   if (ak) { const k = ak.dataset.almanac!; if (almanacShow.has(k)) almanacShow.delete(k); else almanacShow.add(k); drawInspector(); return; }
   const dt = t.closest<HTMLElement>("[data-date]");
@@ -1034,8 +1039,16 @@ insp.addEventListener("click", (ev) => {
   const e = selected ?? town.root;
   const sb = t.closest<HTMLElement>("[data-star]");
   if (sb) {
-    const st = starsOf(town, e).find((x) => x.label === sb.dataset.star);
-    setTown(st ? withoutEvent(town, modules, st.index) : withEvent(town, modules, { kind: "star", target: e, text: sb.dataset.star!, date: town.clock.date }), true);
+    // A star is a bookmark, not an edit: change the events in place, no rebuild.
+    // Stars go after every deed, so deed gossip (keyed by place) never moves.
+    const key = sb.dataset.star!;
+    const st = starsOf(town, e).find((x) => x.label === key || (!x.label.includes("\u2063") && key.startsWith(x.label + "\u2063")));
+    if (!st) town.events.push({ kind: "star", target: e, text: key, date: town.clock.date });
+    else if (town.events.slice(st.index + 1).some((x) => x.kind === "deed")) { setTown(withoutEvent(town, modules, st.index), true); return; }
+    else town.events.splice(st.index, 1);
+    store();
+    drawTowns();
+    drawInspector();
     return;
   }
   const jp = t.closest<HTMLElement>("[data-jump]");
@@ -1107,7 +1120,9 @@ function logDeed() {
   if (!text || !town.party) return;
   const at = nearestBuildingTo(town, town.party.at);
   if (!at) return;
-  setTown(withEvent(town, modules, { kind: "deed", date: town.clock.date, block: town.clock.block, at, text }), true);
+  const save = town.toSave();
+  save.events = eventsWithDeed(save.events, { kind: "deed", date: town.clock.date, block: town.clock.block, at, text });
+  setTown(load(save, modules), true);
 }
 
 function startEdit(e: Address, dd: HTMLElement, key: string) {
@@ -1185,10 +1200,9 @@ function openItem(x: PaletteItem | undefined) {
 function openDirectory(list: string) {
   selected = undefined;
   dirSort = undefined;
-  if (list.startsWith("trade:")) {
-    dirTab = "people";
-    dirFilter = town.registry<Occupation>("occupations").find(list.slice(6))?.label ?? "";
-  } else { dirTab = `list:${list}`; dirFilter = ""; }
+  dirFilter = "";
+  if (list.startsWith("trade:")) { dirTab = "people"; dirTrade = list.slice(6); }
+  else { dirTab = `list:${list}`; dirTrade = undefined; }
   page = "directory";
   drawInspector();
   insp.scrollTop = 0;
@@ -1246,13 +1260,15 @@ playerBtn.addEventListener("click", () => setPlayer(!player));
 
 document.addEventListener("keydown", (e) => {
   if (dialog.open) return;
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); searchEl.focus(); searchEl.select(); return; }
-  if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { e.preventDefault(); walk(e.key === "ArrowLeft" ? -1 : 1); return; }
-  if (isTypingTarget(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.key === "/") { e.preventDefault(); searchEl.focus(); searchEl.select(); }
-  else if (e.key === "P" && e.shiftKey) { e.preventDefault(); setPlayer(!player); }
-  else if (e.key === "[") { e.preventDefault(); stepBy(-1); }
-  else if (e.key === "]") { e.preventDefault(); stepBy(1); }
+  const act = keyAction(e, isTypingTarget(document.activeElement));
+  if (!act) return;
+  e.preventDefault();
+  if (act === "search") { searchEl.focus(); searchEl.select(); }
+  else if (act === "back") walk(-1);
+  else if (act === "forward") walk(1);
+  else if (act === "earlier") stepBy(-1);
+  else if (act === "later") stepBy(1);
+  else if (act === "player") setPlayer(!player);
 });
 window.addEventListener("resize", () => { view = undefined; drawMap(); });
 

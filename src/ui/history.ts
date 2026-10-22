@@ -38,3 +38,18 @@ export function isTypingTarget(el: Element | null): boolean {
   if (!el) return false;
   return /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || (el as HTMLElement).isContentEditable === true;
 }
+
+export type KeyAction = "search" | "back" | "forward" | "earlier" | "later" | "player";
+interface Keyish { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; shiftKey?: boolean }
+
+/** What a key press asks for. While typing, only Ctrl/Cmd+K is ours; everything else is the text's. */
+export function keyAction(e: Keyish, typing: boolean): KeyAction | undefined {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") return "search";
+  if (typing || e.ctrlKey || e.metaKey) return undefined;
+  if (e.altKey) return e.key === "ArrowLeft" ? "back" : e.key === "ArrowRight" ? "forward" : undefined;
+  if (e.key === "/") return "search";
+  if (e.key === "[") return "earlier";
+  if (e.key === "]") return "later";
+  if (e.key === "P" && e.shiftKey) return "player";
+  return undefined;
+}
