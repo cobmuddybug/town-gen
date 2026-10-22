@@ -9,11 +9,12 @@ import { renderMap, renderPeople } from "./map";
 import { describeDate, parseDate, type Block, whenOf } from "../core/calendar";
 import { occupancy } from "../modules/routines";
 import { describeHour } from "../modules/gossip";
-import { almanac, dayOf, LENSES, lensView, LISTS, placeName, search, whoKnows, type Fact, type Lens } from "./discover";
+import { almanac, dayOf, LENSES, lensView, placeName, whoKnows, type Fact, type Lens } from "./discover";
 import { fetchKept, forget, keep, listKept, townKey } from "./library";
 import { MANOR_MAX, PLAN_MIN, newTownHtml, settingsFromForm, sizePreview } from "./newtown";
 import { clockLabel, stepClock, townMenuHtml } from "./topbar";
 import { History, isTypingTarget } from "./history";
+import { DIRECTORY_TABS, directory, directoryHtml, type DirTab } from "./directory";
 import { paletteGroups, paletteHtml, paletteItems, type PaletteGroup, type PaletteItem } from "./palette";
 import type { Occupation } from "../modules/uses";
 import { encounter, jobBoard, nearestBuildingTo, partyName, reachOf, report, type Text } from "./party";
@@ -36,11 +37,13 @@ let showPeople = false;
 try { showPeople = localStorage.getItem("town-gen:people") === "1"; } catch { /* ignore */ }
 
 // What the inspector shows: an entity, the finder, the almanac, or who knows a fact.
-type Page = "inspect" | "find" | "almanac" | "knows" | "nearby" | "jobs" | "underworld";
+type Page = "inspect" | "directory" | "almanac" | "knows" | "party" | "jobs" | "underworld";
 let page: Page = "inspect";
 let fact: Fact | undefined;
-let query = "";
-let listId: string | undefined;
+// The Directory: which tab, its filter, and how it's sorted.
+let dirTab: DirTab = "people";
+let dirFilter = "";
+let dirSort: { col: number; desc: boolean } | undefined;
 let follow: Address | undefined;
 let lens: Lens = "none";
 // The nearby page's encounter roll (0 = none yet), and whether the next map click places the party.
@@ -305,7 +308,7 @@ function setParty(at: [number, number]) {
   rolls = 0;
   store();
   drawParty();
-  page = "nearby";
+  page = "party";
   drawInspector();
   insp.scrollTop = 0;
 }
@@ -615,30 +618,35 @@ function crumbs(e: Address): string {
   return `<nav class="crumbs">${parts.map((a, i) => (i === parts.length - 1 ? esc(town.label(a)) : link(a))).join('<span class="sep">›</span>')}</nav>`;
 }
 
-function tabsHtml(): string {
-  const t = (id: Page, label: string) => `<button data-page="${id}" class="${page === id || (id === "inspect" && page === "knows") ? "on" : ""}">${label}</button>`;
-  const following = follow && town.find(follow) ? `<span class="following">following ${link(follow)} <button data-follow="" title="Stop following">×</button></span>` : "";
-  return `<nav class="tabs">${t("inspect", "Inspect")}${t("nearby", "Nearby")}${t("jobs", "Jobs")}${world(town) ? t("underworld", "Underworld") : ""}${t("find", "Find")}${t("almanac", "Almanac")}${following}</nav>`;
+/** "following X ×", over whatever page is open. */
+function followingHtml(): string {
+  return follow && town.find(follow) ? `<p class="following">Following ${link(follow)} <button data-follow="" title="Stop following">×</button></p>` : "";
 }
 
-function rowsHtml(rows: PanelRow[]): string {
-  return `<dl class="rows">${rows.map((r) => rowHtml(town.root, { ...r, key: undefined })).join("")}</dl>`;
-}
+// ---- the rail -------------------------------------------------------------
 
-function findHtml(): string {
-  const h: string[] = [`<h2>Find</h2>`, `<input id="find-q" class="find" placeholder="a name, a trade, a building, a ward…" value="${esc(query)}" autocomplete="off" />`, `<div id="find-results">${findResultsHtml()}</div>`];
-  h.push(`<details class="panel" open><summary>Lists</summary><p class="lists">${LISTS.map((l) => `<button data-list="${l.id}" class="${listId === l.id ? "on" : ""}">${esc(l.title)}</button>`).join(" ")}</p>`);
-  const l = LISTS.find((x) => x.id === listId);
-  if (l) h.push(rowsHtml(l.rows(town, town.clock.date, town.clock.block as Block)));
-  h.push("</details>");
-  return h.join("");
+const railEl = $<HTMLElement>("#rail");
+function drawRail() {
+  const on = page === "inspect" || page === "knows" ? (selected ? "" : "town") : page;
+  railEl.querySelectorAll<HTMLButtonElement>("[data-page]").forEach((b) => {
+    if (b.dataset.page === "underworld") b.hidden = !world(town);
+    if (b.dataset.page === on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
 }
+railEl.addEventListener("click", (ev) => {
+  const b = (ev.target as HTMLElement).closest<HTMLElement>("[data-page]");
+  if (!b) return;
+  if (b.dataset.page === "town") { select(undefined); return; }
+  page = b.dataset.page as Page;
+  drawInspector();
+  insp.scrollTop = 0;
+});
 
-function findResultsHtml(): string {
-  if (!query.trim()) return `<p class="sub">Type to search everyone and everything. Try a surname, a trade, "alehouse" or a ward.</p>`;
-  const { results, total } = search(town, query);
-  if (!total) return `<p class="sub">Nothing matches.</p>`;
-  return `<ul class="links">${results.map((x) => `<li>${link(x.address, x.label)} <span class="sub">— ${esc(x.detail)}</span></li>`).join("")}</ul>${total > results.length ? `<p class="sub">and ${total - results.length} more; add a word to narrow it</p>` : ""}`;
+function dirPageHtml(): string {
+  const tabs = DIRECTORY_TABS(town);
+  if (!tabs.some((t) => t.id === dirTab)) dirTab = "people";
+  const d = directory(town, dirTab, { date: town.clock.date, block: town.clock.block as Block, filter: dirFilter, sort: dirSort });
+  return directoryHtml(tabs, dirTab, d, dirFilter, dirSort ?? (dirTab.startsWith("list:") ? undefined : { col: 0, desc: false }));
 }
 
 // What the almanac shows. Crimes and deaths to come are the DM's foreknowledge,
@@ -799,9 +807,11 @@ function followHtml(p: Address): string {
 }
 
 function drawInspector() {
+  insp.classList.toggle("wide", page === "directory");
   if (page !== "inspect") {
-    insp.innerHTML = tabsHtml() + (page === "find" ? findHtml() : page === "almanac" ? almanacHtml() : page === "nearby" ? nearbyHtml() : page === "jobs" ? jobsHtml() : page === "underworld" ? underworldHtml() : knowsHtml());
-    if (page === "nearby") {
+    insp.innerHTML = followingHtml() + (page === "directory" ? dirPageHtml() : page === "almanac" ? almanacHtml() : page === "party" ? nearbyHtml() : page === "jobs" ? jobsHtml() : page === "underworld" ? underworldHtml() : knowsHtml());
+    drawRail();
+    if (page === "party") {
       const name = insp.querySelector<HTMLInputElement>("#party-name");
       // The name is in every telling of their deeds, so the town is rebuilt with it.
       name?.addEventListener("change", () => {
@@ -814,16 +824,23 @@ function drawInspector() {
       const deed = insp.querySelector<HTMLInputElement>("#deed-text");
       deed?.addEventListener("keydown", (k) => { if (k.key === "Enter") logDeed(); });
     }
-    if (page === "find") {
-      const q = insp.querySelector<HTMLInputElement>("#find-q")!;
-      q.addEventListener("input", () => { query = q.value; insp.querySelector("#find-results")!.innerHTML = findResultsHtml(); });
-      if (!listId) q.focus();
+    if (page === "directory") {
+      const q = insp.querySelector<HTMLInputElement>("#dir-filter")!;
+      q.addEventListener("input", () => {
+        dirFilter = q.value;
+        const at = q.selectionStart;
+        drawInspector();
+        const q2 = insp.querySelector<HTMLInputElement>("#dir-filter")!;
+        q2.focus();
+        q2.setSelectionRange(at, at);
+      });
     }
     return;
   }
   const e = selected ?? town.root;
   const ent = town.get(e);
-  const h: string[] = [tabsHtml()];
+  drawRail();
+  const h: string[] = [followingHtml()];
   h.push(`<div class="ihead"><span class="hist"><button data-hist="-1" aria-label="Back" title="Back  (Alt+←)"${hist.canBack ? "" : " disabled"}>◀</button><button data-hist="1" aria-label="Forward" title="Forward  (Alt+→)"${hist.canForward ? "" : " disabled"}>▶</button></span>${e !== town.root ? crumbs(e) : ""}</div>`);
   h.push(`<button class="pin" data-print title="Print this page, with the map around it, as a handout or notes">Print</button>`);
   if (ent.type === "person" || ent.type === "household") {
@@ -879,8 +896,18 @@ insp.addEventListener("click", (ev) => {
   if (pg) { ev.preventDefault(); page = pg.dataset.page as Page; drawInspector(); insp.scrollTop = 0; return; }
   const fk = t.closest<HTMLElement>("[data-fact]");
   if (fk) { fact = fk.dataset.fact as Fact; page = "knows"; drawInspector(); insp.scrollTop = 0; return; }
-  const ls = t.closest<HTMLElement>("[data-list]");
-  if (ls) { listId = listId === ls.dataset.list ? undefined : ls.dataset.list; drawInspector(); return; }
+  const dt0 = t.closest<HTMLElement>("[data-dir-tab]");
+  if (dt0) { dirTab = dt0.dataset.dirTab as DirTab; dirSort = undefined; dirFilter = ""; drawInspector(); return; }
+  const so = t.closest<HTMLElement>("[data-sort]");
+  if (so) {
+    const col = Number(so.dataset.sort);
+    const cur = dirSort ?? (dirTab.startsWith("list:") ? undefined : { col: 0, desc: false });
+    dirSort = cur?.col === col ? { col, desc: !cur.desc } : { col, desc: false };
+    drawInspector();
+    return;
+  }
+  const tr = t.closest<HTMLElement>("[data-dir-trade]");
+  if (tr) { dirTab = "people"; dirFilter = tr.dataset.dirTrade!; dirSort = undefined; drawInspector(); return; }
   const ak = t.closest<HTMLElement>("[data-almanac]");
   if (ak) { const k = ak.dataset.almanac!; if (almanacShow.has(k)) almanacShow.delete(k); else almanacShow.add(k); drawInspector(); return; }
   const dt = t.closest<HTMLElement>("[data-date]");
@@ -902,6 +929,11 @@ insp.addEventListener("click", (ev) => {
   if (rs) { edit(e, rs.dataset.reset!, undefined); return; }
   const ed = t.closest<HTMLElement>("[data-edit]");
   if (ed) startEdit(e, ed.closest("dd")!, ed.dataset.edit!);
+});
+
+insp.addEventListener("keydown", (ev) => {
+  const row = (ev.target as HTMLElement).closest<HTMLElement>("tr[data-go], tr[data-dir-trade]");
+  if (row && ev.key === "Enter") { ev.preventDefault(); row.click(); }
 });
 
 insp.addEventListener("mouseover", (ev) => {
@@ -1015,14 +1047,15 @@ function openItem(x: PaletteItem | undefined) {
   else if (x.list) openDirectory(x.list);
 }
 
-/** Open a list (or a trade's people) in the finder. */
+/** Open a list, or a trade's people, in the Directory. */
 function openDirectory(list: string) {
   selected = undefined;
+  dirSort = undefined;
   if (list.startsWith("trade:")) {
-    listId = undefined;
-    query = town.registry<Occupation>("occupations").find(list.slice(6))?.label ?? "";
-  } else listId = list;
-  page = "find";
+    dirTab = "people";
+    dirFilter = town.registry<Occupation>("occupations").find(list.slice(6))?.label ?? "";
+  } else { dirTab = `list:${list}`; dirFilter = ""; }
+  page = "directory";
   drawInspector();
   insp.scrollTop = 0;
 }

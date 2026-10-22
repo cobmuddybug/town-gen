@@ -127,11 +127,6 @@ dl.rows dt:empty { display: none; }
 dl.rows dt:empty + dd { grid-column: 1 / -1; }
 
 /* ---- tabs, finder, almanac, who knows ---- */
-nav.tabs { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin: -4px 0 10px; border-bottom: 1px solid var(--rule); padding-bottom: 6px; }
-nav.tabs button { border: 1px solid transparent; background: none; color: var(--ink-soft); }
-nav.tabs button.on { border-color: var(--rule); color: var(--ink); background: var(--paper-2); }
-nav.tabs .following { margin-left: auto; font-size: 13px; color: var(--ink-soft); }
-nav.tabs .following button { padding: 0 5px; }
 input.find { width: 100%; margin: 4px 0 10px; font-size: 15px; padding: 6px 9px; }
 p.lists { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 p.lists button.on { border-color: var(--accent); color: var(--accent); }
@@ -164,7 +159,7 @@ p.fact { font-size: 17px; margin: 4px 0 6px; }
     --paper: #fff; --paper-2: #f4efe2; --ink: #2a241b; --ink-soft: #5e5444; --rule: #cbbf9f; --accent: #2a241b; --edited: #2a241b;
   }
   body { display: block; height: auto; background: #fff; font-size: 11pt; }
-  .bar, #map, nav.tabs, .pin, .tools, button.knows { display: none !important; }
+  .bar, #map, .ihead .hist, p.following, .pin, .tools, button.knows { display: none !important; }
   main { display: block; }
   #inspector { max-width: none; overflow: visible; border: none; padding: 0; }
   details.panel { break-inside: avoid; }
@@ -272,3 +267,34 @@ dialog#new-town-dialog::backdrop { background: #1c1a1673; }
 .hist button { padding: 0 6px; font-size: 11px; line-height: 20px; color: var(--ink-soft); }
 .hist button[disabled] { opacity: .35; cursor: default; }
 @media print { .ihead .hist { display: none; } }
+
+/* ---- the rail ---- */
+#rail { flex: 0 0 84px; display: flex; flex-direction: column; gap: 4px; padding: 10px 6px; background: var(--bar); border-right: 1px solid var(--rule); overflow-y: auto; }
+#rail button { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1px solid transparent; background: none; padding: 8px 2px 6px; border-radius: 8px; color: var(--ink-soft); }
+#rail button[hidden] { display: none; }
+#rail .ri { font-size: 18px; line-height: 1; }
+#rail .rl { font-size: 12.5px; }
+#rail button:hover { color: var(--ink); background: var(--paper-2); }
+#rail button[aria-current="page"] { color: var(--accent); border-color: var(--accent); background: var(--paper); }
+@media (max-width: 1100px) { #rail { flex-basis: 56px; } #rail .rl { display: none; } #rail .ri { font-size: 20px; } }
+@media (max-width: 760px) { #rail { flex-direction: row; flex-basis: auto; padding: 4px; border-right: none; border-bottom: 1px solid var(--rule); } }
+@media print { #rail { display: none; } }
+p.following { font-size: 13px; color: var(--ink-soft); margin: 0 0 8px; }
+p.following button { padding: 0 6px; margin-left: 4px; }
+
+/* ---- the Directory ---- */
+.dir-tabs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 4px 0; }
+.dir-label { font-variant: small-caps; letter-spacing: .6px; color: var(--ink-soft); font-size: 13px; width: 3.6em; }
+.dir-tabs button { font-size: 13px; padding: 2px 9px; border-radius: 12px; }
+.dir-tabs button.on { border-color: var(--accent); color: var(--accent); }
+.dir-count { margin: 0 0 6px; font-size: 13px; }
+table.dir { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.dir th { position: sticky; top: -12px; background: var(--paper); text-align: left; padding: 0; border-bottom: 1px solid var(--rule); }
+table.dir th button { border: none; background: none; width: 100%; text-align: left; padding: 4px 6px; font-size: 13px; color: var(--ink-soft); font-variant: small-caps; letter-spacing: .4px; }
+table.dir td { padding: 3px 6px; border-bottom: 1px solid color-mix(in srgb, var(--rule) 50%, transparent); vertical-align: top; }
+table.dir td.num { text-align: right; font-variant-numeric: tabular-nums lining-nums; }
+table.dir tr[data-go], table.dir tr[data-dir-trade] { cursor: pointer; }
+table.dir tbody tr:hover, table.dir tbody tr:focus-visible { background: var(--paper-2); outline: none; }
+table.dir tbody tr td:first-child { color: var(--accent); }
+#inspector.wide { flex-basis: min(820px, 55vw); max-width: 62%; }
+table.dir td.money { white-space: nowrap; font-variant-numeric: tabular-nums lining-nums; }

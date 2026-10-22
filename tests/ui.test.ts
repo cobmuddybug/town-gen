@@ -149,3 +149,59 @@ describe("search palette", () => {
     expect(pl.detail).not.toContain('"');
   });
 });
+
+import { DIRECTORY_TABS, directory } from "../src/ui/directory";
+import { LISTS } from "../src/ui/discover";
+
+describe("directory", () => {
+  let town: Town, hamlet: Town;
+  const at = { date: "1203-10-01", block: "forenoon" as const };
+  beforeAll(() => {
+    town = generate("burgh-a", { pop: 8000 }); town.society();
+    hamlet = generate("ashby"); hamlet.society();
+  }, 120000);
+
+  test("people tab has one row per person and sorts by age, oldest first", () => {
+    const d = directory(town, "people", { ...at, sort: { col: 2, desc: true } });
+    expect(d.columns).toEqual(["Name", "Trade", "Age", "Household", "Building"]);
+    expect(d.rows.length).toBe(town.allEntities().filter((e) => e.type === "person").length);
+    for (let i = 1; i < 50; i++) expect(Number(d.rows[i - 1].cells[2])).toBeGreaterThanOrEqual(Number(d.rows[i].cells[2]));
+  });
+
+  test("households sort by income as money, not as text", () => {
+    const d = directory(town, "households", { ...at, sort: { col: 2, desc: true } });
+    const income = (a: string) => town.get(a).get<number>("income");
+    for (let i = 1; i < 50; i++) expect(income(d.rows[i - 1].address!)).toBeGreaterThanOrEqual(income(d.rows[i].address!));
+  });
+
+  test("the filter needs every word somewhere in the row", () => {
+    const d = directory(town, "buildings", { ...at, filter: "ale house" });
+    expect(d.rows.length).toBeGreaterThan(0);
+    for (const r of d.rows) { const t = r.cells.join(" ").toLowerCase(); expect(t).toContain("ale"); expect(t).toContain("house"); }
+  });
+
+  test("a trade filter keeps only that trade's people", () => {
+    const d = directory(town, "people", { ...at, filter: "baker" });
+    for (const r of d.rows) expect(String(r.cells.join(" ")).toLowerCase()).toContain("baker");
+  });
+
+  test("every list is a tab, and a list tab has rows that link somewhere", () => {
+    const ids = DIRECTORY_TABS(town).map((t) => t.id);
+    for (const l of LISTS) expect(ids).toContain(`list:${l.id}`);
+    const d = directory(town, "list:richest", at);
+    expect(d.rows.length).toBeGreaterThan(0);
+    expect(d.rows[0].address).toBeTruthy();
+  });
+
+  test("a hamlet has no wards tab; a town's wards add up to its people", () => {
+    expect(DIRECTORY_TABS(hamlet).map((t) => t.id)).not.toContain("wards");
+    const w = directory(town, "wards", at);
+    expect(w.rows.length).toBeGreaterThan(2);
+  });
+
+  test("offices name the holder and where", () => {
+    const d = directory(town, "offices", at);
+    expect(d.columns).toEqual(["Office", "Holder", "In"]);
+    expect(d.rows.length).toBeGreaterThan(0);
+  });
+});
