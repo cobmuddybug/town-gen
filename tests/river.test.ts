@@ -31,12 +31,17 @@ describe("rolling the layout and the far bank", () => {
     expect(settlement("ham", 300).get("layoutPlan")).toBeUndefined();
   });
 
-  test("choosing the layout moves no other draw", () => {
-    for (let i = 0; i < 6; i++) {
-      const a = settlement(`same${i}`, 3000);
-      const forced = settlement(`same${i}`, 3000, { layout: a.get("layoutPlan") as LayoutPlan, ...(a.get("farBank") ? { farBank: a.get("farBank") as FarBank } : {}) });
-      expect(forced.get("plan")).toEqual(a.get("plan"));
-      expect(forced.get("farUses")).toEqual(a.get("farUses"));
+  test("choosing the layout or the far bank moves no other draw", () => {
+    for (let i = 0; i < 4; i++) {
+      const choices: Design[] = [{ layout: "radial" }, ...(["village", "bridgend", "abbey", "wharf"] as FarBank[]).map((farBank) => ({ layout: "river" as LayoutPlan, farBank }))];
+      const towns = choices.map((d) => settlement(`same${i}`, 3000, d));
+      const base = towns[0].get<string[]>("plan");
+      for (const [k, t] of towns.entries()) {
+        const why = `same${i} ${JSON.stringify(choices[k])}`;
+        // The far bank only adds its own buildings after the rest of the plan.
+        expect(t.get<string[]>("plan").slice(0, base.length), why).toEqual(base);
+        for (const key of ["mainRoads", "quarters", "enclosure", "sizeClass"]) expect(t.get(key), `${why} ${key}`).toEqual(towns[0].get(key));
+      }
     }
   });
 
@@ -519,5 +524,24 @@ describe("fishing towns", () => {
       const gap = Math.min(...onMap.map((p) => lineDist(m.coast!, p)));
       expect(gap, `${layout} ${pop} sea${i}`).toBeLessThanOrEqual(2);
     }
+  }, 600000);
+});
+
+describe("the wall hugs the town", () => {
+  test("no stretch of wall stands far out from everything built inside it", () => {
+    const worst: string[] = [];
+    for (let i = 0; i < 8; i++) {
+      const t = generate(`hug${i}`, { pop: 6000, design: { layout: "river", walls: "wall" } });
+      const m = t.settlement().get<MapData>("map");
+      const inside = t.children(t.root, "building").filter((b) => m.wards![b.get<number>("ward")]?.kind === "intramural").flatMap((b) => b.get<Pt[]>("plot") ?? b.get<Pt[]>("poly"))
+        .concat((m.gardens ?? []).flat()); // a garden is ground in use too
+      const line = m.wall!.line;
+      // Its ends run out to the river across whatever lies between, so only the stretch round the town counts.
+      for (const p of line.slice(6, -6)) {
+        const d = Math.min(...inside.map((q) => Math.hypot(q[0] - p[0], q[1] - p[1])));
+        if (d > 90) { worst.push(`hug${i}: ${d.toFixed(0)}`); break; }
+      }
+    }
+    expect(worst).toEqual([]);
   }, 600000);
 });

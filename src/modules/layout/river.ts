@@ -1338,6 +1338,41 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   }
   const quayLine = net.streets.find((s) => s.kind === "quay")?.points;
   const high = contourLines(site.height, mc, R * 1.3, 28);
+  // The wall was fitted to the streets before anything was built on them: pull it in to what was,
+  // bearing by bearing, so it doesn't loop round empty ground. Gatehouses count as built, so the
+  // wall stays put at its gates, and its ends stay on the river.
+  if (net.wallLine && net.wallLine.length > 6) {
+    const NB = 72;
+    const binOf = (p: Pt) => Math.round(((atan2(p[1] - mc[1], p[0] - mc[0]) + TAU) % TAU) / TAU * NB) % NB;
+    const reachAt: number[] = Array.from({ length: NB }, () => 0);
+    const mark = (p: Pt) => { const k = binOf(p); reachAt[k] = Math.max(reachAt[k], hypot(p[0] - mc[0], p[1] - mc[1])); };
+    for (const p of plots) if (!p.far && !p.suburb) p.poly.forEach(mark);
+    market.forEach(mark);
+    castle?.forEach(mark);
+    for (const b of result) if (b && wards[b.ward ?? -1]?.kind === "intramural") (b.plot ?? b.poly).forEach(mark);
+    // Bearings with nothing on them take the line between their built neighbours.
+    const known = reachAt.map((v, k) => (v > 0 ? k : -1)).filter((k) => k >= 0);
+    if (known.length) {
+      const filled = reachAt.map((v, k) => {
+        if (v > 0) return v;
+        let lo = k, hi = k;
+        while (reachAt[(lo + NB) % NB] === 0) lo--;
+        while (reachAt[hi % NB] === 0) hi++;
+        return reachAt[(lo + NB) % NB] + ((reachAt[hi % NB] - reachAt[(lo + NB) % NB]) * (k - lo)) / (hi - lo);
+      });
+      // Clear of the back lanes and a little more, and never notched between neighbours.
+      const want = filled.map((_, k) => Math.max(filled[(k + NB - 1) % NB], filled[k], filled[(k + 1) % NB]) + 10);
+      const line = net.wallLine;
+      // Towards its ends the wall eases back out to meet the river where it did.
+      const K = 6;
+      net.wallLine = line.map((p, j) => {
+        const ease = Math.min(1, Math.min(j, line.length - 1 - j) / K);
+        const d = hypot(p[0] - mc[0], p[1] - mc[1]);
+        const w = want[binOf(p)];
+        return w < d ? add(mc, mul(sub(p, mc), (d - (d - w) * ease) / d)) : p;
+      });
+    }
+  }
   const towers: Pt[] = [];
   if (net.wallLine && walled) for (let i = 0; i < net.wallLine.length; i += 4) towers.push(qp(net.wallLine[i]));
   const roads: Road[] = net.streets.map((st) => ({
