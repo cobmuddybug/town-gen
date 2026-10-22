@@ -54,9 +54,11 @@ export function newTownHtml(): string {
 </div>
 <fieldset id="plan">
   <legend>Street plan</legend>
+  <label class="field"><span>Layout</span><select name="layout">${opt([ANY, ["river", "river town"], ["radial", "radial web"]])}</select></label>
+  <label class="field" id="farbank-field"><span>Over the bridge</span><select name="farBank">${opt([ANY, ["village", "old village"], ["bridgend", "bridge-end"], ["abbey", "abbey's side"], ["wharf", "wharf side"]])}</select></label>
   <label class="field"><span>Walls</span><select name="walls">${opt([ANY, ["none", "none, open"], ["palisade", "bank and palisade"], ["wall", "stone wall"]])}</select></label>
   <label class="field"><span>Gates</span><select name="gates">${opt([ANY, ["2", "2"], ["3", "3"], ["4", "4"], ["5", "5"], ["6", "6"]])}</select></label>
-  <label class="field"><span>Shape</span><select name="shape">${opt([ANY, ["round", "round"], ["oval", "oval"], ["long", "long, along the high street"]])}</select></label>
+  <label class="field" id="shape-field"><span>Shape</span><select name="shape">${opt([ANY, ["round", "round"], ["oval", "oval"], ["long", "long, along the high street"]])}</select></label>
   <label class="field"><span>Castle</span><select name="castle">${opt([ANY, ["1", "yes"], ["0", "no"]])}</select></label>
   <label class="field"><span>Market</span><select name="market">${opt([ANY, ["small", "small"], ["large", "large"]])}</select></label>
   <label class="field"><span>Suburbs</span><select name="suburbs">${opt([ANY, ["few", "few"], ["many", "many"]])}</select></label>

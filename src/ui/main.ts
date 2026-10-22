@@ -239,7 +239,7 @@ function syncForm() {
   field<HTMLSelectElement>("base").value = s.config.base;
   field<HTMLInputElement>("manorial").checked = s.config.lordship === "manorial";
   const d = s.config.design ?? {};
-  for (const k of ["walls", "gates", "shape", "castle", "market", "suburbs", "crime"] as const) {
+  for (const k of ["walls", "gates", "shape", "castle", "market", "suburbs", "crime", "layout", "farBank"] as const) {
     const v = d[k];
     field<HTMLSelectElement>(k).value = v === undefined ? "" : typeof v === "boolean" ? (v ? "1" : "0") : String(v);
   }
@@ -255,6 +255,10 @@ function syncManor() {
   manor.hidden = pop > MANOR_MAX;
   if (manor.hidden) field<HTMLInputElement>("manorial").checked = false;
   $<HTMLElement>("#plan").hidden = pop <= PLAN_MIN;
+  // The far bank is a river town's; a shape is the radial web's.
+  const layoutChoice = field<HTMLSelectElement>("layout").value;
+  $<HTMLElement>("#farbank-field").hidden = layoutChoice === "radial";
+  $<HTMLElement>("#shape-field").hidden = layoutChoice === "river";
 }
 
 $("#new-town-btn").addEventListener("click", () => {

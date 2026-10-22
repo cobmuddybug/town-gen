@@ -1291,6 +1291,7 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     sea = qpoly([coastLine[0], coastLine[1], add(coastLine[1], mul(site.sea.n, extent * 3)), add(coastLine[0], mul(site.sea.n, extent * 3))]);
   }
   const quayLine = net.streets.find((s) => s.kind === "quay")?.points;
+  const high = contourLines(site.height, mc, R * 1.3, 28);
   const towers: Pt[] = [];
   if (net.wallLine) for (let i = 0; i < net.wallLine.length; i += 4) towers.push(qp(net.wallLine[i]));
   const roads: Road[] = net.streets.map((st) => ({
@@ -1324,5 +1325,51 @@ export function layoutRiver(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     bridges: net.bridges.map(qp),
     ...(quayLine ? { quay: quayLine.map(qp) } : {}),
     ...(castle ? { castle } : {}),
+    ...(high.length ? { high } : {}),
   };
+}
+
+/** Lines of equal height round the town, at its higher levels: marching squares, chained into polylines. */
+function contourLines(height: (p: Pt) => number, c: Pt, half: number, n: number): Pt[][] {
+  const step = (half * 2) / n;
+  const at = (i: number, j: number): Pt => [c[0] - half + i * step, c[1] - half + j * step];
+  const h: number[][] = [];
+  const all: number[] = [];
+  for (let i = 0; i <= n; i++) { h.push([]); for (let j = 0; j <= n; j++) { const v = height(at(i, j)); h[i].push(v); all.push(v); } }
+  all.sort((a, b) => a - b);
+  const out: Pt[][] = [];
+  for (const lev of [all[Math.floor(all.length * 0.62)], all[Math.floor(all.length * 0.8)]]) {
+    const segs: [Pt, Pt][] = [];
+    const cross = (a: Pt, va: number, b: Pt, vb: number): Pt => { const t = (lev - va) / (vb - va || 1e-9); return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; };
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const p = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)], v = [h[i][j], h[i + 1][j], h[i + 1][j + 1], h[i][j + 1]];
+      const pts: Pt[] = [];
+      for (let k = 0; k < 4; k++) { const a = k, b = (k + 1) % 4; if ((v[a] >= lev) !== (v[b] >= lev)) pts.push(cross(p[a], v[a], p[b], v[b])); }
+      if (pts.length === 2) segs.push([pts[0], pts[1]]);
+      else if (pts.length === 4) { segs.push([pts[0], pts[1]]); segs.push([pts[2], pts[3]]); }
+    }
+    // Chain the pieces end to end.
+    const key = (p: Pt) => `${Math.round(p[0] * 10)},${Math.round(p[1] * 10)}`;
+    const ends = new Map<string, number[]>();
+    segs.forEach((sg, i) => { for (const e of sg) { const k = key(e); const l = ends.get(k); if (l) l.push(i); else ends.set(k, [i]); } });
+    const used = new Set<number>();
+    for (let i = 0; i < segs.length; i++) {
+      if (used.has(i)) continue;
+      used.add(i);
+      const line: Pt[] = [segs[i][0], segs[i][1]];
+      for (const dir of [1, -1]) {
+        for (;;) {
+          const tip = dir === 1 ? line[line.length - 1] : line[0];
+          const next = (ends.get(key(tip)) ?? []).find((x) => !used.has(x));
+          if (next === undefined) break;
+          used.add(next);
+          const sg = segs[next];
+          const other = key(sg[0]) === key(tip) ? sg[1] : sg[0];
+          if (dir === 1) line.push(other); else line.unshift(other);
+        }
+      }
+      if (line.length >= 6) out.push(line.map(qp));
+    }
+  }
+  return out;
 }
