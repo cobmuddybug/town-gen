@@ -10,6 +10,7 @@
 // charcoal clamps. Outside farmland there is only a small infield.
 
 import { PI, TAU, cos, sin, q } from "../../core/dmath";
+import { contourLines as contourLinesOf, heightField, slopeAt } from "./height";
 import type { Rng } from "../../core/rng";
 import {
   add, along, len, area, centroid, convexHull, convexOverlap, dot, mul, norm, perp, pointInPoly,
@@ -82,6 +83,16 @@ export interface HamletLayout {
   coast?: Pt[];
   sea?: Poly;
   contours?: Poly[];
+  /** lines of equal height, drawn open */
+  contourLines?: Pt[][];
+  /** villages: how steep the ground is where the houses stand, on average (height units per 100 m) */
+  slopeAtHomes?: number;
+  /** villages: how steep the ground is at the green, and its median round the village, alike */
+  slopeAtGreen?: number;
+  slopeAround?: number;
+  /** greens: a town's commons, the well-off's private gardens, and churchyards (`church`: its plan index);
+   * a village's chapel yard. (A town's commons are named in the settlement's "greenNames", in order.) */
+  greens?: { poly: Poly; kind: "common" | "garden" | "graveyard"; church?: number }[];
   buildings: PlacedBuilding[];
 }
 
@@ -495,6 +506,7 @@ export function layoutHamlet(r: Rng, plan: Footprint[], terrain: Terrain = "farm
   const extraFeatures: Feature[] = [];
   const tracks: Road[] = [];
   let contours: Poly[] | undefined;
+  let hillAt: Pt | undefined;
   const t = r; // farmland never reaches the branches below, so its draws are unchanged
   if (terrain === "coast") {
     // Drop woods that fell in the sea; boats hauled up on the beach.
@@ -524,6 +536,7 @@ export function layoutHamlet(r: Rng, plan: Footprint[], terrain: Terrain = "farm
     const hill = add(hc, mul(dir(ah), outer + 110));
     const shape = blob(t, [0, 0], 1);
     contours = [50, 95, 140, 185].map((rad) => qpoly(shape.map((p) => add(hill, mul(p, rad)))));
+    hillAt = hill;
     const na = t.int(2, 4);
     for (let k = 0; k < na; k++) {
       const p = add(hill, mul(dir(ah + PI + t.range(-0.9, 0.9)), t.range(70, 130)));
@@ -557,6 +570,23 @@ export function layoutHamlet(r: Rng, plan: Footprint[], terrain: Terrain = "farm
   features.push(...extraFeatures);
 
   const extent = outer + 160;
+  // The lie of the land, drawn last so nothing above moves: a few rises and hollows, shifted so the
+  // village sits where the ground is easiest; in the hills, the hill the mines are in rises above it.
+  const base = heightField(r, extent);
+  let off: Pt = [0, 0], best = Infinity;
+  for (let k = 0; k < 32; k++) {
+    const o: Pt = [r.range(-0.6, 0.6) * extent, r.range(-0.6, 0.6) * extent];
+    // (Easiest where the green is: a green is the level ground the village gathers on.)
+    const s = slopeAt((p) => base(add(p, o)), gc, 20) * 2 + slopeAt((p) => base(add(p, o)), J, 20);
+    if (s < best) { best = s; off = o; }
+  }
+  const hill = hillAt;
+  const height = (p: Pt) => base(add(p, off)) + (hill ? 0.9 / (1 + ((p[0] - hill[0]) ** 2 + (p[1] - hill[1]) ** 2) / 90 ** 2) ** 2 : 0);
+  const contourLines = contourLinesOf(height, hc, extent * 0.8, 32, [0.25, 0.45, 0.65, 0.85]);
+  const slopeAtHomes = buildings.length ? buildings.reduce((s, b) => s + slopeAt(height, centroid(b.poly)), 0) / buildings.length : 0;
+  const around: number[] = [];
+  for (let a = 0; a < 16; a++) for (const rr of [60, 120]) around.push(slopeAt(height, add(gc, mul(dir((a / 16) * TAU), rr)), 20));
+  around.sort((x, y) => x - y);
   return {
     bounds: [q(hc[0] - extent), q(hc[1] - extent), q(extent * 2), q(extent * 2)],
     roads: [main, side, ...tracks],
@@ -571,7 +601,12 @@ export function layoutHamlet(r: Rng, plan: Footprint[], terrain: Terrain = "farm
     features,
     terrain,
     ...(coast ? { coast, sea: seaPoly(coast, coastSide, extent * 3) } : {}),
-    ...(contours ? { contours } : {}),
+    ...(contours && !hill ? { contours } : {}),
+    contourLines,
+    slopeAtHomes: q(slopeAtHomes),
+    slopeAtGreen: q(slopeAt(height, gc, 20)),
+    slopeAround: q(around[around.length >> 1]),
+    greens: buildings.flatMap((b) => (b.plotKind === "churchyard" && b.plot ? [{ poly: b.plot, kind: "graveyard" as const, church: b.planIndex }] : [])),
     buildings,
   };
 }

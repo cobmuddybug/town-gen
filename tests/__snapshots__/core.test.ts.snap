@@ -55,7 +55,7 @@ exports[`determinism > golden: output for a fixed seed is unchanged 1`] = `
     "farmhouse",
   ],
   "firstFamily": "the Lane household",
-  "geometry": "a630b662",
+  "geometry": "7d994423",
   "hooks": [
     "thumb-on-the-scale",
     "owed-on-the-bench",

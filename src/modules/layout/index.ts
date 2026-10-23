@@ -1,5 +1,5 @@
 // Layout: the map. Picks the layout for the size (hamlet.ts up to 700 people,
-// else radial.ts or the grown forms in grown.ts), lays out the plan, and makes
+// else the grown engine in grown.ts, whose organic form is the "radial" plan), lays out the plan, and makes
 // the wards and buildings from it. Laying out is the slow part and a pure
 // function of its inputs, so the result is cached by key: an edit that rebuilds
 // the town reuses it. Also the lookups other modules use: nearest buildings of
@@ -7,7 +7,6 @@
 import type { Module } from "../../core/types";
 import type { BuildingUse } from "../uses";
 import { layoutHamlet, type HamletLayout, type Terrain } from "./hamlet";
-import { layoutRadial } from "./radial";
 import { BANKED, layoutGrown } from "./grown";
 import type { FarBank, LayoutPlan } from "../../core/types";
 import type { Enclosure, Scale, TownLayout } from "./streets";
@@ -34,7 +33,7 @@ export function buildingId(n: number): string {
 /** L1: the map. Places one building per planned use and creates them as stubs. */
 export const layout: Module = {
   id: "layout",
-  version: "2.1.0",
+  version: "3.0.0",
   requires: ["core", "uses"],
   hooks: {
     onSettlementGenerated(ctx, s) {
@@ -57,7 +56,9 @@ export const layout: Module = {
       const layoutPlan = s.get<LayoutPlan | undefined>("layoutPlan") ?? "radial";
       const farBank = s.get<FarBank | undefined>("farBank") ?? "village";
       const farUses = s.get<number[] | undefined>("farUses") ?? [];
-      const key = `${ctx.town.seed}|${s.address}|${layout.version}|${terrain}|${layoutPlan}|${farBank}|${JSON.stringify(farUses)}|${JSON.stringify(designed)}|${JSON.stringify(footprints)}`;
+      // (Everything the layout reads goes in the key: the walls, the roads through them and the size class
+      // too, or a town laid out with a wall would lend it to the same seed without one.)
+      const key = `${ctx.town.seed}|${s.address}|${layout.version}|${terrain}|${layoutPlan}|${farBank}|${s.get<string>("enclosure")}|${s.get<number>("mainRoads")}|${s.get<string>("sizeClass")}|${JSON.stringify(farUses)}|${JSON.stringify(designed)}|${JSON.stringify(footprints)}`;
       let map = cache.get(key);
       if (!map && street) {
         const encl = s.get<string>("enclosure");
@@ -65,12 +66,15 @@ export const layout: Module = {
         // The room estimate is rough. When it falls short, buildings find no plot and
         // would be lost, so lay the town out again, roomier, from the same stream.
         // A grown town grows its streets to fit, so a short one needs a bigger step to come right.
-        for (let room = 1; ; room += layoutPlan === "radial" ? 0.08 : 0.15) {
+        // A town short of room grows by as much as it came up short: ground goes with the square of the radius.
+        for (let room = 1, tries = 0; ; tries++) {
           const opts = { scale: s.get<Scale>("sizeClass"), enclosure, roads: s.get<number>("mainRoads"), terrain, ...designed, ...(room > 1 ? { room } : {}) };
-          map = layoutPlan === "radial"
-            ? layoutRadial(ctx.rng(s, "town"), footprints, opts)
-            : layoutGrown(ctx.rng(s, "river"), footprints, { ...opts, form: layoutPlan, ...(BANKED.includes(layoutPlan) ? { farBank } : {}), far: farUses, need: 0 });
-          if (map.buildings.length >= footprints.length || room > 1.5) break;
+          // The "radial" plan is the organic one now: blocks grown round the market.
+          const form = layoutPlan === "radial" ? "organic" : layoutPlan;
+          map = layoutGrown(ctx.rng(s, "river"), footprints, { ...opts, form, ...(BANKED.includes(form) ? { farBank } : {}), far: farUses, need: 0 });
+          if (map.buildings.length >= footprints.length || room > 1.5 || tries >= 3) break;
+          // (A big town's retry takes a little more than it fell short by: a third try costs a second or more.)
+          room = Math.min(1.55, Math.max(room + 0.08, room * Math.sqrt(footprints.length / Math.max(1, map.buildings.length)) * (footprints.length > 2000 ? 1.1 : 1.04)));
         }
         cache.set(key, map);
         if (cache.size > 16) cache.delete(cache.keys().next().value!);

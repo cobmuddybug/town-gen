@@ -291,7 +291,7 @@ function syncManor() {
   manor.hidden = pop > MANOR_MAX;
   if (manor.hidden) field<HTMLInputElement>("manorial").checked = false;
   $<HTMLElement>("#plan").hidden = pop <= PLAN_MIN;
-  // The far bank is a river or ridge town's; a shape is the radial web's.
+  // The far bank is a river or ridge town's; a shape is the organic plan's.
   const layoutChoice = field<HTMLSelectElement>("layout").value;
   $<HTMLElement>("#farbank-field").hidden = !["", "river", "ridge"].includes(layoutChoice);
   $<HTMLElement>("#shape-field").hidden = !["", "radial"].includes(layoutChoice);

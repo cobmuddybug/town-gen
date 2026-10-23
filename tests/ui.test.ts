@@ -303,7 +303,7 @@ describe("review fixes", () => {
 });
 
 import { designFrom } from "../src/ui/library";
-import { renderMap } from "../src/ui/map";
+import { MAP_STYLE, renderMap } from "../src/ui/map";
 
 describe("river towns in the UI", () => {
   test("designFrom reads the layout and the far bank, and ignores nonsense", () => {
@@ -325,7 +325,7 @@ describe("river towns in the UI", () => {
 
   test("the new town dialog offers the layout and the far bank", () => {
     const h = newTownHtml();
-    for (const s of ['name="layout"', 'name="farBank"', "river town", "radial web", "ridge, down to a river", "castle gate", "one long street", "crossroads", "abbey gate", "harbour", "old village", "bridge-end", "abbey's side", "wharf side", 'id="farbank-field"', 'id="shape-field"']) expect(h).toContain(s);
+    for (const s of ['name="layout"', 'name="farBank"', "river town", "organic, grown round its market", "ridge, down to a river", "castle gate", "one long street", "crossroads", "abbey gate", "harbour", "old village", "bridge-end", "abbey's side", "wharf side", 'id="farbank-field"', 'id="shape-field"']) expect(h).toContain(s);
   });
 
   test("the map draws a river town's bridge as a deck, and its high ground", () => {
@@ -339,9 +339,41 @@ describe("river towns in the UI", () => {
     expect(renderMap(generate("draw-ridge", { pop: 3000, design: { layout: "ridge" } }))).toContain('class="m-bridge-deck');
   }, 300000);
 
-  test("a radial town's map is drawn as before", () => {
+  test("an organic town (the old radial plan) has its ground drawn, and no bridge", () => {
     const svg = renderMap(generate("draw-r", { pop: 3000, design: { layout: "radial" } }));
     expect(svg).not.toContain('class="m-bridge-deck"');
-    expect(svg).not.toContain('class="m-high');
+    expect(svg).toContain('class="m-contour');
   }, 300000);
+});
+
+describe("drawing a town of blocks", () => {
+  const t = generate("draw-blocks", { pop: 6000, design: { layout: "radial" } });
+  const svg = renderMap(t);
+  test("each building is still one group to click", () => {
+    // (Ward labels are clickable too: count the buildings' groups.)
+    const ids = new Set(t.children(t.root, "building").map((b) => b.address));
+    const groups = [...svg.matchAll(/<g data-address="([^"]+)"/g)].map((m) => m[1]).filter((a) => ids.has(a));
+    expect(groups.length).toBe(ids.size);
+    expect(new Set(groups).size).toBe(ids.size);
+  });
+  test("blocks are drawn under the buildings, with no lot outlines inside them", () => {
+    const firstBlock = svg.indexOf('class="m-block"'), firstBld = svg.indexOf("<g data-address=");
+    expect(firstBlock).toBeGreaterThan(0);
+    expect(firstBlock).toBeLessThan(firstBld);
+    expect(svg).not.toMatch(/class="m-plot"/);
+  });
+  test("yards and courts, commons with trees and a path, graveyards with graves, gardens with hedges", () => {
+    expect(svg).toContain('class="m-yard"');
+    expect(svg).toContain('class="m-common"');
+    expect(svg).toContain('class="m-tree"');
+    expect(svg).toContain('class="m-path"');
+    expect(svg).toContain('class="m-graveyard"');
+    expect(svg).toContain('class="m-grave"');
+    expect(svg).toMatch(/class="m-garden m-private"/);
+  });
+  test("each new kind of ground takes its colour from a token, as the rest of the map does", () => {
+    for (const c of ["m-block", "m-yard", "m-common", "m-tree", "m-path", "m-graveyard", "m-grave", "m-private"]) {
+      expect(MAP_STYLE, c).toMatch(new RegExp(`\\.${c}\\{[^}]*var\\(--map-`));
+    }
+  });
 });

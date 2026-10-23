@@ -6,7 +6,8 @@ import { TAU, cos, sin } from "../../core/dmath";
 import type { Rng } from "../../core/rng";
 import type { FarBank, LayoutPlan } from "../../core/types";
 import { add, centroid, dist, dot, len, mul, norm, perp, qp, qpoly, sub, type Poly, type Pt } from "./geom";
-import type { Footprint, HamletLayout, PlacedBuilding } from "./hamlet";
+import type { Footprint, HamletLayout, PlacedBuilding, Terrain } from "./hamlet";
+import type { BlockKind, Open } from "./blocks";
 
 export type Scale = "thorp" | "village" | "town" | "city";
 export type Enclosure = "wall" | "palisade" | "hedge" | "none";
@@ -53,6 +54,10 @@ export interface TownLayout extends HamletLayout {
   high?: Poly[];
   /** river towns: the old village's green over the bridge */
   farGreen?: Poly;
+  /** towns of blocks: each block between the streets, and what it is */
+  blocks?: { id: string; outline: Poly; kind: BlockKind; ward: number }[];
+  /** towns of blocks: what is left open in them (yards, courts, greens, gardens, graveyards) */
+  opens?: Open[];
 }
 
 /** A plot: front-left, front-right, back-right, back-left. */
@@ -69,6 +74,20 @@ export interface Plot {
   used: boolean;
   /** sort key: lower is taken first */
   order: number;
+}
+
+export interface TownOpts {
+  scale: Scale;
+  enclosure: Enclosure;
+  /** main roads, and so gates */
+  roads: number;
+  terrain: Terrain;
+  /** more room than the estimate asks for: 1 unless an earlier try left buildings without plots */
+  room?: number;
+  /** the DM's choices; each is rolled when left out */
+  shape?: "round" | "oval" | "long";
+  market?: "small" | "large";
+  suburbs?: "few" | "many";
 }
 
 export const COMPASS = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
@@ -110,7 +129,17 @@ export function nearestWard(wards: WardGeo[], p: Pt): number {
 }
 
 /** A building on one plot or a run of them: on the street front, yard behind. */
+/**
+ * A run of plots, left-hand plot first as they face the street. A run is in the order the street
+ * was walked, which on one side is right to left: an outline from the first plot's front-left to
+ * the last one's front-right would then take the corner they share for both, and come out a line.
+ */
+export function leftToRight<T extends { poly: Poly }>(ps: T[]): T[] {
+  return ps.length > 1 && dist(ps[0].poly[0], ps[1].poly[1]) < dist(ps[0].poly[1], ps[1].poly[0]) ? [...ps].reverse() : ps;
+}
+
 export function building(r: Rng, i: number, fp: Footprint, ps: Plot[], urban: boolean): PlacedBuilding {
+  ps = leftToRight(ps);
   const first = ps[0], last = ps[ps.length - 1];
   const fl = first.poly[0], fr = last.poly[1], br = last.poly[2], bl = first.poly[3];
   const plot = qpoly([fl, fr, br, bl]);

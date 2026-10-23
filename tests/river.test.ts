@@ -208,9 +208,11 @@ describe("the river town's streets", () => {
     expect(uneven).toBeGreaterThanOrEqual(14);
   });
 
-  test("there are back lanes, cross lanes, water lanes and a far-bank road", () => {
+  // (Back and cross lanes belonged to the rows of plots: a town of blocks opens its big blocks with
+  // lanes when it cuts them, after the streets are laid.)
+  test("there are side streets, water lanes and a far-bank road", () => {
     const { net: n } = net("kinds", 4000);
-    for (const k of ["high", "main", "back", "cross", "water", "far"]) expect(n.streets.some((s) => s.kind === k), k).toBe(true);
+    for (const k of ["high", "main", "street", "water", "far"]) expect(n.streets.some((s) => s.kind === k), k).toBe(true);
   });
 
   test("a walled town has gates on its main roads and one at the bridge", () => {
@@ -342,8 +344,8 @@ describe("river towns in the generator", () => {
     expect(t.children(t.root, "ward").some((w) => w.get("bank") === "near")).toBe(true);
   }, 300000);
 
-  test("the layout module is at 2.0", () => {
-    expect(defaultModules.find((m) => m.id === "layout")!.version).toBe("2.1.0");
+  test("the layout module is at 3.0 (towns of blocks)", () => {
+    expect(defaultModules.find((m) => m.id === "layout")!.version).toBe("3.0.0");
   });
 });
 
@@ -518,11 +520,12 @@ describe("river towns: small things", () => {
   }, 300000);
 
   test("a postern is named for the way it faces", () => {
-    // More gatehouses than roads through the wall on this seed: one is a postern.
-    const t = generate("pf5-1", { pop: 20000, design: { layout: "river", walls: "wall", gates: 5 } });
-    const posterns = t.children(t.root, "building").filter((b) => b.get("use") === "gatehouse" && b.get("road") === "postern");
-    expect(posterns.length).toBeGreaterThan(0);
-    for (const b of posterns) expect(t.label(b.address)).toMatch(/^The (North|South|East|West) postern$/);
+    // A spare gatehouse, on the wall where no road goes through, is a postern. Every road reaches the
+    // wall in a town of blocks, so spares are rare: make one of a gatehouse and read its name.
+    const t0 = generate("pf5-1", { pop: 20000, design: { layout: "river", walls: "wall", gates: 5 } });
+    const gate = t0.children(t0.root, "building").find((b) => b.get("use") === "gatehouse")!;
+    const t = withEdit(t0, defaultModules, gate.address, "road", "postern");
+    expect(t.label(gate.address)).toMatch(/^The (North|South|East|West) postern$/);
   }, 300000);
 });
 

@@ -4,7 +4,7 @@
 import { burntSince } from "../modules/lives";
 import type { Town } from "../core/town";
 import type { MapData } from "../modules/layout";
-import type { Poly, Pt } from "../modules/layout/geom";
+import { insetEdges, pointInPoly, type Poly, type Pt } from "../modules/layout/geom";
 
 const f = (n: number) => (Math.round(n * 10) / 10).toString();
 const pts = (p: Pt[]) => p.map((v) => `${f(v[0])},${f(v[1])}`).join(" ");
@@ -74,6 +74,14 @@ export const MAP_STYLE = `
 .m-small{font-size:6px;font-style:italic}
 .m-feature{fill:var(--map-ink,#4a3f30)}
 .m-townground{fill:var(--map-street,#ddd0ae)}
+.m-block{fill:var(--map-block,#d8cfae)}
+.m-yard{fill:var(--map-yard,#e0d6b8)}
+.m-common{fill:var(--map-common,#b9cc8e);stroke:var(--map-green-edge,#93a86c);stroke-width:.6}
+.m-tree{fill:var(--map-tree,#7f9658);stroke:var(--map-tree-edge,#64794a);stroke-width:.4}
+.m-path{fill:none;stroke:var(--map-path,#d9cda6);stroke-width:1.6;stroke-linecap:round}
+.m-graveyard{fill:var(--map-graveyard,#c9d2a8);stroke:var(--map-graveyard-wall,#8f8a76);stroke-width:1}
+.m-grave{fill:var(--map-grave,#9c9682)}
+.m-private{fill:var(--map-private,#bccb93);stroke:var(--map-garden-hedge,#7d9658);stroke-width:1.2}
 .m-garden{fill:var(--map-garden,#c3cc9c);stroke:var(--map-fence,#a2906a);stroke-width:.3}
 .m-market{fill:var(--map-market,#e2d6b4);stroke:var(--map-road-edge,#b49c74);stroke-width:.6}
 .m-wall{fill:none;stroke:var(--map-wallstone,#6f6a5c);stroke-width:3.6;stroke-linejoin:round}
@@ -124,6 +132,37 @@ export interface MapOptions {
   village?: boolean;
 }
 
+/** A common's trees, a ring of them just inside its edge, and a path worn across it between its far corners. */
+function commonMarks(poly: Poly): string[] {
+  const out: string[] = [];
+  const ring = insetEdges(poly, 4).poly;
+  if (ring.length >= 3) ring.forEach((a, i) => {
+    const b = ring[(i + 1) % ring.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    for (let s = 4; s < L - 2; s += 9) out.push(`<circle class="m-tree" cx="${f(a[0] + ((b[0] - a[0]) * s) / L)}" cy="${f(a[1] + ((b[1] - a[1]) * s) / L)}" r="2.3"/>`);
+  });
+  let bi = 0, bj = 0, bd = -1;
+  poly.forEach((a, i) => poly.forEach((b, j) => { const d = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2; if (d > bd) { bd = d; bi = i; bj = j; } }));
+  out.push(`<path class="m-path" d="M${f(poly[bi][0])},${f(poly[bi][1])}L${f(poly[bj][0])},${f(poly[bj][1])}"/>`);
+  return out;
+}
+
+/** A churchyard's graves: short rows on a grid, clear of the church and of the wall. */
+function graves(poly: Poly, church: Poly[][]): string[] {
+  const out: string[] = [];
+  const inner = insetEdges(poly, 2).poly;
+  if (inner.length < 3) return out;
+  const xs = inner.map((p) => p[0]), ys = inner.map((p) => p[1]);
+  const near = (p: Pt) => church.some((c) => c.some((pl) => pointInPoly(p, pl) || pl.some((v) => Math.hypot(v[0] - p[0], v[1] - p[1]) < 3)));
+  let n = 0;
+  for (let y = Math.min(...ys) + 1.5; y < Math.max(...ys) && n < 160; y += 3.2) for (let x = Math.min(...xs) + ((Math.round(y) % 2) ? 1 : 2.4); x < Math.max(...xs) && n < 160; x += 2.8) {
+    const p: Pt = [x, y];
+    if (!pointInPoly(p, inner) || near(p)) continue;
+    out.push(`<rect class="m-grave" x="${f(x - 0.4)}" y="${f(y - 0.8)}" width=".8" height="1.6"/>`);
+    n++;
+  }
+  return out;
+}
+
 /** The map as an SVG string: fields, water, roads, wards, buildings (each a g with data-address), labels. */
 export function renderMap(town: Town, opts: MapOptions = {}): string {
   const s = town.settlement();
@@ -147,6 +186,7 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
   const terrain = m.terrain ?? "farmland";
   out.push(`<rect class="m-bg m-bg-${terrain}" x="${f(bx)}" y="${f(by)}" width="${f(bw)}" height="${f(bh)}"/>`);
   for (const c of m.contours ?? []) out.push(`<path class="m-contour" d="${smoothPath(c, true)}"/>`);
+  for (const c of m.contourLines ?? []) out.push(`<path class="m-contour" d="${smoothPath(c, false)}"/>`);
   // A river town's high ground: soft lines of equal height.
   for (const c of m.high ?? []) out.push(`<path class="m-high" d="${smoothPath(c, false)}"><title>higher ground</title></path>`);
 
@@ -162,7 +202,24 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
   if (isTown) {
     if (m.enclosure !== "none") out.push(`<path class="m-ditch" d="${smoothPath(m.wall!.line, m.wall!.closed)}"/>`);
     out.push(`<polygon class="m-townground" points="${pts(m.hedge)}"/>`);
+    // A town of blocks: each block a fill under its houses (their own walls are the party walls), the
+    // yards and courts left open in them lighter.
+    for (const b of m.blocks ?? []) out.push(`<polygon class="m-block" points="${pts(b.outline)}"/>`);
+    for (const op of m.opens ?? []) if (op.kind === "yard" || op.kind === "court") out.push(`<polygon class="m-yard" points="${pts(op.poly)}"/>`);
+    // Lots no one built on: gardens, over the blocks they lie in.
     for (const g of m.gardens ?? []) out.push(`<polygon class="m-garden" points="${pts(g)}"/>`);
+    // Greens: the commons with trees round them and a path across, private gardens hedged, and the
+    // churchyards walled, with their graves.
+    const greenNames = town.settlement().get<string[] | undefined>("greenNames") ?? [];
+    const churches = town.children(town.root, "building").filter((b) => b.get("plotKind") === "churchyard").map((b) => [b.get<Poly>("poly"), ...(b.get<{ poly: Poly }[]>("parts") ?? []).map((x) => x.poly)]);
+    let ci = 0;
+    for (const g of m.greens ?? []) {
+      const cls = g.kind === "common" ? "m-common" : g.kind === "garden" ? "m-garden m-private" : "m-graveyard";
+      const name = g.kind === "common" ? greenNames[ci++] : g.kind === "graveyard" ? "the churchyard" : "a private garden";
+      out.push(`<polygon class="${cls}" points="${pts(g.poly)}">${name ? `<title>${esc(name)}</title>` : ""}</polygon>`);
+      if (g.kind === "common") out.push(...commonMarks(g.poly));
+      if (g.kind === "graveyard") out.push(...graves(g.poly, churches.filter((c) => c.some((pl) => pl.some((v) => pointInPoly(v, g.poly))))));
+    }
     out.push(`<polygon class="m-market" points="${pts(m.market!)}"><title>the market place</title></polygon>`);
     if (m.farGreen) out.push(`<polygon class="m-green m-far-green" points="${pts(m.farGreen)}"><title>the village green</title></polygon>`);
     if (m.castle) out.push(`<polygon class="m-bailey" points="${pts(m.castle)}"><title>the castle bailey</title></polygon>`);
@@ -174,10 +231,13 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
     if (!plot) continue;
     const kind = b.get<string>("plotKind");
     if (kind === "bailey") continue;
+    // (In a town of blocks the block is drawn and the houses' walls divide it: only a precinct's bounds.)
+    if (m.blocks && kind !== "precinct") continue;
     out.push(`<polygon class="m-plot${kind === "churchyard" ? " m-plot-churchyard" : kind === "precinct" ? " m-plot-precinct" : ""}" points="${pts(plot)}"/>`);
   }
   if (!isTown) {
     out.push(`<polygon class="m-green" points="${pts(m.green)}"/>`);
+    for (const g of m.greens ?? []) out.push(`<polygon class="m-graveyard" points="${pts(g.poly)}"><title>the churchyard</title></polygon>`);
     out.push(`<path class="m-hedge" d="${smoothPath(m.hedge, true)}"/>`);
   }
   out.push(`<path class="m-stream" stroke-width="${m.stream.width}" d="${smoothPath(m.stream.points, false)}"/>`);

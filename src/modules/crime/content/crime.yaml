@@ -401,8 +401,8 @@ cant:
   - { w: "upright man", m: "the chief of a crew" }
   - { w: "dimber damber", m: "the head of a gang; the best of them" }
   - { w: "harmanbeck", m: "a constable" }
-  - { w: "queer cuffin", m: "a justice; the magistrate" }
-  - { w: "beak", m: "a magistrate" }
+  - { w: "queer cuffin", m: "a justice; the man on the bench" }
+  - { w: "beak", m: "a judge" }
   - { w: "harmans", m: "the stocks" }
   - { w: "stalling ken", m: "a house that takes stolen goods" }
   - { w: "trine", m: "to hang" }
