@@ -469,3 +469,76 @@ describe("river towns on blocks", () => {
     }
   }, 600000);
 });
+
+describe("churches in a town of blocks", () => {
+  const WORSHIP = ["fane", "temple", "grand_temple"];
+  for (const [layout, pop] of [["radial", 12000], ["radial", 30000], ["river", 6000]] as const) {
+    // (A river town's suburbs string out along its roads, so "the inner half" is most of the town: organic towns only.)
+    test.skipIf(layout === "river")(`${layout} ${pop}: parish churches spread through the town, not crowded round the market`, () => {
+      const { t, map } = town(`ch-spread-${layout}`, pop, layout);
+      const mc = mid(map.market!);
+      const all = t.children(t.root, "building").map((b) => Math.hypot(mid(b.get<Pt[]>("poly"))[0] - mc[0], mid(b.get<Pt[]>("poly"))[1] - mc[1])).sort((a, b) => a - b);
+      const reach = all[Math.floor(all.length * 0.9)];
+      const ch = t.children(t.root, "building").filter((b) => WORSHIP.includes(b.get<string>("use")));
+      const inner = ch.filter((b) => Math.hypot(mid(b.get<Pt[]>("poly"))[0] - mc[0], mid(b.get<Pt[]>("poly"))[1] - mc[1]) < reach / 2);
+      // The inner half of the radius is a quarter of the ground: with the old heart's churches, under half of them.
+      expect(inner.length / ch.length).toBeLessThanOrEqual(0.45);
+    }, 600000);
+    test(`${layout} ${pop}: chantries and chapels stand on a lot or two, not a whole block`, () => {
+      const { t } = town(`ch-small-${layout}`, pop, layout);
+      const shoelace = (p: Pt[]) => { let a = 0; p.forEach((v, i) => { const w = p[(i + 1) % p.length]; a += v[0] * w[1] - w[0] * v[1]; }); return Math.abs(a) / 2; };
+      for (const b of t.children(t.root, "building").filter((x) => ["chantry", "chapel"].includes(x.get<string>("use")))) {
+        expect(shoelace(b.get<Pt[]>("plot") ?? b.get<Pt[]>("poly")), b.get<string>("use")).toBeLessThan(1500);
+      }
+    }, 600000);
+    test(`${layout} ${pop}: a churchyard block has houses along its streets`, () => {
+      const { t, map } = town(`ch-ring-${layout}`, pop, layout);
+      const shoelace = (p: Pt[]) => { let a = 0; p.forEach((v, i) => { const w = p[(i + 1) % p.length]; a += v[0] * w[1] - w[0] * v[1]; }); return Math.abs(a) / 2; };
+      const byBlock = new Map<string, number>();
+      for (const b of t.children(t.root, "building")) {
+        if (WORSHIP.includes(b.get<string>("use"))) continue;
+        const k = String(b.get("block")).replace(/b$/, "");
+        byBlock.set(k, (byBlock.get(k) ?? 0) + 1);
+      }
+      const big = (map.blocks ?? []).filter((b) => b.kind === "church" && shoelace(b.outline) > 3500);
+      expect(big.length).toBeGreaterThan(0);
+      const withHouses = big.filter((b) => (byBlock.get(b.id) ?? 0) >= 3);
+      // (A river town's blocks run narrow between its contour streets: fewer have room for a ring and a church.)
+      expect(withHouses.length / big.length).toBeGreaterThanOrEqual(layout === "river" ? 0.2 : 0.5);
+    }, 600000);
+  }
+});
+
+describe("castles in a town of blocks", () => {
+  test.each([["radial", 12000], ["radial", 30000], ["river", 12000]] as const)("%s %i: no street runs into the bailey, no house stands in it", (layout, pop) => {
+    for (const seed of ["c1", "c2", "c3"]) {
+      const { t, map } = town(`castle-blk-${seed}`, pop, layout, { castle: true });
+      const bailey = map.castle;
+      expect(bailey, `${seed} has its castle`).toBeTruthy();
+      if (!bailey) continue;
+      for (const rd of map.roads) expect(polylinePolyDist(rd.points, bailey, 30) > rd.width / 2 - 0.5 || /^(main\d+|high)$/.test(rd.id), `${seed} ${rd.id}`).toBe(true);
+      const inside = t.children(t.root, "building").filter((b) => b.get("use") !== "castle" && b.get<Pt[]>("poly").some((p) => pointInPoly(p, bailey)));
+      expect(inside.map((b) => b.get("use")), seed).toEqual([]);
+    }
+  }, 600000);
+});
+
+describe("the wall and the plots", () => {
+  const cuts = (P: Pt[], L: Pt[]) => {
+    const o = (p: Pt, q: Pt, r: Pt) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    return P.some((v, i) => { const w = P[(i + 1) % P.length]; return L.some((a, j) => j + 1 < L.length && o(v, w, a) * o(v, w, L[j + 1]) < 0 && o(a, L[j + 1], v) * o(a, L[j + 1], w) < 0); });
+  };
+  test.each([["radial", 3000], ["radial", 12000], ["river", 3000], ["river", 8000]] as const)("%s %i: the wall runs round a house's garden, never through it", (layout, pop) => {
+    for (const seed of ["wp1", "wp2", "wp3"]) {
+      const t = generate(`${seed}-${layout}`, { pop, design: { layout, walls: "wall" } });
+      const m = t.settlement().get<MapData>("map");
+      const L = m.wall!.closed ? [...m.wall!.line, m.wall!.line[0]] : m.wall!.line;
+      const bad = t.children(t.root, "building").filter((b) => {
+        const k = b.get<string>("plotKind");
+        if (b.get("use") === "gatehouse" || k === "churchyard" || k === "precinct") return false;
+        return cuts(b.get<Pt[]>("plot") ?? b.get<Pt[]>("poly"), L);
+      });
+      expect(bad.map((b) => b.get("use")), seed).toEqual([]);
+    }
+  }, 600000);
+});
