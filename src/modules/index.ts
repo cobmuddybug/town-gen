@@ -1,3 +1,6 @@
+// The default modules, in the order a town is built with them. Load order is
+// worked out again from each module's `requires` (core/loader.ts); this order
+// only breaks ties.
 import type { Module } from "../core/types";
 import { core } from "./core";
 import { uses } from "./uses";

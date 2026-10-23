@@ -10,7 +10,7 @@ Low-fantasy, human-only, mundane medieval settlement generator for D&D. The desi
 - `npm run check`: typecheck + tests. Run it before saying anything is done.
 - `npm run build`: static build to `dist/`
 - `BASE=fishing tools/preview.sh OUTDIR [seeds] [pop]`: render map PNGs for a few seeds (needs `rsvg-convert`)
-- `node tools/look.mjs URL OUT.png 'js step' ...`: drive headless Chromium against the dev server and take a screenshot (`SIZE=WxH`, `DARK=1`)
+- `node tools/look.mjs URL OUT.png 'js step' ...`: drive headless Chromium against the dev server and take a screenshot (`SIZE=WxH`, `DARK=1`, `PROFILE=out.cpuprofile` records a CPU profile of the steps)
 - `tools/ui-smoke.sh 'js step' ...`: start Vite on :31742, run the steps in headless Chromium, and fail if a step throws or the page does (`URLHASH='#seed=x&pop=3000'`, `OUT=dir` keeps the screenshot)
 
 ## Licence: MIT, and keep it that way
@@ -33,6 +33,7 @@ Low-fantasy, human-only, mundane medieval settlement generator for D&D. The desi
 - **Only `onSocietyResolved` may query edges or link households.** Everything else must be computable from the entity's own address, its ancestors and the plan.
 - **Town modules must do nothing in hamlets** unless you mean to change hamlet output (and then update the golden and say so). Check `isStreetPlan(town)` or the size class.
 - **Big settlements: avoid all-pairs loops.** Use grids or indexes; keep the small-settlement path identical.
+- **Speed in a city.** A city has 26,000 people, so anything per person per block runs about 150,000 times a day. A town never changes once built (edits build a new one), so keep per-town answers in a `WeakMap<Town, …>`, but only cache what was worked out once `town.settled` is true: before that, fields and edges are still being made. To find the slow part, profile: `PROFILE=out.cpuprofile` on `tools/look.mjs` in the browser, or `node:inspector` in a scratch Vitest. To prove a speed change changed nothing, hash everything the UI shows for a few towns before and after (`tests/ui-hash.test.ts`, `UIHASH=out.json`).
 - **Generation must not read `town.clock`.** Store dated things relative to now; work out the year when displaying.
 - **A routine hook must not call `whereabouts()`**, and nothing the crime or lives calendars call may either: whereabouts asks the hooks. Hooks run for every person every block, so index by date (see `dayIndex` in lives) rather than scanning events.
 - **"Urban" means `isUrban(town)`** (core): a market town of 1,001 or more. Don't test `sizeClass` for town|city to decide town ways of life.

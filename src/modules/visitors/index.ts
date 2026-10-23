@@ -195,6 +195,7 @@ function coreVisits(town: Town, year: number): Visit[] {
 
 const onMemo = new WeakMap<Town, Map<string, Visit[]>>();
 
+/** The visitors in town on a date. */
 export function visitorsOn(town: Town, date: string): Visit[] {
   let memo = onMemo.get(town);
   if (!memo) onMemo.set(town, (memo = new Map()));
@@ -214,6 +215,7 @@ function computeVisitorsOn(town: Town, date: string): Visit[] {
   });
 }
 
+/** What to call a kind of visit: "Fair day", "Strolling players"… */
 export function visitLabel(town: Town, v: Visit): string {
   if (LABEL[v.kind]) return LABEL[v.kind];
   for (const src of town.registry<VisitSource>("visitSources").list()) if (src.label[v.kind]) return src.label[v.kind];

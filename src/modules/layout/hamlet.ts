@@ -160,6 +160,7 @@ function boat(c: Pt, u: Pt, len: number): Poly {
     add(add(c, mul(u, -h)), mul(v, -w * 0.8)), add(add(c, mul(u, h * 0.3)), mul(v, -w))]);
 }
 
+/** Lay out a hamlet or village (up to 700 people): a green, a road and lanes, crofts and fields. */
 export function layoutHamlet(r: Rng, plan: Footprint[], terrain: Terrain = "farmland"): HamletLayout {
   const specs = plan.map((p) => spec(r, p.size));
   const frontage = specs.reduce((s, x) => s + x.w + x.gap, 0);

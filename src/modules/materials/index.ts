@@ -1,3 +1,5 @@
+// How a household lives, by tier: its dwelling, light, heat, cooking, water,
+// diet, drink, dress, arms, bedding and what it has on show.
 import { isUrban } from "../core";
 import { table } from "../../core/content";
 import type { Row } from "../../core/registry";

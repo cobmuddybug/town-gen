@@ -1,3 +1,8 @@
+// Households: who lives in each building. A building's use says how many
+// households; each gets an occupation, a tier, land or a stake, an income and
+// savings, then its members (head, spouse, children, parents, servants) with
+// the kin and service edges between them. Money is in pence; lsd() writes it
+// the old way.
 import type { Rng } from "../../core/rng";
 import type { Ctx, EntityLike, Module, PanelRow } from "../../core/types";
 import type { Base, Tier } from "../core";
@@ -197,6 +202,7 @@ export const households: Module = {
   ],
 };
 
+/** A member's place in the household in words: "wife", "son", "head, widower"… */
 export function roleText(p: EntityLike): string {
   const role = p.get<Role>("role");
   const f = p.get<string>("sex") === "f";

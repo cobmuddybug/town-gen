@@ -78,6 +78,7 @@ const DRINK = ["tavern", "town_alehouse", "alehouse", "inn"];
 
 const BLOCK_HOUR: Record<Block, number> = { morning: 6, forenoon: 10, afternoon: 14, evening: 18, night: 22, late_night: 26 };
 
+/** A date and block as an hour index (day number × 24 + the block's hour), the clock talk runs on. */
 export function hourOf(date: string, block: Block): number {
   return jdn(parseDate(date)) * 24 + BLOCK_HOUR[block];
 }
@@ -90,6 +91,7 @@ export function whenHour(h: number, now: number): string {
   return whenOf(day(h), day(now), block);
 }
 
+/** An hour index as a date and a part of the day. */
 export function describeHour(h: number): string {
   const d = formatDate(fromJdn(Math.floor(h / 24)));
   const hh = h % 24;
@@ -447,6 +449,7 @@ export function heardAt(town: Town, r: Rumour, person: Address): number | undefi
   return Math.max(r.start, at);
 }
 
+/** Whether the talk has reached this person by the hour `now`. */
 export function knows(town: Town, r: Rumour, person: Address, now: number): boolean {
   const h = heardAt(town, r, person);
   return h !== undefined && h <= now;
@@ -498,6 +501,7 @@ export function secretsOf(town: Town, person: Address, date: string, block: Bloc
   return out;
 }
 
+/** Who knows a secret edge at a moment: those in it, and everyone the talk has reached. "public" once it's common knowledge. */
 export function knownByAt(town: Town, edge: Edge, date: string, block: Block): Address[] | "public" {
   if (edge.knownBy === "public") return "public";
   const r = allSecrets(town).find((x) => x.edge === edge.id);
@@ -619,6 +623,7 @@ export function voiceOf(town: Town, person: Address, date: string, block: Block)
   return out.slice(0, 4);
 }
 
+/** The telling of a story heard in a building, with the people as links; a ballad on the end of an old scandal in a town's taverns. */
 export function tellingAt(town: Town, r: Rumour, b: Address | undefined, now: number, suffix = ""): (string | PanelLink)[] {
   const s = b ? spread(town, r).get(b) : undefined;
   let tail = "";

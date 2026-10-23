@@ -1,5 +1,8 @@
+// Module bookkeeping: the order modules load in, and their major versions (which
+// go into every random stream's key).
 import type { Module } from "./types";
 
+/** The major part of a version: "2.1.0" -> "2". */
 export function major(version: string): string {
   return version.split(".")[0];
 }

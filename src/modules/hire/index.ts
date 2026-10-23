@@ -98,6 +98,7 @@ export const hire: Module = {
   ],
 };
 
+/** A day's hire in words: "a farthing", "three farthings", or pence and shillings. */
 export function hireRate(d: number): string {
   return d < 1 ? (d <= 0.25 ? "a farthing" : d <= 0.5 ? "a halfpenny" : "three farthings") : lsd(Math.round(d));
 }

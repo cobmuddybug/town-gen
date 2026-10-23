@@ -1,3 +1,5 @@
+// The New town dialog: its form, what a size will make, and turning the form
+// (or a link's hash) into generator settings.
 import sizes from "../modules/core/content/sizes.yaml";
 import type { Design, Era } from "../core/types";
 import { designFrom } from "./library";

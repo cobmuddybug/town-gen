@@ -56,6 +56,7 @@ export const content = data<CrimeData>(crimeYaml);
 export const self: Module = { id: "crime", version: "1.0.0" };
 export const UNDERWORLD = "underworld";
 
+/** A lay (a kind of crew's work: nips, crackers…) by id. */
 export const layOf = (id: string): Lay => content.lays.find((l) => l.id === id)!;
 
 export interface Member { p: Address; rank: Rank; gang: Gang }

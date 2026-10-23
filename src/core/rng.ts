@@ -14,6 +14,7 @@ function fmix32(h: number): number {
   return h >>> 0;
 }
 
+/** Four 32-bit hashes of a string: the seed of a stream. */
 export function hash128(s: string): [number, number, number, number] {
   let a = 0x811c9dc5, b = 0x050c5d1f, c = 0x6c62272e, d = 0x2f2ad3b5;
   for (let i = 0; i < s.length; i++) {
@@ -26,10 +27,12 @@ export function hash128(s: string): [number, number, number, number] {
   return [fmix32(a ^ s.length), fmix32(b + a), fmix32(c ^ b), fmix32(d + c)];
 }
 
+/** A short hex tag from a string: the town's root id, and the like. */
 export function hashHex(s: string, chars = 4): string {
   return hash128(s)[0].toString(16).padStart(8, "0").slice(0, chars);
 }
 
+/** A seeded stream. Make one per purpose (`ctx.rng`, `town.rngFor`); never share one across purposes. */
 export class Rng {
   private a: number;
   private b: number;

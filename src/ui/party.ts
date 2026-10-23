@@ -51,6 +51,7 @@ export function buildingsNear(town: Town, at: Pt, r = reachOf(town)): { a: Addre
   return out.sort((x, y) => x.d - y.d);
 }
 
+/** The building nearest a point on the map. */
 export function nearestBuildingTo(town: Town, at: Pt): Address | undefined {
   let best: Address | undefined, bd = Infinity;
   for (const [a, p] of pos(town)) { const d = dist(at, p); if (d < bd) { bd = d; best = a; } }
@@ -159,6 +160,7 @@ export interface CrimeNear {
   active: { p: Address; gang: Address; doing: string }[];
 }
 
+/** What the party finds where they stand: the scene, the buildings near and who is in them, who is about, the talk, work going and visitors. */
 export function report(town: Town, at: Pt, date: string, block: Block): Report {
   const r = reachOf(town);
   const near = buildingsNear(town, at, r);

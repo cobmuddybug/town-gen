@@ -1,3 +1,13 @@
+// The town: every entity (the settlement, wards, buildings, households, people,
+// institutions) by address, made lazily. Looking at an entity resolves it: its
+// ancestors first, then each module's hook for its type, in load order. Modules
+// write fields only through the Ctx they're handed (core/types.ts), and the DM's
+// overlay and pins sit on top of what was generated. Links between households
+// are made in the society phase, once everyone exists (`society()`).
+//
+// A town never changes once built, except its clock, the party's marker and
+// stars: an edit builds a new Town from the save (core/save.ts). That is what
+// lets so much downstream be memoised per Town in WeakMaps.
 import { ancestors, join, parentOf, type Address } from "./address";
 import { loadOrder, major } from "./loader";
 import { Registry, type OverrideRecord, type Row } from "./registry";
@@ -16,8 +26,10 @@ const HOOK_FOR: Record<EntityType, keyof Hooks | undefined> = {
   institution: "onInstitutionResolved",
 };
 
+/** The overlay key that counts rerolls of each field, so a reroll draws from a fresh stream. */
 export const REROLL_KEY = "~reroll";
 
+/** One thing in the town. Fields are what modules generated; `get` reads through the overlay and pins. */
 export class Entity implements EntityLike {
   readonly fields = new Map<string, Field>();
   readonly children: Address[] = [];
@@ -39,6 +51,7 @@ export class Entity implements EntityLike {
   }
 }
 
+/** What a town is built from: the seed and settings, the modules, and the DM's edits as saved. */
 export interface TownInit {
   seed: string;
   settings: Settings;
@@ -50,6 +63,7 @@ export interface TownInit {
   party?: SaveFile["party"];
 }
 
+/** The town and everything in it. Build one with `generate()` (town-gen.ts) or `load()` (save.ts). */
 export class Town {
   readonly seed: string;
   readonly settings: Settings;
@@ -99,6 +113,7 @@ export class Town {
 
   // ---- reading ----------------------------------------------------------
 
+  /** A field as the DM sees it: their edit, else a pinned value, else what was generated. */
   read(address: Address, key: string): unknown {
     const e = this.entities.get(address);
     // Reading a field is "looking at" the entity: generate it now if needed.
@@ -179,6 +194,7 @@ export class Town {
     this.societyState = "done";
   }
 
+  /** Links between people and places, in id order. Runs the society phase first if it hasn't run. */
   edges(filter: { from?: Address; to?: Address; kind?: string; touching?: Address } = {}): Edge[] {
     this.society();
     let pool: Iterable<Edge> = this.edgeMap.values();
@@ -218,6 +234,7 @@ export class Town {
     return this.modules.some((m) => m.id === id);
   }
 
+  /** What to call a thing: the last module with a name for it wins. */
   label(address: Address): string {
     const e = this.find(address);
     if (!e) return address;
@@ -241,6 +258,7 @@ export class Town {
     }
   }
 
+  /** The random stream for one purpose on one entity. Keyed by module major version, so upgrades are explicit. */
   rngFor(address: Address, module: Module, purpose: string): Rng {
     return new Rng(`${this.seed}|${address}|${module.id}@${major(module.version)}|${purpose}`);
   }
@@ -300,6 +318,7 @@ export class Town {
 
   // ---- edits and saves --------------------------------------------------
 
+  /** The save file: the seed and settings, the DM's edits, and the clock. Everything else regenerates. */
   toSave(): SaveFile {
     const modules: Record<string, string> = {};
     for (const m of this.modules) modules[m.id] = m.version;
@@ -346,11 +365,13 @@ export class Town {
     return { root: this.root, entities, edges };
   }
 
+  /** The address one level up, or undefined at the root. */
   parentOf(address: Address): Address | undefined {
     return parentOf(address);
   }
 }
 
+/** JSON with every object's keys sorted, so equal towns save to equal text. */
 export function stableStringify(v: unknown, indent = 2): string {
   return JSON.stringify(sortKeys(v), null, indent);
 }

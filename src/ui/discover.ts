@@ -70,6 +70,7 @@ function edgeTitle(town: Town, e: Edge): Value {
   return [L(town, e.from), ` ${rel} `, L(town, e.to), tail];
 }
 
+/** Who knows a fact (a secret edge, a rumour, a crime) at a moment, and where to find them now and later today. */
 export function whoKnows(town: Town, fact: Fact, date: string, block: Block, limit = 40): Knowing | undefined {
   const now = hourOf(date, block);
   const year = parseDate(date).y;
@@ -147,6 +148,7 @@ function heads(town: Town, b: Entity): Entity[] {
   return town.children(b.address, "household");
 }
 
+/** A map lens: a colour for each building (wealth, class, crime…), its legend, and any threads to draw. */
 export function lensView(town: Town, lens: Lens, selected?: Address): LensView {
   const fills = new Map<Address, string>();
   const legend: LensView["legend"] = [];
@@ -429,6 +431,7 @@ export const LISTS: ListSpec[] = [
 
 export interface AlmanacEntry { date: string; kind: "feast" | "rent" | "visit" | "secret" | "market" | "crime" | "life"; text: Value; fact?: Fact }
 
+/** The days ahead: feasts and market days, visitors, crimes and what comes of them, births, weddings and deaths, secrets coming out. */
 export function almanac(town: Town, from: string, days = 60): AlmanacEntry[] {
   const out: AlmanacEntry[] = [];
   const end = addDays(from, days);
@@ -501,6 +504,7 @@ export function placePoint(town: Town, where: string, person: Address): Pt | und
   return undefined;
 }
 
+/** A person's day, block by block: where, doing what, and with whom (family at home doesn't count). */
 export function dayOf(town: Town, person: Address, date: string): Stop[] {
   return BLOCKS.map((block) => {
     const w = whereabouts(town, person, date, block);
@@ -512,6 +516,7 @@ export function dayOf(town: Town, person: Address, date: string): Stop[] {
   });
 }
 
+/** What to call a place key or a building. */
 export function placeName(town: Town, where: string): string {
   return where.startsWith("place:") ? PLACES[where] ?? where : town.label(where);
 }

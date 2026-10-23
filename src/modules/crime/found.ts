@@ -31,6 +31,7 @@ const LAWFUL = new Set(["constable", "beadle", "marshal", "deputy marshal", "off
 
 interface Office { p: Address; office: string; ward?: number; quarter?: number; gate?: number }
 
+/** The society phase for crime: found the crews, their dens and members, the fences, the boss, the payoffs and the rest. */
 export function found(ctx: Ctx, s: EntityLike): void {
   const town = ctx.town;
   const uwAddr = `${s.address}/institution:underworld`;

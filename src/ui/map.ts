@@ -124,6 +124,7 @@ export interface MapOptions {
   village?: boolean;
 }
 
+/** The map as an SVG string: fields, water, roads, wards, buildings (each a g with data-address), labels. */
 export function renderMap(town: Town, opts: MapOptions = {}): string {
   const s = town.settlement();
   const m = s.get<MapData>("map");

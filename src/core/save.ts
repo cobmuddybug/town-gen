@@ -1,12 +1,17 @@
+// Saving and loading, and the DM's edits. A save holds the seed, the settings,
+// the overlay of edits, pins, events and the clock; loading regenerates the rest.
+// Every edit works the same way: change the save, build a new town from it.
 import { major } from "./loader";
 import { REROLL_KEY, Town, stableStringify } from "./town";
 import type { Address } from "./address";
 import type { Module, SaveFile } from "./types";
 
+/** The town's save file as text, keys sorted. */
 export function serialize(town: Town): string {
   return stableStringify(town.toSave()) + "\n";
 }
 
+/** Build a town from a save. Warns, rather than fails, when the save was made with other module versions. */
 export function load(save: SaveFile, modules: Module[]): Town {
   if (save.format !== 1) throw new Error(`unknown save format ${save.format}`);
   const town = new Town({
@@ -49,6 +54,7 @@ export function withReroll(town: Town, modules: Module[], address: Address, key:
   return load(save, modules);
 }
 
+/** Rebuild a town with an entity pinned (its generated fields kept through upgrades) or unpinned. */
 export function withPin(town: Town, modules: Module[], address: Address, pinned: boolean): Town {
   const save = town.toSave();
   if (pinned) save.pinned[address] = town.pinSnapshot(address);

@@ -1,3 +1,6 @@
+// Core: the tables everything else reads (tiers of wealth, bases, size classes,
+// materials, kinds of edge), and the first facts about a settlement: its size
+// class, base, terrain, fuel, charter and what encloses it.
 import { table } from "../../core/content";
 import type { Row } from "../../core/registry";
 import type { EdgeKind, Module } from "../../core/types";

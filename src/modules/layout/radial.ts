@@ -69,6 +69,7 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 
 
+/** Lay out a town as a spiderweb: a market at the middle, main roads out, ring streets, walls and suburbs. */
 export function layoutRadial(r: Rng, plan: Footprint[], o: TownOpts): TownLayout {
   const urban = o.scale === "town" || o.scale === "city";
   const walled = o.enclosure === "wall" || o.enclosure === "palisade";

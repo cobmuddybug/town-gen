@@ -1,3 +1,13 @@
+// The app: wires the pages together and draws them. The logic lives in the pure
+// modules beside it (discover, directory, glance, party, palette, player…),
+// each tested; this file holds the state (the town, what's selected, the page,
+// the lens, player view), renders HTML strings into the bar, the map and the
+// inspector, and handles events. Sections, in order: state, rebuilding, the
+// town menu, the clock, the New town dialog, the map and its toolbar, lenses
+// and following, the inspector, the rail, search, player view, keys, start.
+//
+// Every change to the town itself (an edit, a pin, a deed, a new town) builds a
+// new Town through rebuild(); moving the clock or the party only redraws.
 import { ancestors, typeOf, type Address } from "../core/address";
 import { load, serialize, withEdit, withoutEvent, withPin, withReroll } from "../core/save";
 import type { Town } from "../core/town";

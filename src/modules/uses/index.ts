@@ -1,3 +1,7 @@
+// Uses: what each building is for and who works there, and the building plan,
+// the list of buildings a settlement of this size and base should have. Above
+// 1,000 people the plan, and the choice of layout, come from urban.ts. Each
+// building gets its construction here too (walls, roof, storeys, condition).
 import { table } from "../../core/content";
 import type { Row } from "../../core/registry";
 import type { Module } from "../../core/types";

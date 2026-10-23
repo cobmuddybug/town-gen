@@ -1,3 +1,6 @@
+// The Directory: every person, household, building, trade, office and ward as a
+// sortable, filterable table, and the lists (for hire, the richest, debts…) as
+// tables too. Pure: main.ts draws what directoryHtml() returns.
 import { ancestors, typeOf, type Address } from "../core/address";
 import type { Block } from "../core/calendar";
 import type { Town } from "../core/town";

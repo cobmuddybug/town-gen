@@ -104,6 +104,7 @@ function headTemplateHamlet(occ: string): string {
   return "labourer";
 }
 
+/** Which day's routine a person follows: the trade's, a child's, the old's, an apprentice's… */
 export function templateFor(town: Town, p: Entity): string {
   const age = p.get<number>("age");
   const role = p.get<string>("role");
@@ -330,6 +331,7 @@ function fixedOf(town: Town, p: Entity): Fixed {
   return f;
 }
 
+/** Where a person is in a block, and what they're doing. A pure function of the person and the date: the crime and lives calendars get first say. */
 export function whereabouts(town: Town, person: Address, date: string, block: Block): Whereabouts {
   town.society();
   const p = town.get(person);

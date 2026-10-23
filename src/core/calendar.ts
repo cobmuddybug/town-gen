@@ -20,6 +20,7 @@ export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
 // They are frozen: a caller that wants to change one makes its own.
 const parsed = new Map<string, Readonly<Day>>();
 
+/** "1203-10-01" as numbers. Kept and frozen: copy it before changing it. */
 export function parseDate(s: string): Readonly<Day> {
   const hit = parsed.get(s);
   if (hit) return hit;
@@ -31,6 +32,7 @@ export function parseDate(s: string): Readonly<Day> {
   return d;
 }
 
+/** Numbers back to "YYYY-MM-DD". */
 export function formatDate(d: Day): string {
   return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
 }
@@ -42,6 +44,7 @@ export function jdn({ y, m, d }: Day): number {
   return d + Math.floor((153 * mm + 2) / 5) + 365 * yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
 }
 
+/** A Julian day number back to a date (the inverse of jdn). */
 export function fromJdn(j: number): Day {
   const a = j + 32044;
   const b = Math.floor((4 * a + 3) / 146097);
@@ -56,6 +59,7 @@ export function fromJdn(j: number): Day {
   };
 }
 
+/** The date n days on (or back, if n is negative). */
 export function addDays(s: string, n: number): string {
   return formatDate(fromJdn(jdn(parseDate(s)) + n));
 }
