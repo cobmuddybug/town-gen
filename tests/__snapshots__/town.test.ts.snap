@@ -9,7 +9,7 @@ exports[`street plans > the layout is stable for a seed 1`] = `
     "Aldgate",
     "Westgate",
   ],
-  "geometry": "1fdc19d3",
+  "geometry": "a74faaae",
   "wallPoints": 72,
   "wards": [
     "North Street Ward",

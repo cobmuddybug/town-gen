@@ -316,12 +316,12 @@ function disc(p: Poly): { m: Pt; r: number } {
 }
 
 /** Whether two lots cross by more than a shared wall: edges crossing, or one inside the other (shrunk a little first). */
-function lotsCross(a: Poly, b: Poly): boolean {
+export function lotsCross(a: Poly, b: Poly): boolean {
   const da = disc(a), db = disc(b);
   const ma = da.m, mb = db.m;
   const dx = ma[0] - mb[0], dy = ma[1] - mb[1], rr = da.r + db.r;
   if (dx * dx + dy * dy > rr * rr) return false;
-  const A = a.map((v) => add(ma, mul(sub(v, ma), 0.96))), B = b.map((v) => add(mb, mul(sub(v, mb), 0.96)));
+  const A = a.map((v) => add(ma, mul(sub(v, ma), 0.985))), B = b.map((v) => add(mb, mul(sub(v, mb), 0.985)));
   for (let i = 0; i < A.length; i++) for (let j = 0; j < B.length; j++) {
     const p = A[i], p2 = A[(i + 1) % A.length], q = B[j], q2 = B[(j + 1) % B.length];
     const d1 = cross(sub(p2, p), sub(q, p)), d2 = cross(sub(p2, p), sub(q2, p)), d3 = cross(sub(q2, q), sub(p, q)), d4 = cross(sub(q2, q), sub(p2, q));

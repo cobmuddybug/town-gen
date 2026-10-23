@@ -18,7 +18,7 @@ import type { Feature, FieldPiece, Footprint, PlacedBuilding, Road } from "./ham
 import { CHURCH_SIZE, blob, building, compassOf, insetOutline, leftToRight, marketSize, nearestWard, plotsFor, type FrontKind, type Plot, type TownLayout, type WardGeo } from "./streets";
 import { contourLines, heightField } from "./height";
 import { blockFaces, deadEnds, nodeStreets, type Face, type Side } from "./graph";
-import { cutRibbon, fillBlock, shapeOn, splitBlock, type BlockKind, type Lot, type Open } from "./blocks";
+import { cutRibbon, fillBlock, lotsCross, shapeOn, splitBlock, type BlockKind, type Lot, type Open } from "./blocks";
 import { organicStreets } from "./organic";
 import type { TownOpts } from "./streets";
 
@@ -27,7 +27,7 @@ export type Form = "river" | "ridge" | "castle" | "street" | "crossroads" | "abb
 /** Forms with a far bank over their bridge. */
 export const BANKED: Form[] = ["river", "ridge"];
 /** The forms whose land between streets is cut into blocks (dense-blocks rework); the rest still cut rows of plots. */
-export const BLOCKED: Form[] = ["organic", "river"];
+export const BLOCKED: Form[] = ["organic", "river", "street"];
 let blockedForms = new Set<Form>(BLOCKED);
 /** Tests only: try forms on blocks before they are switched over for good. */
 export function setBlockedForTest(forms: Form[]): void { blockedForms = new Set(forms.length ? forms : BLOCKED); }
@@ -96,7 +96,8 @@ export function sideOf(line: Pt[], p: Pt): 1 | -1 {
 export function riverSite(r: Rng, o: RiverOpts): RiverSite {
   const form = o.form ?? "river";
   // A harbour loses half its round of ground to the sea, a ridge town both its flanks: give them more.
-  const R = townRadius(o, o.need, !!o.blocks) * (form === "harbour" ? 1.45 : form === "ridge" ? 1.15 : 1);
+  // (A street town on blocks is stretched along its street and narrow across it: less ground to a radius.)
+  const R = townRadius(o, o.need, !!o.blocks) * (form === "harbour" ? 1.45 : form === "ridge" ? 1.15 : form === "street" && o.blocks ? 1.4 : 1);
   const extent = R * 2.6 + 200;
   // Towns at a crossing stand on a river; the others have a stream passing clear of them, for the mills.
   const crossing = BANKED.includes(form) || form === "harbour";
@@ -226,6 +227,8 @@ export interface StreetNet {
   bridges: Pt[];
   /** an abbey-gate town's precinct */
   anchorPoly?: Pt[];
+  /** the outline its cell streets were grown in, for a town on blocks: an open town's edge */
+  outline?: Pt[];
 }
 
 const norm2 = (v: Pt): Pt => { const l = hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
@@ -514,14 +517,22 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   }
   const centre = centreOf(market);
 
-  // 3b'. The organic plan's streets: the edges of cells grown round the market (organic.ts).
-  if (form === "organic") {
+  // 3b'. The organic plan's streets: the edges of cells grown round the market (organic.ts). The
+  // other forms on blocks fill between their own spines the same way: a street town stretched along
+  // its street, a ridge town along its crest, none over a castle's mound, an abbey's ground or off the site.
+  const cells = form === "organic" || (blockedForms.has(form) && form !== "river");
+  let townOutline: Pt[] | undefined;
+  if (cells) {
     const streetW0 = urban ? 4.5 : 5;
-    const roads = streets.filter((x) => x.kind === "main" || x.kind === "high").map((x) => x.points);
-    const { streets: cut } = organicStreets(r, {
-      centre, market, radius: R, roads, height: site.height, wet: (p) => wet(p, 3),
-      ...(o.shape ? { shape: o.shape } : {}), streetW: streetW0, laneW,
+    const roads = streets.filter((x) => x.kind === "main" || x.kind === "high" || x.kind === "quay").map((x) => x.points);
+    const long = form === "street" ? market[market.length >> 1] && sub(market[market.length >> 1], market[0]) : site.ridge ? site.ridge.dir : undefined;
+    const shape = form === "organic" ? o.shape : form === "street" ? "street" : form === "ridge" ? "long" : form === "harbour" ? "oval" : undefined;
+    const { streets: cut, outline: cellsOut } = organicStreets(r, {
+      centre, market, radius: R, roads, height: site.height,
+      wet: (p) => wet(p, 3) || (form !== "organic" && (inAnchor(p, 4) || offSite(p))),
+      ...(shape ? { shape } : {}), ...(long ? { axis: atan2(long[1], long[0]) } : {}), streetW: streetW0, laneW,
     });
+    townOutline = cellsOut;
     cut.forEach((e, i) => streets.push({ id: e.lane ? `olane${i}` : `ostreet${i}`, kind: e.lane ? "cross" : "street", width: e.lane ? laneW : streetW0, points: e.points, bank: "near" }));
   }
 
@@ -564,7 +575,7 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
     const c = norm2(perp(g));
     return dot(c, prefer) >= 0 ? c : mul(c, -1);
   };
-  for (let tries = 0; form !== "organic" && frontage() < wantFront && sn < maxSide && tries < 300 + o.need * 2; tries++) {
+  for (let tries = 0; !cells && frontage() < wantFront && sn < maxSide && tries < 300 + o.need * 2; tries++) {
     // Mostly off the main streets; now and then off a side street, for a second row.
     // A street town's lanes leave from its one great street, both sides.
     const parents = form === "street" ? [...marketSides, ...(o.need > 600 ? streets.filter((x) => x.kind === "street" && r.chance(0.25)) : [])] : streets.filter((x) => x.kind === "main" || x.kind === "high" || (form === "harbour" && x.kind === "quay") || (x.kind === "street" && r.chance(0.25)));
@@ -616,7 +627,9 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   const gates: StreetNet["gates"] = [];
   // The wall goes round what was built, close about it, not round the room the town might have had.
   // What was built: the side streets, and only the inner reach of the main roads (their outer stretches are ribbons outside the gates).
-  const built = streets.filter((x) => x.kind !== "far").flatMap((x) => x.kind === "main" || x.kind === "high" ? x.points.filter((p) => d2(p, centre) < inner2) : x.points.filter((p) => d2(p, centre) < R * R));
+  // (A town grown from cells reaches as far as its cell outline: a street town's runs far along its street.)
+  const inCells = (p: Pt) => (townOutline ? pointInPoly(p, townOutline) : d2(p, centre) < R * R);
+  const built = streets.filter((x) => x.kind !== "far").flatMap((x) => x.kind === "main" || x.kind === "high" ? x.points.filter((p) => d2(p, centre) < inner2) : x.points.filter(inCells));
   // The market is in the town (a river town's lies well inside it anyway).
   if (form !== "river") built.push(...market);
   // An abbey's precinct, and a castle, stand within the town's wall.
@@ -867,7 +880,7 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
       break;
     }
   }
-  return { streets, market, gates, wallLine, farPlace, marketAt: M, plotDepth: depth, bridges, ...(anchorPoly ? { anchorPoly } : {}) };
+  return { streets, market, gates, wallLine, farPlace, marketAt: M, plotDepth: depth, bridges, ...(anchorPoly ? { anchorPoly } : {}), ...(townOutline ? { outline: townOutline } : {}) };
 }
 
 /** Line segments in a grid of square cells, so "what passes near here" looks at a few cells, not the whole town. */
@@ -1050,7 +1063,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     const k = Math.round(((atan2(p[1] - mc[1], p[0] - mc[0]) + TAU) % TAU) / TAU * 36) % 36;
     return wallBin[k] || Infinity; // no wall that way: the river bounds it
   };
-  const inside = (p: Pt) => (net.wallLine ? hypot(p[0] - mc[0], p[1] - mc[1]) < innerR(p) - 4 : hypot(p[0] - mc[0], p[1] - mc[1]) < R * 1.05);
+  // (An open town on blocks ends where its cell streets do: a street town's reaches far along its street.)
+  const inside = (p: Pt) => (net.wallLine ? hypot(p[0] - mc[0], p[1] - mc[1]) < innerR(p) - 4 : net.outline ? pointInPoly(p, net.outline) : hypot(p[0] - mc[0], p[1] - mc[1]) < R * 1.05);
 
   // ---- the castle, on the high ground ------------------------------------------------
   const castleIdx = plan.findIndex((p) => p.site === "castle");
@@ -1228,6 +1242,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     const faces: Face[] = [];
     const laneW2 = urban ? 3 : 3.5;
     for (const f of blockFaces(graph, close)) {
+      // (The market is a face too: no lanes across it.)
+      if (pointInPoly(centroid(f.outline), market)) continue;
       // (An organic town's blocks are sized by their seeds: small at the heart, larger outward. Left whole.)
       const sp = form === "organic" ? { faces: [f], lanes: [] } : splitBlock(f, laneW2, urban ? 4200 : 6500, () => `blane${ln++}`);
       faces.push(...sp.faces);
@@ -1263,6 +1279,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
         const nearWater = riverGrid.dist(lc, 60) < 60 || inSea(lc, 60);
         if (nearWater && !l.poly.every((q2) => riverClear(q2, 1) && bank(q2) === want)) continue;
         if (clearWhy(l.poly, "*")) continue;
+        // Nor across a lot of the next block: where two streets run close, a lot can reach past its own.
+        if (keysOf(l.poly).some((k2) => (pgrid.get(k2) ?? []).some((j) => plots[j].block !== `k${fi}` && lotsCross(plots[j].poly, l.poly)))) { open.push({ kind: "yard", poly: l.poly }); continue; }
         const id = plots.length;
         const order = far ? hypot(lc[0] - site.bridge.p[0], lc[1] - site.bridge.p[1]) : hypot(lc[0] - mc[0], lc[1] - mc[1]);
         plots.push(Object.assign(l, { id, far, suburb: !far && l.kind === "suburb", order }));
@@ -1330,9 +1348,17 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     const members = intra.filter((p) => assign.get(p.id) === i);
     if (members.length) mkWard("intramural", "near", members, []);
   }
-  // Beyond the gates: a ward to each road's ribbon.
+  // Beyond the gates: a ward to each road out, its ribbon and whatever lanes and blocks lie nearest it.
+  const outRoads = net.streets.filter((st) => st.kind === "main" || st.kind === "high");
+  const roadOf = (p: RPlot) => {
+    if (outRoads.some((st) => st.id === p.street) || !outRoads.length) return p.street;
+    const c = centroid(p.poly);
+    let best = outRoads[0], bd = Infinity;
+    for (const st of outRoads) { const dd = lineDist(st.points, c); if (dd < bd) { bd = dd; best = st; } }
+    return best.id;
+  };
   const subBy = new Map<string, RPlot[]>();
-  for (const p of plots) if (p.suburb) { const l = subBy.get(p.street) ?? []; l.push(p); subBy.set(p.street, l); }
+  for (const p of plots) if (p.suburb) { const k2 = roadOf(p); const l = subBy.get(k2) ?? []; l.push(p); subBy.set(k2, l); }
   for (const [, members] of [...subBy].sort((a, b) => (a[0] < b[0] ? -1 : 1))) mkWard("suburb", "near", members, []);
   // Over the bridge: one ward, or two in a city.
   const farPlots = plots.filter((p) => p.far);
@@ -1729,7 +1755,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const gentle = form === "river" && !blocked;
   const spillShare = (urban ? 0.12 : 0.06) * (o.suburbs === "few" ? (gentle ? 0.25 : 0.1) : o.suburbs === "many" ? (gentle ? 2.5 : 5) : 1);
   // (In the forms besides the river, "many" sends the next class of housing out too.)
-  const spillTop = !gentle && o.suburbs === "many" ? 2 : 1;
+  // (And in a town of blocks, whose suburbs are blocks of their own, the class above that as well.)
+  const spillTop = !gentle && o.suburbs === "many" ? (blocked ? 3 : 2) : 1;
   const spillOut = new Set(orderIx.filter((i) => !farSet.has(i) && (!plan[i].site || plan[i].kind === "poor_row") && plotsFor(plan[i]) === 1 && (plan[i].value?.[0] ?? 9) <= spillTop && r.chance(Math.min(0.9, spillShare * 2))));
   const spill: number[] = [];
   const overflowOk = form === "river" || (o.room ?? 1) > 1.45;
@@ -1753,7 +1780,7 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
         const c = peek(`${far ? 1 : 0}:${fr}:${far ? 0 : v}`);
         if (!c) continue;
         // (A street town's houses stand along its great street first, all the way along.)
-        const cost = c.order + 10 * (v < lo ? lo - v : v > hi ? v - hi : 0) + (fr === "suburb" ? R : 0) - (form === "street" && fr === "market" ? R * 0.8 : 0);
+        const cost = c.order + 10 * (v < lo ? lo - v : v > hi ? v - hi : 0) + (fr === "suburb" ? R : 0) - (form === "street" && fr === "market" ? R * (blocked ? 1.5 : 0.8) : 0);
         if (cost < bc) { bc = cost; best = c; }
         if (far) break;
       }
@@ -1761,8 +1788,12 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     } else {
       // Trades: spread from their own kind (or kept together), within the classes they suit, widening if need be.
       const prior = p.kind ? placedAt.get(familyOf(p.kind)) : undefined;
+      // A trade that doesn't keep together won't go next door to its own kind if a class or two wider
+      // finds it room apart; failing that, the best it found.
+      let fallback: RPlot[] | undefined;
+      const apart = (d: number) => !!p.cluster || !prior?.length || d >= 14;
       for (let widen = 0; !got && widen <= 8; widen++) {
-        let best: RPlot[] | undefined, bs = -Infinity;
+        let best: RPlot[] | undefined, bs = -Infinity, bestNear = Infinity;
         for (const fr of fronts) {
           for (let v = far ? 0 : Math.max(0, lo - widen); v <= (far ? 0 : Math.min(8, hi + widen)); v++) {
             const l = buckets.get(`${far ? 1 : 0}:${fr}:${v}`);
@@ -1781,16 +1812,18 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
               // The latest few of its kind are enough to keep apart from (or close to).
               for (const q2 of (prior ?? []).slice(-40)) nearest = Math.min(nearest, hypot(cc[0] - q2[0], cc[1] - q2[1]));
               const sc = (prior?.length ? (p.cluster ? -nearest : Math.min(nearest, 500)) : 0) - c.order * 0.5 - fronts.indexOf(fr) * (form === "river" ? 40 : 120);
-              if (sc > bs) { bs = sc; best = seq; }
+              if (sc > bs) { bs = sc; best = seq; bestNear = nearest; }
             }
           }
           // A river town takes the first kind of street with room; the other forms weigh them all, so a
           // kind of street with few plots doesn't end up a row of one trade.
           // (What spills beyond the gates takes the first suburb it can, in every form.)
-          if (best && (form === "river" || spillOut.has(i))) break;
+          if (best && ((form === "river" && apart(bestNear)) || spillOut.has(i))) break;
         }
-        got = best;
+        if (best && (apart(bestNear) || widen >= 3 || spillOut.has(i))) got = best;
+        else if (best && !fallback) fallback = best;
       }
+      if (!got) got = fallback;
       if (!got && m > 1) for (const fr of fronts) { const c = peek(`${far ? 1 : 0}:${fr}:0`) ?? [...plots].find((x) => !x.used && x.far === far); if (c) { got = [c]; break; } }
     }
     // Out of room on this bank: say so (the layout is tried again roomier), unless this is the last try.

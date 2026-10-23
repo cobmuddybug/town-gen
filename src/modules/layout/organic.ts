@@ -20,7 +20,9 @@ export interface OrganicIn {
   /** water, or anywhere else no street may go */
   wet: (p: Pt) => boolean;
   /** "long" and "oval" stretch the town along an axis */
-  shape?: "round" | "oval" | "long";
+  shape?: "round" | "oval" | "long" | "street";
+  /** the bearing an oval or long town stretches along; at random when absent */
+  axis?: number;
   streetW: number;
   laneW: number;
 }
@@ -33,11 +35,20 @@ function spacing(r: Rng, t: number): number {
   return core + (edge - core) * Math.min(1, Math.max(0, t));
 }
 
-export function organicStreets(r: Rng, o: OrganicIn): { streets: OrganicStreet[]; seeds: Pt[] } {
+/** Where segment p0-p1 meets q0-q1, as a fraction along p0-p1; undefined if they don't. */
+function segHit(p0: Pt, p1: Pt, q0: Pt, q1: Pt): number | undefined {
+  const r = sub(p1, p0), s = sub(q1, q0), den = r[0] * s[1] - r[1] * s[0];
+  if (Math.abs(den) < 1e-12) return undefined;
+  const w = sub(q0, p0), t = (w[0] * s[1] - w[1] * s[0]) / den, u = (w[0] * r[1] - w[1] * r[0]) / den;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? t : undefined;
+}
+
+export function organicStreets(r: Rng, o: OrganicIn): { streets: OrganicStreet[]; seeds: Pt[]; outline: Poly } {
   const { centre, radius: R } = o;
   // The town's outline: a disc, or stretched along an axis for an oval or a long town.
-  const axis = r.range(0, TAU);
-  const [sx, sy] = o.shape === "long" ? [1.7, 0.6] : o.shape === "oval" ? [1.25, 0.8] : [1, 1];
+  const axis0 = r.range(0, TAU), axis = o.axis ?? axis0;
+  // (A street town is one street: long, and only a block or two deep either side of it.)
+  const [sx, sy] = o.shape === "street" ? [1.2, 0.6] : o.shape === "long" ? [1.7, 0.6] : o.shape === "oval" ? [1.25, 0.8] : [1, 1];
   const u: Pt = [cos(axis), sin(axis)], v = perp(u);
   const fromLocal = (x: number, y: number): Pt => add(centre, add(mul(u, x * sx), mul(v, y * sy)));
   const clip: Poly = [];
@@ -66,8 +77,30 @@ export function organicStreets(r: Rng, o: OrganicIn): { streets: OrganicStreet[]
       walked += L;
     }
   }
-  // The rest in jittered rings from the market outward.
-  const marketR = Math.max(...o.market.map((p) => dist(p, centre)));
+  // A street town's blocks front its great street: seeds along it, half a block out, a block apart.
+  const nearMarket = (p: Pt, d: number) => o.market.some((q, k) => segPointDist(p, q, o.market[(k + 1) % o.market.length]) < d);
+  if (o.shape === "street") {
+    const ring = [...o.market, o.market[0]];
+    let walked = 0, next = r.range(10, 30);
+    for (let i = 0; i + 1 < ring.length; i++) {
+      const a = ring[i], b = ring[i + 1], L = dist(a, b);
+      while (next <= walked + L) {
+        const p = add(a, mul(sub(b, a), (next - walked) / L));
+        // Wide along the street and shallow behind it, so the street front is the block's long side.
+        const s = spacing(r, dist(p, centre) / R);
+        const n = norm(perp(sub(b, a)));
+        for (const sg of [1, -1]) {
+          const q = add(p, mul(n, sg * s * 0.4));
+          if (!pointInPoly(q, o.market) && inTown(q) && !o.wet(q) && !nearMarket(q, s * 0.25) && !seeds.some((x) => dist(x, q) < s * 0.6)) seeds.push(q);
+        }
+        next += s * 1.7;
+      }
+      walked += L;
+    }
+  }
+  // The rest in jittered rings from the market outward: from its nearest side, as a long market
+  // (a street town's) reaches nearly to the town's ends; seeds in the market itself are skipped.
+  const marketR = Math.min(...o.market.map((p, i) => segPointDist(centre, p, o.market[(i + 1) % o.market.length])));
   for (let rho = marketR + 25; rho < R * 1.05;) {
     const s = spacing(r, rho / R);
     const k = Math.max(5, Math.round((TAU * rho) / s));
@@ -78,7 +111,7 @@ export function organicStreets(r: Rng, o: OrganicIn): { streets: OrganicStreet[]
       const p = fromLocal(cos(a) * rr, sin(a) * rr);
       if (!inTown(p) || pointInPoly(p, o.market) || o.wet(p)) continue;
       // Leave the roads to their pairs.
-      if (nearRoad(p, s * 0.45) || seeds.some((q) => dist(q, p) < s * 0.55)) continue;
+      if (nearRoad(p, s * 0.45) || seeds.some((q) => dist(q, p) < s * 0.55) || (o.shape === "street" && nearMarket(p, s * 0.7))) continue;
       seeds.push(p);
     }
     rho += s * r.range(0.8, 1);
@@ -117,6 +150,17 @@ export function organicStreets(r: Rng, o: OrganicIn): { streets: OrganicStreet[]
       return best;
     };
     a = snap(a); b = snap(b);
+    // An end inside the market stops at its edge: the market's own edge is the street there.
+    const ain = pointInPoly(a, o.market), bin = pointInPoly(b, o.market);
+    if (ain && bin) continue;
+    if (ain || bin) {
+      const [p0, p1] = ain ? [b, a] : [a, b];
+      let t = 1;
+      o.market.forEach((q, k) => { const x = segHit(p0, p1, q, o.market[(k + 1) % o.market.length]); if (x !== undefined && x < t) t = x; });
+      const cut = add(p0, mul(sub(p1, p0), t));
+      if (dist(p0, cut) < 6) continue;
+      if (ain) a = cut; else b = cut;
+    }
     out.push({ points: [a, b], lane: false });
   }
   // Straight up the slope, much steeper than the town's streets mostly run: a lane, or steps.
@@ -125,5 +169,5 @@ export function organicStreets(r: Rng, o: OrganicIn): { streets: OrganicStreet[]
   const median = sorted[sorted.length >> 1] ?? 0;
   const steep = sorted[Math.floor(sorted.length * 0.92)] ?? Infinity;
   for (const e of out) e.lane = median > 0 && slope(e) >= steep && slope(e) > median * 1.5;
-  return { streets: out, seeds };
+  return { streets: out, seeds, outline: clip };
 }

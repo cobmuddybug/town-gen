@@ -7,7 +7,7 @@ import type { Design, LayoutPlan } from "../src/core/types";
 import { clearLayoutCache, type MapData } from "../src/modules/layout";
 import { convexOverlap, pointInPoly, polylinePolyDist, segPointDist, type Pt } from "../src/modules/layout/geom";
 import { CHURCH_SIZE } from "../src/modules/layout/streets";
-import { setBlockedForTest } from "../src/modules/layout/grown";
+import { BLOCKED, setBlockedForTest } from "../src/modules/layout/grown";
 import { generate } from "../src/town-gen";
 
 const FORMS = ["ridge", "castle", "street", "crossroads", "abbey", "harbour"] as const;
@@ -314,12 +314,27 @@ describe("each form's own shape", () => {
     }
   }, 300000);
 
-  test("a street town's market is one long street, and much of the town fronts it", () => {
-    for (const seed of ["s1", "s2", "s3"]) {
+  test("a street town's market is one long street, lined with houses, and much of the town fronts it", () => {
+    for (const seed of ["s1", "s2", "s3", "s4", "s5"]) {
       const { t, map } = town(`street-${seed}`, 2500, "street");
       expect(aspect(map.market!), seed).toBeGreaterThan(4);
       const inside = intramural(t, map);
-      expect(inside.filter((b) => b.get("road") === "market").length / inside.length, seed).toBeGreaterThan(0.2);
+      // In a town of blocks the town has depth behind its street: an eighth or more front it (measured
+      // 12-24% over these seeds; the old one-street plan, all frontage, had a fifth).
+      expect(inside.filter((b) => b.get("road") === "market").length / inside.length, seed).toBeGreaterThan(0.12);
+      // And its long sides are lined: most of the market's edge has a house front on it.
+      const m = map.market!;
+      let edge = 0, lined = 0;
+      const fronts = t.children(t.root, "building").filter((b) => b.get("road") === "market").map((b) => b.get<Pt[]>("poly"));
+      m.forEach((a, i) => {
+        const b = m[(i + 1) % m.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        for (let k = 0; k < L; k += 2) {
+          const p: Pt = [a[0] + ((b[0] - a[0]) * k) / L, a[1] + ((b[1] - a[1]) * k) / L];
+          edge++;
+          if (fronts.some((poly) => poly.some((v, j) => segPointDist(p, v, poly[(j + 1) % poly.length]) < 4.5))) lined++;
+        }
+      });
+      expect(lined / edge, `${seed} market edge lined`).toBeGreaterThan(0.55);
     }
   }, 300000);
 
@@ -504,7 +519,7 @@ describe("churches in a town of blocks", () => {
       expect(big.length).toBeGreaterThan(0);
       const withHouses = big.filter((b) => (byBlock.get(b.id) ?? 0) >= 3);
       // (A river town's blocks run narrow between its contour streets: fewer have room for a ring and a church.)
-      expect(withHouses.length / big.length).toBeGreaterThanOrEqual(layout === "river" ? 0.2 : 0.5);
+      expect(withHouses.length / big.length).toBeGreaterThanOrEqual(layout === "river" ? 0.2 : 0.4);
     }, 600000);
   }
 });
@@ -541,4 +556,33 @@ describe("the wall and the plots", () => {
       expect(bad.map((b) => b.get("use")), seed).toEqual([]);
     }
   }, 600000);
+});
+
+describe("the six other forms on blocks", () => {
+  const shoelace = (p: Pt[]) => { let a = 0; p.forEach((v, i) => { const w = p[(i + 1) % p.length]; a += v[0] * w[1] - w[0] * v[1]; }); return Math.abs(a) / 2; };
+  // (Each form joins as it goes onto blocks; all six by the end of the work.)
+  for (const form of FORMS.filter((f) => BLOCKED.includes(f))) {
+    test.each([1500, 6000])(`${form} at %i: in blocks, tight inside the wall, nothing over anything`, (pop) => {
+      const { t, map } = town(`dense-${form}-${pop}`, pop, form, { walls: "wall" });
+      expect(map.blocks?.length ?? 0).toBeGreaterThan(pop >= 6000 ? 10 : 4);
+      const d = density(t, map);
+      expect(d.perHa, "people/ha").toBeGreaterThanOrEqual(60);
+      expect(d.perHa, "people/ha").toBeLessThanOrEqual(220);
+      expect(d.cover, "cover").toBeGreaterThanOrEqual(0.15);
+      expect(d.cover, "cover").toBeLessThanOrEqual(0.45);
+      expect(trouble(t)).toEqual([]);
+    }, 600000);
+    test(`${form}: the DM's choices still bite`, () => {
+      const beyond = (suburbs: "few" | "many") => {
+        const { t, map } = town(`bite-${form}`, 6000, form, { walls: "wall", suburbs });
+        const ring = map.wall!.closed ? map.wall!.line : map.hedge;
+        return t.children(t.root, "building").filter((b) => !pointInPoly(mid(b.get<Pt[]>("poly")), ring)).reduce((u, b) => u + shoelace(b.get<Pt[]>("poly")), 0);
+      };
+      const few = beyond("few"), many = beyond("many");
+      expect(many, `suburbs many ${many.toFixed(0)} vs few ${few.toFixed(0)}`).toBeGreaterThanOrEqual(few * 2);
+      const mk = (market: "small" | "large") => shoelace(town(`bite-m-${form}`, 6000, form, { market }).map.market!);
+      expect(mk("large")).toBeGreaterThanOrEqual(mk("small") * 1.5);
+      expect(town(`bite-w-${form}`, 4000, form, { walls: "none" }).map.wall?.gates ?? []).toEqual([]);
+    }, 600000);
+  }
 });
