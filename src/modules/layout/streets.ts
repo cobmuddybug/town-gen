@@ -7,6 +7,7 @@ import type { Rng } from "../../core/rng";
 import type { FarBank, LayoutPlan } from "../../core/types";
 import { add, centroid, dist, dot, len, mul, norm, perp, qp, qpoly, sub, type Poly, type Pt } from "./geom";
 import type { Footprint, HamletLayout, PlacedBuilding } from "./hamlet";
+import type { BlockKind, Open } from "./blocks";
 
 export type Scale = "thorp" | "village" | "town" | "city";
 export type Enclosure = "wall" | "palisade" | "hedge" | "none";
@@ -53,6 +54,10 @@ export interface TownLayout extends HamletLayout {
   high?: Poly[];
   /** river towns: the old village's green over the bridge */
   farGreen?: Poly;
+  /** towns of blocks: each block between the streets, and what it is */
+  blocks?: { outline: Poly; kind: BlockKind; ward: number }[];
+  /** towns of blocks: what is left open in them (yards, courts, greens, gardens, graveyards) */
+  opens?: Open[];
 }
 
 /** A plot: front-left, front-right, back-right, back-left. */

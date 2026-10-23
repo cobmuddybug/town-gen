@@ -111,7 +111,8 @@ export function fillBlock(r: Rng, face: Face, kind: BlockKind, front: (s: Side) 
   const insetBy = (d: number) => insetEdges(O, O.map((_, i) => (sideAt.has(i) ? d : 0)));
   let inner = insetBy(D);
   for (let k = 0; k < 14 && (inner.poly.length < 3 || long.some((i) => !inner.edges.includes(i))); k++) { D *= 0.87; inner = insetBy(D); }
-  if (inner.poly.length < 3 || D < 4) return { lots: [], open: [{ kind: "yard", poly: O }] };
+  // Too thin to hold a house: a strip of yard (or the water's edge, or a sliver between two streets).
+  if (inner.poly.length < 3 || D < 6) return { lots: [], open: [{ kind: "yard", poly: O }] };
   const I = inner.poly, src = inner.edges, m = I.length;
   const lots: Lot[] = [], open: Open[] = [];
   // Each kept edge j runs along outline edge src[j]; its back is the inner edge from I[j] to I[j+1].
@@ -134,7 +135,9 @@ export function fillBlock(r: Rng, face: Face, kind: BlockKind, front: (s: Side) 
     for (let k = (ep + 1) % n; ; k = (k + 1) % n) { verts.push(O[k]); if (k === en) break; }
     const angle = cornerAngle(O[ep], O[(ep + 1) % n], O[(ep + 2) % n]);
     const convex = verts.length > 1 || angle < 180;
-    if (!sp || !sn || !convex) {
+    // A blunt corner, its arms shorter than a lot: no corner house, the two rows just meet.
+    const armsShort = dist(Pp, O[(ep + 1) % n]) < 4 || dist(O[en], Pn) < 4;
+    if (!sp || !sn || !convex || armsShort) {
       // No corner piece: each street's run reaches the outline vertex, mitred to the inner one.
       ends[jp].end = { front: O[(ep + 1) % n], back: I[j], corner: false };
       ends[j].start = { front: O[en], back: I[j], corner: false };
@@ -177,7 +180,7 @@ export function fillBlock(r: Rng, face: Face, kind: BlockKind, front: (s: Side) 
     const dd = Math.min(range(r, KIND_SPEC[kind].depth), dist(Pp, O0) * 0.95, dist(Olast, Pn) * 0.95);
     const X = meet(add(Pp, mul(nP, dd)), eP, add(Pn, mul(nN, dd)), eN);
     // The house's inner corner must fall inside the corner: nearly parallel sides meet far off.
-    if (!X || !pointInPoly(X, c.region) || dist(X, O0) > 3 * dd + dist(O0, Olast)) { open.push({ kind: "yard", poly: qpoly(c.region) }); continue; }
+    if (dd < 4 || !X || !pointInPoly(X, c.region) || dist(X, O0) > 3 * dd + dist(O0, Olast)) { open.push({ kind: "yard", poly: qpoly(c.region) }); continue; }
     const lastIdxP = Math.max(0, ...lots.filter((l) => l.run === runP).map((l) => l.idx)) + 1;
     const fN = front(c.streetNext!), fP = front(c.streetPrev!);
     if (verts.length === 1 && c.angle <= 125 && r.chance(0.6)) {
@@ -199,7 +202,15 @@ export function fillBlock(r: Rng, face: Face, kind: BlockKind, front: (s: Side) 
       }
     }
     // One house round the corner.
-    lots.push(newLot(ids, [Pp, ...verts, Pn, add(Pn, mul(nN, dd)), X, add(Pp, mul(nP, dd))], c.streetNext!, fN, kind, runN, 0, dd, block, "L"));
+    // Its own run: a house on two lots never spans round a corner.
+    lots.push(newLot(ids, [Pp, ...verts, Pn, add(Pn, mul(nN, dd)), X, add(Pp, mul(nP, dd))], c.streetNext!, fN, kind, ids.run++, 0, dd, block, "L"));
+  }
+  // A lot too thin to hold a house (a leftover at an awkward corner) is yard.
+  for (let k = lots.length - 1; k >= 0; k--) {
+    const pl = lots[k].poly;
+    let longest = 0;
+    pl.forEach((v, i) => { longest = Math.max(longest, dist(v, pl[(i + 1) % pl.length])); });
+    if (area(pl) / Math.max(1e-9, longest) < 3) { open.push({ kind: "yard", poly: pl }); lots.splice(k, 1); }
   }
   // The middle.
   const mid = qpoly(I);

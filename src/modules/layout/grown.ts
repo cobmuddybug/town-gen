@@ -13,16 +13,23 @@
 import { PI, TAU, atan2, cos, hypot, q, sin } from "../../core/dmath";
 import type { Rng } from "../../core/rng";
 import type { FarBank } from "../../core/types";
-import { add, centroid, convexHull, convexOverlap, dot, mul, perp, pointInPoly, polylinePolyDist, qp, qpoly, rect, segPointDist, sub, type Poly, type Pt } from "./geom";
+import { add, area, centroid, convexHull, convexOverlap, dot, insetEdges, mul, perp, pointInPoly, polylinePolyDist, qp, qpoly, rect, segPointDist, sub, type Poly, type Pt } from "./geom";
 import type { Feature, FieldPiece, Footprint, PlacedBuilding, Road } from "./hamlet";
 import { CHURCH_SIZE, blob, building, compassOf, insetOutline, leftToRight, marketSize, nearestWard, plotsFor, type FrontKind, type Plot, type TownLayout, type WardGeo } from "./streets";
 import { contourLines, heightField } from "./height";
+import { blockFaces, nodeStreets, type Side } from "./graph";
+import { fillBlock, shapeOn, type BlockKind, type Lot, type Open } from "./blocks";
 import type { TownOpts } from "./radial";
 
 /** The shapes a grown town takes. */
 export type Form = "river" | "ridge" | "castle" | "street" | "crossroads" | "abbey" | "harbour";
 /** Forms with a far bank over their bridge. */
 export const BANKED: Form[] = ["river", "ridge"];
+/** The forms whose land between streets is cut into blocks (dense-blocks rework); the rest still cut rows of plots. */
+export const BLOCKED: Form[] = [];
+let blockedForms = new Set<Form>(BLOCKED);
+/** Tests only: try forms on blocks before they are switched over for good. */
+export function setBlockedForTest(forms: Form[]): void { blockedForms = new Set(forms.length ? forms : BLOCKED); }
 
 export interface RiverOpts extends TownOpts {
   /** the town's shape; a river town when absent */
@@ -33,6 +40,8 @@ export interface RiverOpts extends TownOpts {
   need: number;
   /** plots the far bank needs */
   farNeed?: number;
+  /** the land between streets is cut into blocks: no back lanes or cross lanes behind the fronts */
+  blocks?: boolean;
 }
 
 export interface RiverSite {
@@ -648,11 +657,12 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
   // The bridge gate stands back from the water, at the head of the bridge.
   if (walled && wallLine && hasBridge) gates.push({ p: add(foot, mul(into, 6)), t: into, road: "high" });
 
-  // 5. Back lanes: a plot's depth behind every street front in town, both sides.
+  // 5. Back lanes: a plot's depth behind every street front in town, both sides. (Not in a town of
+  // blocks: there the side streets are two lots apart, and the lots of both meet back to back.)
   const inTown = (p: Pt) => d2(p, centre) < (R * 1.02) ** 2;
   const fronts = streets.filter((s) => s.kind === "high" || s.kind === "main" || s.kind === "street");
   const backs: Street[] = [];
-  for (const st of fronts) for (const sd of [1, -1]) {
+  if (!o.blocks) for (const st of fronts) for (const sd of [1, -1]) {
     const off = offsetLine(st.points, sd * (depth + st.width / 2 + laneW / 2));
     let run: Pt[] = [];
     const flush = () => { if (run.length >= 3) backs.push({ id: `back${backs.length}`, kind: "back", width: laneW, points: run, bank: "near" }); run = []; };
@@ -951,7 +961,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   });
 
   // ---- the site and its streets ---------------------------------------------------
-  const ro: RiverOpts = { ...o, need: Math.ceil(needNear * 1.08), farNeed: Math.ceil(needFar * 1.15) };
+  const blocked = blockedForms.has(form);
+  const ro: RiverOpts = { ...o, need: Math.ceil(needNear * 1.08), farNeed: Math.ceil(needFar * 1.15), ...(blocked ? { blocks: true } : {}) };
   const site = riverSite(r, ro);
   const net = riverStreets(r, site, ro);
   const R = site.radius;
@@ -1039,6 +1050,7 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     for (const p of poly) { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }
     return [x0, y0, x1, y1];
   };
+  // `own` "*": a block's lot, which may touch any street's edge, and whose neighbours it was cut with.
   const clearWhy = (poly: Poly, own: string, prev = -1): string | undefined => {
     // Cheap tests first: how far a segment is from the plot's middle, whether two boxes meet at all.
     const c = centroid(poly);
@@ -1048,12 +1060,12 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     for (const k of keysOf(poly, 8)) for (const sg of sgrid.get(k) ?? []) {
       if (seen.has(sg)) continue;
       seen.add(sg);
-      const lim = sg.w / 2 - (sg.id === own ? 0.4 : -0.3);
+      const lim = sg.w / 2 - (sg.id === own || own === "*" ? 0.4 : -0.3);
       if (segPointDist(c, sg.a, sg.b) > rad + lim) continue;
       if (polylinePolyDist([sg.a, sg.b], poly, lim + 1) < lim) return "street:" + sg.id.replace(/\d+/g, "");
     }
     const bb = boxOf(poly);
-    for (const k of keysOf(poly)) for (const j of pgrid.get(k) ?? []) {
+    if (own !== "*") for (const k of keysOf(poly)) for (const j of pgrid.get(k) ?? []) {
       const o2 = boxes[j];
       if (o2[0] > bb[2] + 0.2 || o2[2] < bb[0] - 0.2 || o2[1] > bb[3] + 0.2 || o2[3] < bb[1] - 0.2) continue;
       // The plot before it on the street shares a side with it: touching is fine, crossing isn't.
@@ -1132,7 +1144,47 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     ...net.streets.filter((s) => s.kind === "high"), ...net.streets.filter((s) => s.kind === "main"), ...net.streets.filter((s) => s.kind === "quay"),
     ...net.streets.filter((s) => s.kind === "street"), ...net.streets.filter((s) => s.kind === "far"),
   ];
-  for (const st of order) for (const side of [1, -1] as const) cutAlong(st.points, side, st.width / 2, st.id, frontOf(st), st.bank === "far", st.bank === "far" ? depth * 0.9 : depth);
+  const blocksOut: { outline: Poly; kind: BlockKind; ward: number }[] = [];
+  const opens: Open[] = [];
+  if (!blocked) for (const st of order) for (const side of [1, -1] as const) cutAlong(st.points, side, st.width / 2, st.id, frontOf(st), st.bank === "far", st.bank === "far" ? depth * 0.9 : depth);
+  else {
+    // The land between the streets, block by block. The market's edge is a street of its own; the
+    // whole is closed a lot's depth beyond the outermost streets, so edge blocks have a back.
+    const lines = [...net.streets.map((st) => ({ id: st.id, width: st.width, points: st.points })), { id: "market", width: 3, points: [...market, market[0]] }];
+    const close = insetEdges(convexHull(lines.flatMap((l) => l.points)), -depth).poly;
+    const faces = blockFaces(nodeStreets(lines, 3), close);
+    const byId = new Map(net.streets.map((st) => [st.id, st]));
+    const ids = { next: 0, run: runs };
+    const midOf = (sd: Side): Pt => mul(add(sd.a, sd.b), 0.5);
+    const frontAt = (sd: Side): FrontKind => (sd.street === "market" ? "market" : frontOf(byId.get(sd.street)!)(midOf(sd)) ?? "suburb");
+    faces.forEach((f, fi) => {
+      const c = centroid(f.outline);
+      if (pointInPoly(c, market) || obstacles.slice(1).some((ob) => pointInPoly(c, ob))) return;
+      const fronts = f.sides.map(frontAt);
+      const near = hypot(c[0] - mc[0], c[1] - mc[1]);
+      const kind: BlockKind = fronts.includes("market") ? "shop"
+        : !inside(c) ? "croft"
+        : near < R * 0.35 && fronts.some((k) => k === "main" || k === "quay") ? "shop"
+        : area(f.outline) > 2400 && r.chance(0.2) ? "courtyard"
+        : near < R * 0.8 && r.chance(0.15) ? "wellOff"
+        : "ordinary";
+      const { lots, open } = fillBlock(r, f, kind, frontAt, ids, `k${fi}`);
+      blocksOut.push({ outline: qpoly(f.outline), kind, ward: -1 });
+      for (const l of lots) {
+        const lc = centroid(l.poly);
+        const far = hasFar && bank(lc) !== site.near;
+        if (!l.poly.every((q2) => riverClear(q2, 1) && bank(q2) === (far ? -site.near : site.near))) continue;
+        if (clearWhy(l.poly, "*")) continue;
+        const id = plots.length;
+        const order = far ? hypot(lc[0] - site.bridge.p[0], lc[1] - site.bridge.p[1]) : hypot(lc[0] - mc[0], lc[1] - mc[1]);
+        plots.push(Object.assign(l, { id, far, suburb: !far && l.kind === "suburb", order }));
+        boxes.push(boxOf(l.poly));
+        for (const k of keysOf(l.poly)) { const g = pgrid.get(k); if (g) g.push(id); else pgrid.set(k, [id]); }
+      }
+      for (const op of open) if (riverClear(centroid(op.poly), 2)) opens.push(op);
+    });
+    runs = ids.run;
+  }
 
   // ---- wards -----------------------------------------------------------------------
   const wards: WardGeo[] = [];
@@ -1563,7 +1615,7 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     if (!got) { spill.push(i); continue; }
     for (const x of got) x.used = true;
     if (p.kind) { const kk = familyOf(p.kind); const l = placedAt.get(kk) ?? []; l.push(centroid(got[0].poly)); placedAt.set(kk, l); }
-    result[i] = building(r, i, p, got, urban);
+    result[i] = blocked ? shapeOn(r, i, p, got as Lot[], (got[0] as Lot).kindOfBlock ?? "ordinary") : building(r, i, p, got, urban);
   }
   // Shrines and anything without a plot: at the street side or on the market.
   plan.forEach((p, i) => {
@@ -1757,6 +1809,7 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     ...(castle ? { castle } : {}),
     ...(high.length ? { high } : {}),
     contourLines: lowLines,
+    ...(blocked ? { blocks: blocksOut, opens } : {}),
   };
 }
 
