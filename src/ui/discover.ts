@@ -291,6 +291,11 @@ function index(town: Town): SearchEntry[] {
   return out;
 }
 
+/** Build the search index now (when the box gets focus), so the first key typed doesn't wait for it. */
+export function warmSearch(town: Town): void {
+  index(town);
+}
+
 /** Everything whose name or trade matches all the words of the query. In player view, aliases neither match nor show. */
 export function search(town: Town, query: string, limit = 60, opts: { player?: boolean; hide?: Set<Address> } = {}): { results: SearchEntry[]; total: number } {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);

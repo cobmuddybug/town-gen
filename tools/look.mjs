@@ -1,6 +1,7 @@
 // Drive headless Chromium over CDP: run JS steps against the dev server and screenshot.
 // node tools/look.mjs URL OUT.png ['js step' ...]   (each step may return a promise)
-// SIZE=WxH sets the window (default 1500x950); DARK=1 asks for the dark colour scheme.
+// SIZE=WxH sets the window (default 1500x950); DARK=1 asks for the dark colour scheme;
+// LOOK_WAIT=ms waits that long for the page before the first step (default 3000).
 import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -38,12 +39,15 @@ if (process.env.DARK) await send("Emulation.setEmulatedMedia", { features: [{ na
 else await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
 await send("Page.navigate", { url });
 await sleep(Number(process.env.LOOK_WAIT ?? 3000));
+// PROFILE=out.cpuprofile records a CPU profile of the steps (open it in Chrome's DevTools).
+if (process.env.PROFILE) { await send("Profiler.enable"); await send("Profiler.setSamplingInterval", { interval: 200 }); await send("Profiler.start"); }
 for (const s of steps) {
   const r = await send("Runtime.evaluate", { expression: `(async () => { ${s} })()`, awaitPromise: true, returnByValue: true });
   if (r.result?.exceptionDetails) console.log("[step error]", r.result.exceptionDetails.exception?.description);
   else if (r.result?.result?.value !== undefined) console.log("[step]", JSON.stringify(r.result.result.value));
   await sleep(300);
 }
+if (process.env.PROFILE) writeFileSync(process.env.PROFILE, JSON.stringify((await send("Profiler.stop")).result.profile));
 const shot = await send("Page.captureScreenshot", { format: "png" });
 writeFileSync(out, Buffer.from(shot.result.data, "base64"));
 ws.close();

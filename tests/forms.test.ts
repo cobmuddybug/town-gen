@@ -148,6 +148,19 @@ describe("walls across many towns", () => {
 });
 
 describe("the rest of the town follows the form", () => {
+  // The country panel names where each road out of town leads, not every street in it.
+  test.each(["river", ...FORMS] as const)("a %s town's roads out are its main roads, not its streets", (form) => {
+    for (const pop of [800, 6000]) {
+      const { t } = town(`out-${form}`, pop, form, { walls: "wall" });
+      const rows = (t.modules.flatMap((m) => m.panels ?? []).find((p) => p.id === "country")!.rows(t, t.settlement())).filter((r) => r.label.startsWith("Road "));
+      const gates = new Set((t.settlement().get<MapData>("map").wall?.gates ?? []).map((g) => g.road));
+      expect(rows.length, `${pop}`).toBeGreaterThanOrEqual(2);
+      expect(rows.length, `${pop}`).toBeLessThanOrEqual(5);
+      // Every gate is on a road out; a harbour road along the shore can leave without one.
+      expect(rows.length, `${pop}`).toBeGreaterThanOrEqual(gates.size);
+    }
+  }, 600000);
+
   test("a ridge town has both a higher and a lower part", () => {
     for (const [seed, pop] of [["hl1", 1500], ["hl2", 4000], ["hl3", 9000], ["hl4", 1500], ["hl5", 2500]] as const) {
       const { t } = town(`ridge-${seed}`, pop, "ridge");

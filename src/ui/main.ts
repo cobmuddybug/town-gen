@@ -9,7 +9,7 @@ import { renderMap, renderPeople } from "./map";
 import { describeDate, parseDate, type Block, whenOf } from "../core/calendar";
 import { occupancy } from "../modules/routines";
 import { describeHour } from "../modules/gossip";
-import { almanac, dayOf, LENSES, lensView, placeName, whoKnows, type Fact, type Lens } from "./discover";
+import { almanac, dayOf, LENSES, lensView, placeName, warmSearch, whoKnows, type Fact, type Lens } from "./discover";
 import { fetchKept, forget, keep, listKept, townKey } from "./library";
 import { MANOR_MAX, PLAN_MIN, newTownHtml, settingsFromForm, sizePreview } from "./newtown";
 import { clockLabel, stepClock, townMenuHtml } from "./topbar";
@@ -83,6 +83,30 @@ function setTown(t: Town, keepView = false) {
   drawInspector();
 }
 
+// ---- rebuilding ------------------------------------------------------------
+
+// A city takes a few seconds to build, and every edit rebuilds it. The work waits a frame so the
+// page can say so; the notice itself fades in late, so a hamlet's rebuild never flickers.
+const busyEl = document.createElement("div");
+busyEl.id = "busy";
+busyEl.hidden = true;
+busyEl.setAttribute("role", "status");
+document.body.append(busyEl);
+let building = false;
+
+/** Build a town with `make` and show it, after a frame in which the page says it's working. */
+function rebuild(make: () => Town, keepView = false, what = "Rebuilding the town…", failed?: (err: Error) => void) {
+  if (building) return;
+  building = true;
+  busyEl.innerHTML = `<p>${esc(what)}</p>`;
+  busyEl.hidden = false;
+  requestAnimationFrame(() => setTimeout(() => {
+    try { setTown(make(), keepView); }
+    catch (err) { if (failed) failed(err as Error); else throw err; }
+    finally { building = false; busyEl.hidden = true; }
+  }, 0));
+}
+
 /** Remember the current town, and keep it in the library if it has been worked on. */
 function store() {
   try {
@@ -135,7 +159,7 @@ menuEl.addEventListener("click", (ev) => {
     if (!save) { drawTowns(); return; }
     selected = undefined;
     follow = undefined;
-    setTown(load(save, modules));
+    rebuild(() => load(save, modules), false, "Opening the town…");
   } else if (act === "download") {
     const blob = new Blob([serialize(town)], { type: "application/json" });
     const a = document.createElement("a");
@@ -156,7 +180,7 @@ menuEl.addEventListener("click", (ev) => {
     try { forget(localStorage, townKey(town.toSave())); } catch { /* ignore */ }
     const save = town.toSave();
     selected = undefined;
-    setTown(load({ ...save, overlay: {}, pinned: {}, events: [] }, modules));
+    rebuild(() => load({ ...save, overlay: {}, pinned: {}, events: [] }, modules));
   }
 });
 $<HTMLInputElement>("#load").addEventListener("change", async (ev) => {
@@ -164,11 +188,13 @@ $<HTMLInputElement>("#load").addEventListener("change", async (ev) => {
   const file = input.files?.[0];
   input.value = "";
   if (!file) return;
+  const fail = (err: Error) => alert(`Couldn't load that file: ${err.message}`);
   try {
+    const save = JSON.parse(await file.text()) as SaveFile;
     selected = undefined;
-    setTown(load(JSON.parse(await file.text()) as SaveFile, modules));
+    rebuild(() => load(save, modules), false, "Opening the town…", fail);
   } catch (err) {
-    alert(`Couldn't load that file: ${(err as Error).message}`);
+    fail(err as Error);
   }
 });
 
@@ -299,7 +325,7 @@ function walk(step: number) {
 }
 
 function edit(address: Address, key: string, value: unknown) {
-  setTown(withEdit(town, modules, address, key, value), true);
+  rebuild(() => withEdit(town, modules, address, key, value), true);
 }
 
 // ---- map -----------------------------------------------------------------
@@ -335,6 +361,7 @@ function drawMap() {
     mapToolsHtml() +
     `<div class="zoom" role="group" aria-label="Map view"><button data-zoom="in" aria-label="Zoom in" title="Zoom in">+</button><button data-zoom="out" aria-label="Zoom out" title="Zoom out">−</button><button data-zoom="fit" title="Fit the whole settlement">Fit</button><button data-zoom="party" title="Place the party: click the map (or right-click anywhere)">Party</button></div><div id="map-tip" hidden></div>`;
   const svg = mapEl.querySelector("svg")!;
+  shapes = undefined; markedSel = undefined; markedHi = new Set(); tinted = false;
   if (!view) view = fitVillage();
   applyView(svg);
   markMap();
@@ -416,15 +443,19 @@ function drawTip() {
 
 const f1 = (n: number) => n.toFixed(1);
 
+let tinted = false;
+
 function drawLens() {
   const svg = mapEl.querySelector("svg");
   if (!svg) return;
   svg.querySelector(".m-lens")?.remove();
   const lv = lensView(town, lens, selected);
-  svg.querySelectorAll<SVGGElement>("g[data-address]").forEach((g) => {
-    const fill = lv.fills.get(g.dataset.address!);
-    g.querySelectorAll<SVGElement>(".m-bld").forEach((p) => { p.style.fill = lens === "none" ? "" : fill ?? "var(--map-dim,#e6e0cc)"; });
-  });
+  // A plain map has nothing to clear unless a lens tinted it.
+  if (lens !== "none" || tinted) for (const [a, els] of shapesOf()) {
+    const fill = lv.fills.get(a);
+    for (const p of els) p.style.fill = lens === "none" ? "" : fill ?? "var(--map-dim,#e6e0cc)";
+  }
+  tinted = lens !== "none";
   if (lv.lines.length) {
     const g = lv.lines.map((l) => `<line x1="${f1(l.from[0])}" y1="${f1(l.from[1])}" x2="${f1(l.to[0])}" y2="${f1(l.to[1])}" stroke="${l.colour}" class="m-thread"><title>${esc(l.title)}</title></line>`).join("");
     const people = svg.querySelector(".m-people");
@@ -514,16 +545,36 @@ function screenToMap(clientX: number, clientY: number): [number, number] {
   return [v[0] + (clientX - r.left - f.ox) / f.s, v[1] + (clientY - r.top - f.oy) / f.s];
 }
 
-function markMap(highlight: Address[] = []) {
-  const sel = selected ? buildingOf(selected) : undefined;
-  const hi = new Set(highlight.map(buildingOf).filter(Boolean));
+// The map's building shapes by address, found once each time the map is drawn: a city has
+// thousands, and marking or tinting them all on every click was most of a click's time.
+let shapes: Map<Address, SVGElement[]> | undefined;
+function shapesOf(): Map<Address, SVGElement[]> {
+  if (shapes) return shapes;
+  shapes = new Map();
   mapEl.querySelectorAll<SVGGElement>("g[data-address]").forEach((g) => {
     const a = g.dataset.address!;
-    g.querySelectorAll(".m-bld").forEach((p) => {
-      p.classList.toggle("sel", a === sel);
-      p.classList.toggle("m-hi", hi.has(a));
-    });
+    const l = shapes!.get(a) ?? [];
+    l.push(...g.querySelectorAll<SVGElement>(".m-bld"));
+    shapes!.set(a, l);
   });
+  return shapes;
+}
+// What is marked now, so a new mark only touches what changes.
+let markedSel: Address | undefined;
+let markedHi = new Set<Address>();
+
+function markMap(highlight: Address[] = []) {
+  const sel = selected ? buildingOf(selected) : undefined;
+  const hi = new Set(highlight.map(buildingOf).filter((a): a is Address => !!a));
+  const mark = (a: Address, cls: string, on: boolean) => shapesOf().get(a)?.forEach((p) => p.classList.toggle(cls, on));
+  if (markedSel !== sel) {
+    if (markedSel) mark(markedSel, "sel", false);
+    if (sel) mark(sel, "sel", true);
+    markedSel = sel;
+  }
+  for (const a of markedHi) if (!hi.has(a)) mark(a, "m-hi", false);
+  for (const a of hi) if (!markedHi.has(a)) mark(a, "m-hi", true);
+  markedHi = hi;
 }
 
 /** Bring a thing into view: centre its building, close enough to read, gliding there. */
@@ -681,9 +732,13 @@ function rowHtml(e: Address, r: PanelRow, starrable = false): string {
   const src = cited.length && !showSources ? ` <span class="src" title="${esc(cited.join("; "))}">§</span>` : "";
   const hint = (r.fact ? ` <button class="knows" data-fact="${esc(r.fact)}" title="Who knows this, and where to find them">who knows?</button>` : "") + (hintText ? `<span class="hint">${esc(hintText)}</span>` : "") + src;
   const opts = r.options ? ` data-options="${esc(r.options.join("|"))}"` : "";
-  const hi = r.highlight?.length ? ` data-involves="${esc(r.highlight.join(" "))}"` : "";
+  const hi = !r.highlight?.length ? "" : r.highlight.length > 24 ? ` data-inv="${involved.push(r.highlight) - 1}"` : ` data-involves="${esc(r.highlight.join(" "))}"`;
   return `<dt>${esc(r.label)}</dt><dd class="${edited ? "edited" : ""}" data-key="${esc(r.key ?? "")}"${opts}${hi}><span class="val">${valueHtml(r.value)}${hint}</span>${tools}</dd>`;
 }
+
+// Long highlight lists (every house a story has reached) stay here, not in the page: a city's
+// talk wrote a third of a megabyte of addresses into the town page. Rows point in by index.
+let involved: Address[][] = [];
 
 function panelsFor(e: Address): PanelSpec[] {
   const type = town.get(e).type;
@@ -909,6 +964,7 @@ function followHtml(p: Address): string {
 }
 
 function drawInspector() {
+  involved = [];
   if (player && (page === "underworld" || page === "knows")) page = "inspect";
   if (player && selected && isUnderworld(selected)) selected = undefined;
   insp.classList.toggle("wide", page === "directory");
@@ -923,7 +979,7 @@ function drawInspector() {
         const save = town.toSave();
         save.party = { ...save.party!, name: name.value.trim() || undefined };
         if (!save.party.name) delete save.party.name;
-        setTown(load(save, modules), true);
+        rebuild(() => load(save, modules), true);
       });
       const deed = insp.querySelector<HTMLInputElement>("#deed-text");
       deed?.addEventListener("keydown", (k) => { if (k.key === "Enter") logDeed(); });
@@ -996,15 +1052,28 @@ function drawInspector() {
     h.push(`<details class="panel" open><summary>Institutions</summary><ul class="links">${council.map((c) => `<li>${link(c.address)}</li>`).join("")}</ul></details>`);
     const hooks = player ? [] : findHooks(town);
     if (!player) h.push(`<details class="panel" open><summary>Hooks</summary>${hooks.length ? hooks.map((k) => `<div class="hook" data-involves="${esc(k.involves.join(" "))}"><h3>${esc(k.title)}</h3><p>${esc(k.summary)}</p><p>${k.involves.map((a) => link(a)).join(", ")}</p></div>`).join("") : '<p class="sub">Nothing has come to light. Try another seed, or look closer.</p>'}</details>`);
-    const byUse = new Map<string, Address[]>();
-    for (const b of town.children(e, "building")) {
-      const l = town.label(b.address);
-      byUse.set(l, [...(byUse.get(l) ?? []), b.address]);
-    }
-    h.push(`<details class="panel"><summary>Buildings</summary><dl class="rows">${[...byUse].map(([l, as]) => `<dt>${esc(l)}</dt><dd><span class="val">${as.map((a, i) => link(a, String(i + 1))).join(" ")}</span></dd>`).join("")}</dl></details>`);
+    // A city has thousands of buildings: the list is drawn when it's opened, not on every visit.
+    h.push(`<details class="panel" id="all-buildings"><summary>Buildings</summary></details>`);
   }
   insp.innerHTML = h.join("");
 }
+
+function buildingsHtml(): string {
+  const byUse = new Map<string, Address[]>();
+  for (const b of town.children(town.root, "building")) {
+    const l = town.label(b.address);
+    const as = byUse.get(l);
+    if (as) as.push(b.address); else byUse.set(l, [b.address]);
+  }
+  return `<dl class="rows">${[...byUse].map(([l, as]) => `<dt>${esc(l)}</dt><dd><span class="val">${as.map((a, i) => link(a, String(i + 1))).join(" ")}</span></dd>`).join("")}</dl>`;
+}
+function fillBuildings(d: HTMLDetailsElement) {
+  if (!d.querySelector("dl")) d.insertAdjacentHTML("beforeend", buildingsHtml());
+}
+insp.addEventListener("toggle", (ev) => {
+  const d = ev.target as HTMLDetailsElement;
+  if (d.id === "all-buildings" && d.open) fillBuildings(d);
+}, true);
 
 insp.addEventListener("click", (ev) => {
   const t = ev.target as HTMLElement;
@@ -1039,7 +1108,7 @@ insp.addEventListener("click", (ev) => {
   if (t.closest("[data-roll]")) { rolls++; drawInspector(); return; }
   if (t.closest("[data-deed]")) { logDeed(); return; }
   const ud = t.closest<HTMLElement>("[data-undeed]");
-  if (ud) { setTown(withoutEvent(town, modules, Number(ud.dataset.undeed)), true); return; }
+  if (ud) { rebuild(() => withoutEvent(town, modules, Number(ud.dataset.undeed)), true); return; }
   if (t.closest("[data-party-clear]")) { town.party = undefined; store(); drawParty(); drawInspector(); return; }
   const e = selected ?? town.root;
   const sb = t.closest<HTMLElement>("[data-star]");
@@ -1049,7 +1118,7 @@ insp.addEventListener("click", (ev) => {
     const key = sb.dataset.star!;
     const st = starsOf(town, e).find((x) => x.label === key || (!x.label.includes("\u2063") && key.startsWith(x.label + "\u2063")));
     if (!st) town.events.push({ kind: "star", target: e, text: key, date: town.clock.date });
-    else if (town.events.slice(st.index + 1).some((x) => x.kind === "deed")) { setTown(withoutEvent(town, modules, st.index), true); return; }
+    else if (town.events.slice(st.index + 1).some((x) => x.kind === "deed")) { rebuild(() => withoutEvent(town, modules, st.index), true); return; }
     else town.events.splice(st.index, 1);
     store();
     drawTowns();
@@ -1063,9 +1132,9 @@ insp.addEventListener("click", (ev) => {
     return;
   }
   const pin = t.closest<HTMLElement>("[data-pin]");
-  if (pin) { setTown(withPin(town, modules, e, pin.dataset.pin === "on"), true); return; }
+  if (pin) { rebuild(() => withPin(town, modules, e, pin.dataset.pin === "on"), true); return; }
   const rr = t.closest<HTMLElement>("[data-reroll]");
-  if (rr) { setTown(withReroll(town, modules, e, rr.dataset.reroll!), true); return; }
+  if (rr) { rebuild(() => withReroll(town, modules, e, rr.dataset.reroll!), true); return; }
   const rs = t.closest<HTMLElement>("[data-reset]");
   if (rs) { edit(e, rs.dataset.reset!, undefined); return; }
   const ed = t.closest<HTMLElement>("[data-edit]");
@@ -1087,15 +1156,15 @@ insp.addEventListener("keydown", (ev) => {
 });
 
 insp.addEventListener("mouseover", (ev) => {
-  const hook = (ev.target as HTMLElement).closest<HTMLElement>("[data-involves]");
-  markMap(hook ? hook.dataset.involves!.split(" ") : []);
+  const hook = (ev.target as HTMLElement).closest<HTMLElement>("[data-involves], [data-inv]");
+  markMap(!hook ? [] : hook.dataset.inv !== undefined ? involved[Number(hook.dataset.inv)] ?? [] : hook.dataset.involves!.split(" "));
 });
 
 /** Print the inspector with every section open and a map inset: the whole place, or around the building. */
 function printPage() {
   document.body.classList.add("printing");
   const closed = [...insp.querySelectorAll<HTMLDetailsElement>("details:not([open])")];
-  closed.forEach((d) => { d.open = true; });
+  closed.forEach((d) => { d.open = true; if (d.id === "all-buildings") fillBuildings(d); });
   const svg = mapEl.querySelector("svg")!;
   const b = selected ? buildingOf(selected) : undefined;
   let box = fitVillage();
@@ -1127,7 +1196,7 @@ function logDeed() {
   if (!at) return;
   const save = town.toSave();
   save.events = eventsWithDeed(save.events, { kind: "deed", date: town.clock.date, block: town.clock.block, at, text });
-  setTown(load(save, modules), true);
+  rebuild(() => load(save, modules), true);
 }
 
 function startEdit(e: Address, dd: HTMLElement, key: string) {
@@ -1167,13 +1236,14 @@ form.addEventListener("submit", (ev) => {
   selected = undefined;
   follow = undefined;
   const { seed, settings } = settingsFromForm((k) => fd.get(k) as string | null);
-  setTown(fresh(seed ?? randomSeed(), settings));
+  rebuild(() => fresh(seed ?? randomSeed(), settings), false, `Building a town of ${settings.pop.toLocaleString()}…`);
 });
 
 // ---- search ----------------------------------------------------------------
 
 const searchEl = $<HTMLInputElement>("#search");
 const palEl = $<HTMLElement>("#palette");
+searchEl.addEventListener("focus", () => { if (town) warmSearch(town); });
 let palGroups: PaletteGroup[] = [];
 let palActive = 0;
 
@@ -1264,7 +1334,7 @@ playerBtn.addEventListener("click", () => setPlayer(!player));
 // ---- keys ----------------------------------------------------------------
 
 document.addEventListener("keydown", (e) => {
-  if (dialog.open) return;
+  if (dialog.open || building || !town) return;
   const act = keyAction(e, isTypingTarget(document.activeElement));
   if (!act) return;
   e.preventDefault();
@@ -1275,7 +1345,12 @@ document.addEventListener("keydown", (e) => {
   else if (act === "later") stepBy(1);
   else if (act === "player") setPlayer(!player);
 });
-window.addEventListener("resize", () => { view = undefined; drawMap(); });
+// The map is drawn to scale already: a resize only fits the view again, once the window settles.
+let resizing: ReturnType<typeof setTimeout> | undefined;
+window.addEventListener("resize", () => {
+  if (resizing) clearTimeout(resizing);
+  resizing = setTimeout(() => { if (!town || !mapEl.querySelector("svg")) return; view = fitVillage(); applyView(); }, 120);
+});
 
 // ---- start ---------------------------------------------------------------
 
@@ -1306,5 +1381,19 @@ function fresh(seed: string, settings: Parameters<typeof generate>[1] = {}) {
   t.clock = { date: ordinaryDay(t), block: "forenoon" };
   return t;
 }
-start();
-setPlayer(player);
+// The first town waits a frame too, so the page shows it's working rather than sitting blank.
+busyEl.innerHTML = "<p>Building the town…</p>";
+busyEl.hidden = false;
+requestAnimationFrame(() => setTimeout(() => {
+  try { start(); }
+  catch (err) {
+    // A link to a town that can't be built (an old or mistyped setting) still opens on a town.
+    console.error(err);
+    setTown(fresh(randomSeed()));
+    town.warnings.push(`That link's town couldn't be built (${(err as Error).message}), so here is a new one.`);
+    drawInspector();
+  }
+  finally { busyEl.hidden = true; }
+  setPlayer(player);
+  performance.mark("town-ready");
+}, 0));
