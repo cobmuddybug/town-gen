@@ -63,7 +63,7 @@ const DRINK = ["tavern", "town_alehouse", "alehouse", "inn"];
 // Where a parish hears mass. A wayside shrine holds a dozen, not a congregation.
 const PARISH = ["fane", "temple", "grand_temple", "chapel"];
 // Public buildings where somebody may sleep, but nobody receives friends.
-const OFFICIAL = new Set(["watch_house", "gatehouse", "guildhall", "market_hall", "courthouse", "gaol", "castle", "school", "hospital", "lazar_house", "friary", "priory", "cell", "nunnery"]);
+const OFFICIAL = new Set(["watch_house", "gatehouse", "guildhall", "market_hall", "courthouse", "gaol", "castle", "school", "hospital", "lazar_house", "friary", "priory", "cell", "abbey", "nunnery"]);
 // Trades that keep working when everyone else keeps the feast.
 const SERVING = new Set(["alehouse", "innkeeper", "taverner", "bathhouse", "cook"]);
 // Offices that put a man on the streets at night (set by the civic module).
@@ -162,7 +162,7 @@ function place(town: Town, p: Entity, where: string): string {
       case "chapel": case "church": {
         // A cleric's church is his own; everyone else goes to the nearest parish church.
         const role = p.get<string>("role");
-        if (role === "cleric" || (role === "head" && /priest|provost|bishop|chaplain|prior|warden|master/.test(p.get<string>("occupation") ?? town.get(town.parentOf(p.address)!).get<string>("occupation")))) return home;
+        if (role === "cleric" || (role === "head" && /priest|provost|bishop|chaplain|prior|abbot|warden|master/.test(p.get<string>("occupation") ?? town.get(town.parentOf(p.address)!).get<string>("occupation")))) return home;
         const parish = town.get(town.parentOf(p.address)!).get<string | null>("parish");
         return parish ?? nearestBuilding(town, home, PARISH) ?? "place:streets";
       }

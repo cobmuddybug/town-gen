@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { Rng } from "../src/core/rng";
 import { segPointDist, type Pt } from "../src/modules/layout/geom";
 import { heightField } from "../src/modules/layout/height";
-import { riverSite, riverStreets, sideOf, type RiverOpts, type RiverSite, type StreetNet } from "../src/modules/layout/river";
+import { riverSite, riverStreets, sideOf, type RiverOpts, type RiverSite, type StreetNet } from "../src/modules/layout/grown";
 import { convexOverlap, pointInPoly, polylinePolyDist } from "../src/modules/layout/geom";
 import type { MapData } from "../src/modules/layout";
 import type { Town } from "../src/core/town";
@@ -16,15 +16,29 @@ const settlement = (seed: string, pop: number, design?: Design, base = "agricult
   generate(seed, { pop, base, ...(design ? { design } : {}) }).settlement();
 
 describe("rolling the layout and the far bank", () => {
-  test("about two in three street plans are river towns", () => {
-    const n = Array.from({ length: 150 }, (_, i) => settlement(`rv${i}`, 1500).get("layoutPlan")).filter((x) => x === "river").length;
-    expect(n / 150).toBeGreaterThan(0.55);
-    expect(n / 150).toBeLessThan(0.78);
+  test("on farmland the dice give every inland plan, river towns most, no harbours", () => {
+    const plans = Array.from({ length: 200 }, (_, i) => settlement(`rv${i}`, 1500).get<string>("layoutPlan"));
+    const share = (p: string) => plans.filter((x) => x === p).length / plans.length;
+    expect(share("river")).toBeGreaterThan(0.17);
+    expect(share("river")).toBeLessThan(0.36);
+    for (const p of ["ridge", "castle", "street", "crossroads", "abbey", "radial"]) expect(share(p), p).toBeGreaterThan(0.01);
+    expect(share("harbour")).toBe(0);
   });
 
-  test("coast towns are radial unless the DM chooses", () => {
-    for (let i = 0; i < 20; i++) expect(settlement(`cs${i}`, 2000, undefined, "fishing").get("layoutPlan")).toBe("radial");
+  test("a fishing town is a harbour about half the time, and the DM can choose otherwise", () => {
+    const plans = Array.from({ length: 80 }, (_, i) => settlement(`cs${i}`, 2000, undefined, "fishing").get<string>("layoutPlan"));
+    const h = plans.filter((x) => x === "harbour").length / plans.length;
+    expect(h).toBeGreaterThan(0.35);
+    expect(h).toBeLessThan(0.68);
     expect(settlement("cs0", 2000, { layout: "river" }, "fishing").get("layoutPlan")).toBe("river");
+  });
+
+  test("castle-gate and abbey-gate towns bring their castle and abbey; no castle-gate without a castle", () => {
+    expect(settlement("cg", 3000, { layout: "castle" }).get<string[]>("plan")).toContain("castle");
+    expect(settlement("ag", 3000, { layout: "abbey" }).get<string[]>("plan")).toContain("abbey");
+    expect(settlement("cg", 3000, { layout: "castle", castle: false }).get("layoutPlan")).toBe("crossroads");
+    // Villages don't roll them.
+    for (let i = 0; i < 60; i++) expect(["castle", "abbey"]).not.toContain(settlement(`vg${i}`, 900).get("layoutPlan"));
   });
 
   test("hamlets have no layout plan", () => {
@@ -329,7 +343,7 @@ describe("river towns in the generator", () => {
   }, 300000);
 
   test("the layout module is at 2.0", () => {
-    expect(defaultModules.find((m) => m.id === "layout")!.version).toBe("2.0.0");
+    expect(defaultModules.find((m) => m.id === "layout")!.version).toBe("2.1.0");
   });
 });
 

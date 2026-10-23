@@ -23,6 +23,17 @@ export interface UrbanPlan {
 }
 
 const FAR_ODDS: [FarBank, number][] = [["village", 0.35], ["bridgend", 0.3], ["abbey", 0.15], ["wharf", 0.2]];
+// Which street plan the dice pick, by the lie of the land (columns as in LAYOUTS).
+const LAYOUTS: LayoutPlan[] = ["river", "ridge", "castle", "street", "crossroads", "abbey", "harbour", "radial"];
+const LAYOUT_ODDS: Record<string, number[]> = {
+  farmland: [0.25, 0.05, 0.15, 0.2, 0.2, 0.1, 0, 0.05],
+  hills: [0.2, 0.25, 0.25, 0.05, 0.1, 0.1, 0, 0.05],
+  moor: [0.2, 0.25, 0.25, 0.05, 0.1, 0.1, 0, 0.05],
+  forest: [0.25, 0.1, 0.15, 0.2, 0.15, 0.1, 0, 0.05],
+  coast: [0.2, 0.05, 0.05, 0.05, 0.05, 0.05, 0.5, 0.05],
+};
+/** Street plans with a far bank over their bridge. */
+const BANKED: LayoutPlan[] = ["river", "ridge"];
 
 // People per household in a shop or workshop, counting servants and apprentices (measured).
 const PEOPLE = 4.8;
@@ -128,14 +139,24 @@ export function planUrban(
 }
 
 /** A street plan's layout and far bank: drawn last and always, so a choice moves nothing else.
- *  A coast town is radial unless the DM says otherwise: the radial plan has the sea.
- *  For a river town, `plan` gains the far bank's signature buildings. */
+ *  The dice weigh the plans by the lie of the land; a harbour only on the coast.
+ *  `plan` gains the layout's signature buildings: a castle-gate town's castle, an abbey-gate town's
+ *  abbey, a river or ridge town's far-bank buildings. */
 export function rollLayout(r: Rng, plan: string[], pop: number, base: Base, useReg: Registry<BuildingUse>, design?: Design): Pick<UrbanPlan, "layout" | "farBank" | "far"> {
-  const rolledPlan: LayoutPlan = r.chance(2 / 3) && base.terrain !== "coast" ? "river" : "radial";
+  const odds = LAYOUT_ODDS[base.terrain] ?? LAYOUT_ODDS.farmland;
+  let rolledPlan = r.weighted(LAYOUTS.map((l, i) => [l, odds[i]] as [LayoutPlan, number]), ([, w]) => w)[0];
   let rolledBank = r.weighted(FAR_ODDS, ([, w]) => w)[0];
   if (rolledBank === "wharf" && pop < 1001) rolledBank = "village";
-  const layout = design?.layout ?? rolledPlan;
-  if (layout !== "river") return { layout, far: [] };
+  // Castles and abbeys make towns, not villages; and a castle-gate town needs its castle.
+  if ((rolledPlan === "castle" || rolledPlan === "abbey") && pop < 1001) rolledPlan = "river";
+  if (rolledPlan === "castle" && design?.castle === false) rolledPlan = "crossroads";
+  // A town of one street is a small market town (Chipping Campden, Thame: two or three thousand souls).
+  if (rolledPlan === "street" && pop > 3000) rolledPlan = "crossroads";
+  let layout = design?.layout ?? rolledPlan;
+  if (layout === "castle" && design?.castle === false) layout = "crossroads";
+  if (layout === "castle" && !plan.includes("castle") && useReg.has("castle")) plan.push("castle");
+  if (layout === "abbey" && useReg.has("abbey")) plan.push("abbey");
+  if (!BANKED.includes(layout)) return { layout, far: [] };
   const farBank = design?.farBank ?? rolledBank;
   return { layout, farBank, far: farBankUses(r, plan, farBank, pop, base, useReg) };
 }

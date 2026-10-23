@@ -183,8 +183,9 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
   for (const r of m.roads) if (r.kind === "track") out.push(`<path class="m-track" stroke-width="${r.width}" d="${smoothPath(r.points, false)}"/>`);
   for (const r of m.roads) if (r.kind !== "track") out.push(`<path class="m-road-edge" stroke-width="${r.width + 1.2}" d="${smoothPath(r.points, false)}"/>`);
   for (const r of m.roads) if (r.kind !== "track") out.push(`<path class="m-road" stroke-width="${r.width}" d="${smoothPath(r.points, false)}"/>`);
-  // A river town's bridges: a stone deck across the water, along the road.
-  if (m.plan === "river") for (const b of m.bridges ?? []) {
+  // A grown town's bridges: a stone deck across the water, along the road.
+  const grown = !!m.plan && m.plan !== "radial";
+  if (grown) for (const b of m.bridges ?? []) {
     const pts = m.stream.points;
     let bi = 0, bd = Infinity;
     pts.forEach((p, i) => { const d = (p[0] - b[0]) ** 2 + (p[1] - b[1]) ** 2; if (d < bd) { bd = d; bi = i; } });
@@ -195,7 +196,7 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
     const q = [[L, W], [L, -W], [-L, -W], [-L, W]].map(([u, v]) => `${f(b[0] + n[0] * u + t[0] * v)},${f(b[1] + n[1] * u + t[1] * v)}`).join(" ");
     out.push(`<polygon class="m-bridge-deck" points="${q}"><title>the bridge</title></polygon>`);
   }
-  if (m.plan !== "river") for (const b of m.bridges ?? []) {
+  if (!grown) for (const b of m.bridges ?? []) {
     out.push(`<circle class="m-bridge" cx="${f(b[0])}" cy="${f(b[1])}" r="${f(m.stream.width * 0.75)}"><title>the bridge</title></circle>`);
   }
   if (m.coast && m.sea) {

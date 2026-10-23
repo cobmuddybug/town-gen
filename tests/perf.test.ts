@@ -38,3 +38,16 @@ test.skipIf(!process.env.PERF)("perf: a river town lays out within twice the rad
   }).sort((x, y) => x - y);
   expect(ratios[2]).toBeLessThanOrEqual(2);
 }, 600000);
+
+test.skipIf(!process.env.PERF)("perf: every grown form lays out within twice the radial time", () => {
+  const time = (seed: string, layout: string) => {
+    const t0 = performance.now();
+    generate(seed, { pop: 30000, design: { layout: layout as never } }).settlement().get("map");
+    return performance.now() - t0;
+  };
+  time("perf-warm-g", "radial");
+  for (const form of ["ridge", "castle", "street", "crossroads", "abbey", "harbour"]) {
+    const ratios = ["g1", "g2", "g3"].map((s) => time(`perf-${form}-${s}`, form) / time(`perf-rad-${form}-${s}`, "radial")).sort((a, b) => a - b);
+    expect(ratios[1], form).toBeLessThanOrEqual(2);
+  }
+}, 900000);

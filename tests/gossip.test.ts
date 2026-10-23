@@ -49,7 +49,10 @@ describe("gossip", () => {
     const victim = r.lastToKnow.find((p) => !(e.knownBy as string[]).includes(p));
     if (victim) {
       const home = town.parentOf(town.parentOf(victim)!)!;
-      expect(heardAt(town, r, victim)!).toBeGreaterThanOrEqual(spread(town, r).get(home)!.at + 70);
+      // In a big town a secret may never reach the street of the one it's about; when it does, they hear last.
+      const there = spread(town, r).get(home);
+      if (there) expect(heardAt(town, r, victim)!).toBeGreaterThanOrEqual(there.at + 70);
+      else expect(heardAt(town, r, victim)).toBeUndefined();
     }
     const child = town.allEntities().find((p) => p.type === "person" && p.get<number>("age") < 12)!;
     expect(heardAt(town, r, child.address)).toBeUndefined();

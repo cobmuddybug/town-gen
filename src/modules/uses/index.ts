@@ -86,7 +86,7 @@ const CONDITIONS = ["sound", "sound", "sound", "weathered", "weathered", "in wan
 
 export const uses: Module = {
   id: "uses",
-  version: "2.0.0",
+  version: "2.1.0",
   requires: ["core"],
   provides: ["buildingUses", "occupations"],
   register(add) {
@@ -207,7 +207,7 @@ export const uses: Module = {
   },
 };
 
-const STONE = new Set(["grand_temple", "temple", "fane", "chapel", "chantry", "friary", "priory", "cell", "nunnery", "castle", "gatehouse", "guildhall", "courthouse", "gaol"]);
+const STONE = new Set(["grand_temple", "temple", "fane", "chapel", "chantry", "friary", "priory", "cell", "abbey", "nunnery", "castle", "gatehouse", "guildhall", "courthouse", "gaol"]);
 
 /** Street plans: the ward's value class and the use pick from the cost ladders (LF p.79). */
 function streetPlanConstruction(ctx: import("../../core/types").Ctx, b: import("../../core/types").EntityLike, use: BuildingUse | undefined) {

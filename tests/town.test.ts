@@ -30,9 +30,15 @@ describe("street plans", () => {
     const m = map(town);
     expect(m.kind).toBe("town");
     const gates = m.wall!.gates.length;
-    expect(buildings(town).filter((b) => b.get("use") === "gatehouse")).toHaveLength(gates);
+    // Every gate has its gatehouse; a gatehouse with no road through the wall is a postern.
+    expect(buildings(town).filter((b) => b.get("use") === "gatehouse" && b.get("road") !== "postern")).toHaveLength(gates);
     const wards = town.children(town.root, "ward");
-    if (m.plan === "river") {
+    if (m.plan !== "radial" && m.plan !== "river") {
+      // The other grown towns: a wall round the town, gates where its roads go through.
+      expect(m.wall!.line.length).toBeGreaterThan(5);
+      expect(gates).toBeGreaterThan(0);
+      expect(wards.some((w) => w.get("kind") === "suburb")).toBe(true);
+    } else if (m.plan === "river") {
       // A river town's wall runs bank to bank; the river closes it. Over the bridge is a suburb of its own.
       expect(m.wall!.closed).toBe(false);
       expect(m.wall!.line.length).toBeGreaterThan(5);

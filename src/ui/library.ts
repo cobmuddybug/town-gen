@@ -1,7 +1,10 @@
 // The towns you have worked on, kept in localStorage so a new seed never throws one away.
 // A town is kept once it differs from what its seed gives (edits, pins, notes); untouched
 // towns are left out because the seed alone brings them back.
-import type { Design, SaveFile } from "../core/types";
+import type { Design, LayoutPlan, SaveFile } from "../core/types";
+
+/** Every street plan the New town dialog and a URL can ask for. */
+export const LAYOUTS: LayoutPlan[] = ["river", "ridge", "castle", "street", "crossroads", "abbey", "harbour", "radial"];
 
 const PREFIX = "town-gen:town:";
 
@@ -33,11 +36,11 @@ export function designFrom(get: (k: string) => string | null): Design | undefine
   if (suburbs === "few" || suburbs === "many") d.suburbs = suburbs;
   if (crime === "quiet" || crime === "usual" || crime === "rife") d.crime = crime;
   const layout = get("layout"), farBank = get("farBank");
-  if (layout === "radial" || layout === "river") d.layout = layout;
+  if (LAYOUTS.includes(layout as LayoutPlan)) d.layout = layout as LayoutPlan;
   if (farBank === "village" || farBank === "bridgend" || farBank === "abbey" || farBank === "wharf") d.farBank = farBank;
   // The dialog hides a far bank on a radial web and a shape on a river town: those don't count.
-  if (d.layout === "radial") delete d.farBank;
-  if (d.layout === "river") delete d.shape;
+  if (d.layout && d.layout !== "river" && d.layout !== "ridge") delete d.farBank;
+  if (d.layout && d.layout !== "radial") delete d.shape;
   return Object.keys(d).length ? d : undefined;
 }
 

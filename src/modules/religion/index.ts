@@ -49,7 +49,7 @@ export function patronalOn(town: Town, date: string): string[] {
   return m.get(date) ?? [];
 }
 
-export const WORSHIP = ["grand_temple", "temple", "fane", "chapel", "chantry", "shrine", "friary", "priory", "cell", "nunnery", "hospital", "lazar_house"];
+export const WORSHIP = ["grand_temple", "temple", "fane", "chapel", "chantry", "shrine", "friary", "priory", "cell", "abbey", "nunnery", "hospital", "lazar_house"];
 const PARISH = ["grand_temple", "temple", "fane"];
 const SEE = "see";
 
@@ -66,6 +66,7 @@ function dedicationName(use: string, d: string): string {
     case "friary": return d;
     case "priory": return `${possd} Priory`;
     case "cell": return `${possd} Cell`;
+    case "abbey": return `${possd} Abbey`;
     case "nunnery": return `the nunnery of ${d}`;
     case "hospital": return `the Hospital of ${d}`;
     case "lazar_house": return `${possd} lazar house`;
@@ -123,8 +124,8 @@ export const religion: Module = {
       if (!isStreetPlan(ctx.town)) return;
       const b = ctx.town.parentOf(h.address)!;
       const map = ctx.town.settlement().get<MapData>("map");
-      if (map.plan === "river") {
-        // A river town: the nearest parish church on your own side of the water. Over the bridge,
+      if (map.farBank) {
+        // A town over a bridge (river or ridge): the nearest parish church on your own side of the water. Over the bridge,
         // an old village or the abbey's tenants keep their own church, however small.
         const bankOf = (a: string) => map.wards?.[ctx.town.get(a).get<number>("ward")]?.bank;
         const mine = bankOf(b);
@@ -159,8 +160,8 @@ export const religion: Module = {
       for (const x of seats) {
         let up: string | undefined;
         if (x.use === "grand_temple") continue;
-        if (x.use === "temple" || x.use === "priory" || x.use === "cell" || x.use === "nunnery" || x.use === "friary") up = see;
-        else if (x.use === "chantry") up = (nearestOf(x.b, ["priory", "cell", "friary", "nunnery"]) ?? nearestOf(x.b, ["temple"]))?.head.address ?? see;
+        if (x.use === "temple" || x.use === "priory" || x.use === "cell" || x.use === "abbey" || x.use === "nunnery" || x.use === "friary") up = see;
+        else if (x.use === "chantry") up = (nearestOf(x.b, ["abbey", "priory", "cell", "friary", "nunnery"]) ?? nearestOf(x.b, ["temple"]))?.head.address ?? see;
         else if (x.use === "shrine") up = (nearestOf(x.b, ["temple"]) ?? nearestOf(x.b, ["friary"]))?.head.address ?? see;
         else up = nearestOf(x.b, ["temple"])?.head.address ?? see;
         if (!up || up === x.head.address) continue;

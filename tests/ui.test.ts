@@ -318,11 +318,14 @@ describe("river towns in the UI", () => {
     expect(designFrom(get({ layout: "radial", farBank: "abbey", shape: "oval" }))).toEqual({ layout: "radial", shape: "oval" });
     expect(designFrom(get({ layout: "river", farBank: "abbey", shape: "oval" }))).toEqual({ layout: "river", farBank: "abbey" });
     expect(designFrom(get({ farBank: "abbey", shape: "oval" }))).toEqual({ farBank: "abbey", shape: "oval" });
+    // A ridge town has a bridge and a far bank; the other grown forms have neither, nor a shape.
+    expect(designFrom(get({ layout: "ridge", farBank: "wharf", shape: "long" }))).toEqual({ layout: "ridge", farBank: "wharf" });
+    for (const layout of ["castle", "street", "crossroads", "abbey", "harbour"]) expect(designFrom(get({ layout, farBank: "wharf", shape: "long" }))).toEqual({ layout });
   });
 
   test("the new town dialog offers the layout and the far bank", () => {
     const h = newTownHtml();
-    for (const s of ['name="layout"', 'name="farBank"', "river town", "radial web", "old village", "bridge-end", "abbey's side", "wharf side", 'id="farbank-field"', 'id="shape-field"']) expect(h).toContain(s);
+    for (const s of ['name="layout"', 'name="farBank"', "river town", "radial web", "ridge, down to a river", "castle gate", "one long street", "crossroads", "abbey gate", "harbour", "old village", "bridge-end", "abbey's side", "wharf side", 'id="farbank-field"', 'id="shape-field"']) expect(h).toContain(s);
   });
 
   test("the map draws a river town's bridge as a deck, and its high ground", () => {
@@ -330,6 +333,10 @@ describe("river towns in the UI", () => {
     const svg = renderMap(t);
     expect(svg).toContain('class="m-bridge-deck');
     expect(svg).toContain('class="m-high');
+  }, 300000);
+
+  test("a ridge town's bridge is a deck too", () => {
+    expect(renderMap(generate("draw-ridge", { pop: 3000, design: { layout: "ridge" } }))).toContain('class="m-bridge-deck');
   }, 300000);
 
   test("a radial town's map is drawn as before", () => {

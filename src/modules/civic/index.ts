@@ -130,9 +130,25 @@ export const civic: Module = {
         };
         const out: string[] = [];
         const placeName = ctx.registry<{ id: string; place(r: Rng): string }>("nameProviders").get("anglo-norman");
+        // Up a ridge town from its bridge: the wards beyond the middle distance are the higher town.
+        const bridge = map.bridges?.[0];
+        const fromBridge = (w: (typeof wards)[number]) => (bridge ? dist(bridge, w.centre) : 0);
+        // (The middle of the wards that can take these names: the town's own, not its suburbs or the far bank.)
+        const named = wards.filter((w) => w.bank !== "far" && w.kind !== "suburb").map(fromBridge).sort((a, b) => a - b);
+        const midway = named[Math.floor((named.length - 1) / 2)] ?? 0;
+        /** Names a town's form gives its wards, before the usual ones. */
+        const formNames = (w: (typeof wards)[number], cw: string): string[] => {
+          if (w.kind === "suburb") return [];
+          // (Villages have Ends.)
+          if (map.plan === "abbey" && (w.near.includes("abbey") || w.near.includes("market"))) return urban ? ["Abbey Gate", "the Sanctuary"] : ["Abbey End"];
+          if (map.plan === "castle" && w.near.includes("market")) return urban ? ["the Bailey"] : ["Castle End"];
+          if (map.plan === "ridge" && bridge) return [fromBridge(w) > midway ? (urban ? "Higher Town" : "Higher End") : urban ? "Lower Town" : "Lower End"];
+          if (map.plan === "crossroads" && !w.near.includes("market")) return [urban ? `${cw} Street Ward` : `${cw} Street End`];
+          return [];
+        };
         for (const w of wards) {
           const cw = content.compass[w.compass] ?? "North";
-          const cands: string[] = [];
+          const cands: string[] = w.bank === "far" ? [] : formNames(w, cw);
           if (w.bank === "far") {
             // Over the bridge: named for what it is, or for the old village it was.
             if (map.farBank === "village") cands.push(`Old ${placeName.place(r)}`);
@@ -491,7 +507,7 @@ export const civic: Module = {
 
 // What makes a building worth naming to a stranger, highest first.
 const NOTABLE: Record<string, number> = {
-  castle: 20, grand_temple: 19, temple: 18, guildhall: 17, market_hall: 16, friary: 15, priory: 15, cell: 12, nunnery: 15, courthouse: 14, gaol: 13,
+  castle: 20, grand_temple: 19, temple: 18, guildhall: 17, market_hall: 16, friary: 15, priory: 15, cell: 12, abbey: 18, nunnery: 15, courthouse: 14, gaol: 13,
   inn: 12, hospital: 11, fane: 10, merchant_house: 9, goldsmith: 9, money_changer: 9, wine_merchant: 8, mercer: 8, spicer: 8, tavern: 7,
   bathhouse: 7, school: 7, apothecary: 6, physician: 6, gatehouse: 6, watch_house: 5,
 };
