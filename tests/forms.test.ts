@@ -6,6 +6,7 @@ import type { Town } from "../src/core/town";
 import type { Design, LayoutPlan } from "../src/core/types";
 import { clearLayoutCache, type MapData } from "../src/modules/layout";
 import { convexOverlap, pointInPoly, polylinePolyDist, segPointDist, type Pt } from "../src/modules/layout/geom";
+import { CHURCH_SIZE } from "../src/modules/layout/streets";
 import { generate } from "../src/town-gen";
 
 const FORMS = ["ridge", "castle", "street", "crossroads", "abbey", "harbour"] as const;
@@ -145,6 +146,43 @@ describe("walls across many towns", () => {
     }
     expect(bad).toEqual([]);
   }, 900000);
+});
+
+describe("buildings have room inside", () => {
+  // A building on two plots took the shared corner for both of its front corners on one side of
+  // every street, and was drawn as a line.
+  test.each(["radial", "river", ...FORMS] as const)("no %s town has a building drawn as a line", (form) => {
+    for (const [seed, pop] of [["a", 1500], ["b", 4000], ["c", 12000]] as const) {
+      const { t } = town(`thin-${form}-${seed}`, pop, form);
+      const flat = t.children(t.root, "building").filter((b) => {
+        const p = b.get<Pt[]>("poly");
+        let a = 0, longest = 0;
+        p.forEach((v, i) => { const w = p[(i + 1) % p.length]; a += v[0] * w[1] - w[0] * v[1]; longest = Math.max(longest, Math.hypot(w[0] - v[0], w[1] - v[1])); });
+        return Math.abs(a) / 2 / longest < 2;
+      }).map((b) => b.get<string>("use"));
+      expect(flat, `${seed} ${pop}`).toEqual([]);
+    }
+  }, 600000);
+});
+
+describe("churches have room in their yards", () => {
+  // The same fault drew a churchyard as a line on one side of the street, and its church shrank to
+  // a box a yard across: the "shrines" round the market.
+  test.each(["river", "castle", "harbour"] as const)("no %s town's church is squeezed to a fraction of its size", (form) => {
+    for (const [seed, pop] of [["a", 4000], ["b", 12000]] as const) {
+      const { t } = town(`ch-${form}-${seed}`, pop, form);
+      const small = t.children(t.root, "building").flatMap((b) => {
+        const size = CHURCH_SIZE[b.get<string>("use")];
+        if (!size || b.get<string>("use") === "shrine") return [];
+        const p = b.get<Pt[]>("poly");
+        let a = 0;
+        p.forEach((v, i) => { const w = p[(i + 1) % p.length]; a += v[0] * w[1] - w[0] * v[1]; });
+        const k = Math.sqrt(Math.abs(a) / 2 / (size[0] * 0.76 * size[1]));
+        return k < 0.45 ? [`${b.get("use")} at ${k.toFixed(2)}`] : [];
+      });
+      expect(small, `${seed} ${pop}`).toEqual([]);
+    }
+  }, 600000);
 });
 
 describe("the rest of the town follows the form", () => {

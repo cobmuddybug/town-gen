@@ -1,11 +1,11 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`river layout v1 (800 people) is unchanged 1`] = `"d1b4d9093674122db5a6f1bebff2659f940c724fea4a91e7b5f7373e8a82e615"`;
+exports[`river layout v1 (800 people) is unchanged 1`] = `"e33dba64de8948578e11850cefadc9df6199476e549a0e1666f51937ab7967df"`;
 
-exports[`river layout v2 (3000 people) is unchanged 1`] = `"9fa31fa9d64e6386c382a2a3a4db90396eaa8d91b9c682eb310549445b865cd5"`;
+exports[`river layout v2 (3000 people) is unchanged 1`] = `"05dd9645b4b5b0e5afd200f5a171f14da209efc26011fab2d22d204b5a9ead5b"`;
 
-exports[`river layout v3 (9000 people) is unchanged 1`] = `"b09fe4e6121dd9410a96bc3a7f789625a185342ac59722f96d8f132cf07c0979"`;
+exports[`river layout v3 (9000 people) is unchanged 1`] = `"a6856c473b60699990b8c00668781853d29184145131b56fee848cf54d43f7ce"`;
 
-exports[`river layout v4 (26000 people) is unchanged 1`] = `"a8c2fcf4fa4c96358e97cd06bac194fbd6494299dc72dce625902fe98dc2a582"`;
+exports[`river layout v4 (26000 people) is unchanged 1`] = `"afa576136a34835c62591e4bfe42121a8f82db52b3e5e2df08e70abbc34edd3f"`;
 
-exports[`river layout v5 (4000 people) is unchanged 1`] = `"16a19fcc1f634757dca2eb4bc4ada7d3a0a7a070a8ae971772b50e7b35f23e0c"`;
+exports[`river layout v5 (4000 people) is unchanged 1`] = `"4be10e071bae2141221b1f16a26fe5f9c3ba23bad1d7d2b6a507292cf6091f3a"`;

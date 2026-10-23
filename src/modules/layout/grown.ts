@@ -15,7 +15,7 @@ import type { Rng } from "../../core/rng";
 import type { FarBank } from "../../core/types";
 import { add, centroid, convexHull, convexOverlap, dot, mul, perp, pointInPoly, polylinePolyDist, qp, qpoly, rect, segPointDist, sub, type Poly, type Pt } from "./geom";
 import type { Feature, FieldPiece, Footprint, PlacedBuilding, Road } from "./hamlet";
-import { CHURCH_SIZE, blob, building, compassOf, insetOutline, marketSize, nearestWard, plotsFor, type FrontKind, type Plot, type TownLayout, type WardGeo } from "./streets";
+import { CHURCH_SIZE, blob, building, compassOf, insetOutline, leftToRight, marketSize, nearestWard, plotsFor, type FrontKind, type Plot, type TownLayout, type WardGeo } from "./streets";
 import { heightField } from "./height";
 import type { TownOpts } from "./radial";
 
@@ -1282,7 +1282,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   };
   const placeYardBody = (i: number, seq: RPlot[], kind: "church" | "precinct") => {
     for (const x of seq) x.used = true;
-    const first = seq[0], last = seq[seq.length - 1];
+    const ordered = leftToRight(seq);
+    const first = ordered[0], last = ordered[ordered.length - 1];
     const yard = insetOutline(qpoly([first.poly[0], last.poly[1], last.poly[2], first.poly[3]]), 1.2);
     const c = centroid(yard);
     const p = plan[i];

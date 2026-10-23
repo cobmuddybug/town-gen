@@ -110,7 +110,17 @@ export function nearestWard(wards: WardGeo[], p: Pt): number {
 }
 
 /** A building on one plot or a run of them: on the street front, yard behind. */
+/**
+ * A run of plots, left-hand plot first as they face the street. A run is in the order the street
+ * was walked, which on one side is right to left: an outline from the first plot's front-left to
+ * the last one's front-right would then take the corner they share for both, and come out a line.
+ */
+export function leftToRight<T extends { poly: Poly }>(ps: T[]): T[] {
+  return ps.length > 1 && dist(ps[0].poly[0], ps[1].poly[1]) < dist(ps[0].poly[1], ps[1].poly[0]) ? [...ps].reverse() : ps;
+}
+
 export function building(r: Rng, i: number, fp: Footprint, ps: Plot[], urban: boolean): PlacedBuilding {
+  ps = leftToRight(ps);
   const first = ps[0], last = ps[ps.length - 1];
   const fl = first.poly[0], fr = last.poly[1], br = last.poly[2], bl = first.poly[3];
   const plot = qpoly([fl, fr, br, bl]);

@@ -4,6 +4,7 @@ Module versions go into RNG seeds: a major bump means existing seeds regenerate 
 
 ## Unreleased
 
+- Fix: in grown towns (river and the six new forms), buildings on two plots on one side of every street were drawn as lines (farmhouses, merchants' houses, inns, warehouses, stables: about 90 in a town of 12,000), and churchyards there were lines too, so their chantries and chapels shrank to a box a yard across. Runs of plots are now taken left to right as they face the street. Grown-town maps change; radial towns and villages don't.
 - Speed, for big towns (no module versions change: the same seeds give the same towns, checked by hashing everything the UI shows for seven towns before and after). In a city of 26,000: building the town 5.1s -> 2.4s for its people, the town page 2.1s -> 0.6s, following someone's day 1.35s -> 0.5s, an edit's town page 2.9s -> 0.7s, typing in the Directory's filter 140ms -> 40ms a key, returning to the town page 190ms -> 100ms, and resizing the window no longer redraws the map. Building or rebuilding a town now says so ("Building a town of 26,000…"), fading in late so small towns never flash it. A link to a town that can't be built opens on a new one instead of a blank page.
 - Fix: a grown town's country panel named a destination for every street (about 75 roads at 800 people, over 1,000 in a city). Only the roads that leave the town count now, so the shire town, neighbours and carriers of grown towns change.
 
