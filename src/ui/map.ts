@@ -189,6 +189,7 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
   }
   if (!isTown) {
     out.push(`<polygon class="m-green" points="${pts(m.green)}"/>`);
+    for (const g of m.greens ?? []) out.push(`<polygon class="m-graveyard" points="${pts(g.poly)}"><title>the churchyard</title></polygon>`);
     out.push(`<path class="m-hedge" d="${smoothPath(m.hedge, true)}"/>`);
   }
   out.push(`<path class="m-stream" stroke-width="${m.stream.width}" d="${smoothPath(m.stream.points, false)}"/>`);
