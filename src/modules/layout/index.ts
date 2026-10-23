@@ -7,7 +7,7 @@
 import type { Module } from "../../core/types";
 import type { BuildingUse } from "../uses";
 import { layoutHamlet, type HamletLayout, type Terrain } from "./hamlet";
-import { BANKED, BLOCKED, layoutGrown } from "./grown";
+import { BANKED, layoutGrown } from "./grown";
 import type { FarBank, LayoutPlan } from "../../core/types";
 import type { Enclosure, Scale, TownLayout } from "./streets";
 import { STREET_PLAN_POP } from "../uses";
@@ -70,9 +70,8 @@ export const layout: Module = {
           // The "radial" plan is the organic one now: blocks grown round the market.
           const form = layoutPlan === "radial" ? "organic" : layoutPlan;
           map = layoutGrown(ctx.rng(s, "river"), footprints, { ...opts, form, ...(BANKED.includes(form) ? { farBank } : {}), far: farUses, need: 0 });
-          if (map.buildings.length >= footprints.length || room > 1.5 || (BLOCKED.includes(form) && tries >= 3)) break;
-          // (Towns not yet on blocks keep their old steps, which their suburbs' overflow is tuned to.)
-          room = BLOCKED.includes(form) ? Math.min(1.55, Math.max(room + 0.08, room * Math.sqrt(footprints.length / Math.max(1, map.buildings.length)) * 1.04)) : room + 0.15;
+          if (map.buildings.length >= footprints.length || room > 1.5 || tries >= 3) break;
+          room = Math.min(1.55, Math.max(room + 0.08, room * Math.sqrt(footprints.length / Math.max(1, map.buildings.length)) * 1.04));
         }
         cache.set(key, map);
         if (cache.size > 16) cache.delete(cache.keys().next().value!);

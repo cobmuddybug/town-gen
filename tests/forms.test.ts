@@ -7,7 +7,6 @@ import type { Design, LayoutPlan } from "../src/core/types";
 import { clearLayoutCache, type MapData } from "../src/modules/layout";
 import { convexOverlap, pointInPoly, polylinePolyDist, segPointDist, type Pt } from "../src/modules/layout/geom";
 import { CHURCH_SIZE } from "../src/modules/layout/streets";
-import { BLOCKED, setBlockedForTest } from "../src/modules/layout/grown";
 import { generate } from "../src/town-gen";
 
 const FORMS = ["ridge", "castle", "street", "crossroads", "abbey", "harbour"] as const;
@@ -162,23 +161,16 @@ describe("walls across many towns", () => {
 
 describe("blocks in the grown engine", () => {
   test("a river town on blocks: real blocks, every lot in one, nothing in the water or over another", () => {
-    setBlockedForTest(["river"]);
-    try {
-      clearLayoutCache();
-      const { t, map } = town("blk-river", 3000, "river");
-      expect(map.blocks?.length ?? 0).toBeGreaterThanOrEqual(20);
-      expect(trouble(t)).toEqual([]);
-      const flat = t.children(t.root, "building").filter((b) => {
-        const p = b.get<Pt[]>("poly");
-        let a = 0, longest = 0;
-        p.forEach((v, i) => { const w = p[(i + 1) % p.length]; a += v[0] * w[1] - w[0] * v[1]; longest = Math.max(longest, Math.hypot(w[0] - v[0], w[1] - v[1])); });
-        return Math.abs(a) / 2 / longest < 2;
-      });
-      expect(flat.map((b) => b.get("use"))).toEqual([]);
-    } finally {
-      setBlockedForTest([]);
-      clearLayoutCache();
-    }
+    const { t, map } = town("blk-river", 3000, "river");
+    expect(map.blocks?.length ?? 0).toBeGreaterThanOrEqual(20);
+    expect(trouble(t)).toEqual([]);
+    const flat = t.children(t.root, "building").filter((b) => {
+      const p = b.get<Pt[]>("poly");
+      let a = 0, longest = 0;
+      p.forEach((v, i) => { const w = p[(i + 1) % p.length]; a += v[0] * w[1] - w[0] * v[1]; longest = Math.max(longest, Math.hypot(w[0] - v[0], w[1] - v[1])); });
+      return Math.abs(a) / 2 / longest < 2;
+    });
+    expect(flat.map((b) => b.get("use"))).toEqual([]);
   }, 600000);
 });
 
@@ -560,8 +552,7 @@ describe("the wall and the plots", () => {
 
 describe("the six other forms on blocks", () => {
   const shoelace = (p: Pt[]) => { let a = 0; p.forEach((v, i) => { const w = p[(i + 1) % p.length]; a += v[0] * w[1] - w[0] * v[1]; }); return Math.abs(a) / 2; };
-  // (Each form joins as it goes onto blocks; all six by the end of the work.)
-  for (const form of FORMS.filter((f) => BLOCKED.includes(f))) {
+  for (const form of FORMS) {
     test.each([1500, 6000])(`${form} at %i: in blocks, tight inside the wall, nothing over anything`, (pop) => {
       const { t, map } = town(`dense-${form}-${pop}`, pop, form, { walls: "wall" });
       expect(map.blocks?.length ?? 0).toBeGreaterThan(pop >= 6000 ? 10 : 4);

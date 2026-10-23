@@ -208,9 +208,11 @@ describe("the river town's streets", () => {
     expect(uneven).toBeGreaterThanOrEqual(14);
   });
 
-  test("there are back lanes, cross lanes, water lanes and a far-bank road", () => {
+  // (Back and cross lanes belonged to the rows of plots: a town of blocks opens its big blocks with
+  // lanes when it cuts them, after the streets are laid.)
+  test("there are side streets, water lanes and a far-bank road", () => {
     const { net: n } = net("kinds", 4000);
-    for (const k of ["high", "main", "back", "cross", "water", "far"]) expect(n.streets.some((s) => s.kind === k), k).toBe(true);
+    for (const k of ["high", "main", "street", "water", "far"]) expect(n.streets.some((s) => s.kind === k), k).toBe(true);
   });
 
   test("a walled town has gates on its main roads and one at the bridge", () => {
