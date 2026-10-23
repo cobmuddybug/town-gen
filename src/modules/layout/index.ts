@@ -56,7 +56,9 @@ export const layout: Module = {
       const layoutPlan = s.get<LayoutPlan | undefined>("layoutPlan") ?? "radial";
       const farBank = s.get<FarBank | undefined>("farBank") ?? "village";
       const farUses = s.get<number[] | undefined>("farUses") ?? [];
-      const key = `${ctx.town.seed}|${s.address}|${layout.version}|${terrain}|${layoutPlan}|${farBank}|${JSON.stringify(farUses)}|${JSON.stringify(designed)}|${JSON.stringify(footprints)}`;
+      // (Everything the layout reads goes in the key: the walls, the roads through them and the size class
+      // too, or a town laid out with a wall would lend it to the same seed without one.)
+      const key = `${ctx.town.seed}|${s.address}|${layout.version}|${terrain}|${layoutPlan}|${farBank}|${s.get<string>("enclosure")}|${s.get<number>("mainRoads")}|${s.get<string>("sizeClass")}|${JSON.stringify(farUses)}|${JSON.stringify(designed)}|${JSON.stringify(footprints)}`;
       let map = cache.get(key);
       if (!map && street) {
         const encl = s.get<string>("enclosure");

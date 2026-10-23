@@ -120,10 +120,12 @@ describe.each(FORMS)("%s towns", (form: Form) => {
 
   test("the Suburbs choice changes how much lies beyond the gates", () => {
     // (A street town is a small market town: its one street can't carry six thousand.)
-    const outside = (suburbs: "few" | "many") => {
-      const { t, map } = town(`${form}-subs`, form === "street" ? 2500 : 6000, form, { suburbs });
-      return t.children(t.root, "building").filter((b) => { const w = map.wards![b.get<number>("ward")]; return w?.kind === "suburb" && w.bank !== "far"; }).length;
-    };
+    // Summed over three seeds: a town that runs out of room inside puts its overflow in the suburbs
+    // whatever the choice, and one seed can be that town.
+    const outside = (suburbs: "few" | "many") => ["subs", "subs2", "subs3"].reduce((n, seed) => {
+      const { t, map } = town(`${form}-${seed}`, form === "street" ? 2500 : 6000, form, { suburbs });
+      return n + t.children(t.root, "building").filter((b) => { const w = map.wards![b.get<number>("ward")]; return w?.kind === "suburb" && w.bank !== "far"; }).length;
+    }, 0);
     expect(outside("many")).toBeGreaterThan(outside("few") * 1.3);
   }, 300000);
 
@@ -547,9 +549,10 @@ describe("the six other forms on blocks", () => {
       const { t, map } = town(`dense-${form}-${pop}`, pop, form, { walls: "wall" });
       expect(map.blocks?.length ?? 0).toBeGreaterThan(pop >= 6000 ? 10 : 4);
       const d = density(t, map);
-      expect(d.perHa, "people/ha").toBeGreaterThanOrEqual(60);
+      // (The same floors as the layout guard: a small town is looser.)
+      expect(d.perHa, "people/ha").toBeGreaterThanOrEqual(pop < 3000 ? 50 : 60);
       expect(d.perHa, "people/ha").toBeLessThanOrEqual(220);
-      expect(d.cover, "cover").toBeGreaterThanOrEqual(0.15);
+      expect(d.cover, "cover").toBeGreaterThanOrEqual(pop < 3000 ? 0.13 : 0.15);
       expect(d.cover, "cover").toBeLessThanOrEqual(0.45);
       expect(trouble(t)).toEqual([]);
     }, 600000);

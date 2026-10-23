@@ -202,11 +202,12 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
   if (isTown) {
     if (m.enclosure !== "none") out.push(`<path class="m-ditch" d="${smoothPath(m.wall!.line, m.wall!.closed)}"/>`);
     out.push(`<polygon class="m-townground" points="${pts(m.hedge)}"/>`);
-    for (const g of m.gardens ?? []) out.push(`<polygon class="m-garden" points="${pts(g)}"/>`);
     // A town of blocks: each block a fill under its houses (their own walls are the party walls), the
     // yards and courts left open in them lighter.
     for (const b of m.blocks ?? []) out.push(`<polygon class="m-block" points="${pts(b.outline)}"/>`);
     for (const op of m.opens ?? []) if (op.kind === "yard" || op.kind === "court") out.push(`<polygon class="m-yard" points="${pts(op.poly)}"/>`);
+    // Lots no one built on: gardens, over the blocks they lie in.
+    for (const g of m.gardens ?? []) out.push(`<polygon class="m-garden" points="${pts(g)}"/>`);
     // Greens: the commons with trees round them and a path across, private gardens hedged, and the
     // churchyards walled, with their graves.
     const greenNames = town.settlement().get<string[] | undefined>("greenNames") ?? [];

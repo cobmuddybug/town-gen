@@ -17,7 +17,7 @@ import { add, area, centroid, convexHull, convexOverlap, dot, insetEdges, isConv
 import type { Feature, FieldPiece, Footprint, PlacedBuilding, Road } from "./hamlet";
 import { CHURCH_SIZE, blob, compassOf, insetOutline, leftToRight, marketSize, nearestWard, plotsFor, type FrontKind, type Plot, type TownLayout, type WardGeo } from "./streets";
 import { contourLines, heightField } from "./height";
-import { blockFaces, deadEnds, nodeStreets, type Face, type Side } from "./graph";
+import { blockFaces, deadEnds, nodeStreets, snapEnds, type Face, type Side } from "./graph";
 import { cutRibbon, fillBlock, lotsCross, shapeOn, splitBlock, type BlockKind, type Lot, type Open } from "./blocks";
 import { organicStreets } from "./organic";
 import type { TownOpts } from "./streets";
@@ -1152,7 +1152,16 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       }
       if (best && bd > 1 && !obstacles.slice(1).some((ob) => polylinePolyDist([v, best!], ob, 8) < 4)) net.streets.push({ id: `mlink${k}`, kind: "street", width: urban ? 3 : 3.5, points: [v, best], bank: "near" });
     });
+    // The streets' loose ends joined as the blocks will see them, and drawn so: a street end moved up to
+    // three metres to meet the next leaves the houses of its blocks a metre into the street otherwise.
+    const joined = snapEnds([...net.streets.map((st) => ({ id: st.id, width: st.width, points: st.points })), { id: "market", width: 3, points: mRing }], 3);
+    net.streets.forEach((st, k) => { st.points = joined[k]; });
     const lines = [...net.streets.map((st) => ({ id: st.id, width: st.width, points: st.points })), { id: "market", width: 3, points: mRing }];
+    // Every street as drawn, to keep lots out of: a road running close along another's edge (or the
+    // market's) is no side of the block, but its way is no one's lot.
+    const wayGrid = new SegGrid<Street>(40);
+    for (const st of net.streets) wayGrid.addLine(st.points, st);
+    const inWay = (poly: Poly) => poly.some((p) => wayGrid.near(p, 6).some((sg) => segPointDist(p, sg.a, sg.b) < sg.tag.width / 2 - 0.3));
     // Round the town's own streets, not the roads out: those run on across it, so the edge blocks close.
     const close = insetEdges(convexHull(lines.filter((l) => !/^(main\d+|high)$/.test(l.id)).flatMap((l) => l.points)), -depth).poly;
     const graph = nodeStreets(lines, 3);
@@ -1189,7 +1198,10 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
         : near < R * 0.8 && r.chance(0.1) ? "wellOff"
         : "ordinary";
       const { lots, open } = fillBlock(r, f, kind, frontAt, ids, `k${fi}`);
-      blocksOut.push({ id: `k${fi}`, outline: qpoly(f.outline), kind, ward: -1 });
+      // A face of hectares open to the fields, or one the river runs through, is no block to draw or to
+      // give a church or a common: its crofts are cut all the same.
+      const wideOpen = area(f.outline) > 30000 || f.outline.some((p, k2) => { const q2 = f.outline[(k2 + 1) % f.outline.length]; return !riverClear(p, 0) || !riverClear(mul(add(p, q2), 0.5), 0); });
+      if (!wideOpen) blocksOut.push({ id: `k${fi}`, outline: qpoly(f.outline), kind, ward: -1 });
       blockLots.set(`k${fi}`, []);
       for (const l of lots) {
         const lc = centroid(l.poly);
@@ -1201,6 +1213,7 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
         const nearWater = riverGrid.dist(lc, 60) < 60 || inSea(lc, 60);
         if (nearWater && !l.poly.every((q2) => riverClear(q2, 1) && bank(q2) === want)) continue;
         if (clearWhy(l.poly, "*")) continue;
+        if (inWay(l.poly)) { open.push({ kind: "yard", poly: l.poly }); continue; }
         // Nor across a lot of the next block: where two streets run close, a lot can reach past its own.
         if (keysOf(l.poly).some((k2) => (pgrid.get(k2) ?? []).some((j) => plots[j].block !== `k${fi}` && lotsCross(plots[j].poly, l.poly)))) { open.push({ kind: "yard", poly: l.poly }); continue; }
         const id = plots.length;

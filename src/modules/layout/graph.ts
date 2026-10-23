@@ -39,16 +39,24 @@ export function nodeStreets(streets: StreetLine[], snap = 3): StreetGraph {
 
 const CELL = 40;
 
-/** Cut the segments where they cross, join near ends, and return the nodes and edges. */
-function build(lines: StreetLine[], snap: number): { nodes: Pt[]; edges: Edge[] } {
-  // 1. Ends within `snap` of an earlier end move onto it; then onto a segment they nearly touch.
+/**
+ * Join the streets' loose ends, as the blocks will see them: an end within `snap` of an earlier end
+ * moves onto it, then onto a street it stops just short of (or just past). A caller that draws the
+ * streets should draw these points, or the blocks and the streets drawn will disagree by up to `snap`.
+ */
+export function snapEnds(lines: StreetLine[], snap = 3): Pt[][] {
   const pts = lines.map((l) => l.points.map((p) => [p[0], p[1]] as Pt));
+  // (The earlier ends kept in a grid of `snap`-sized cells: the first within reach, in the order they came.)
   const ends: Pt[] = [];
+  const endGrid = new Map<string, number[]>();
+  const cellOf = (p: Pt) => [Math.floor(p[0] / snap), Math.floor(p[1] / snap)];
   pts.forEach((ps) => {
     for (const k of [0, ps.length - 1]) {
-      const near = ends.find((e) => dist(e, ps[k]) <= snap);
-      if (near) ps[k] = [near[0], near[1]];
-      else ends.push(ps[k]);
+      const [cx, cy] = cellOf(ps[k]);
+      let found = -1;
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const e of endGrid.get(`${cx + dx},${cy + dy}`) ?? []) if ((found < 0 || e < found) && dist(ends[e], ps[k]) <= snap) found = e;
+      if (found >= 0) ps[k] = [ends[found][0], ends[found][1]];
+      else { ends.push(ps[k]); const key = `${cx},${cy}`; const l = endGrid.get(key); if (l) l.push(ends.length - 1); else endGrid.set(key, [ends.length - 1]); }
     }
   });
   const segs: Seg[] = [];
@@ -79,6 +87,27 @@ function build(lines: StreetLine[], snap: number): { nodes: Pt[]; edges: Edge[] 
       }
     }
   });
+  return pts;
+}
+
+/** Cut the segments where they cross, join near ends, and return the nodes and edges. */
+function build(lines: StreetLine[], snap: number): { nodes: Pt[]; edges: Edge[] } {
+  // 1. Loose ends joined (snapEnds).
+  const pts = snapEnds(lines, snap);
+  const segs: Seg[] = [];
+  lines.forEach((l, i) => {
+    for (let j = 0; j + 1 < pts[i].length; j++) if (dist(pts[i][j], pts[i][j + 1]) > 1e-6) segs.push({ a: pts[i][j], b: pts[i][j + 1], street: l.id, width: l.width });
+  });
+  const grid = new Map<string, number[]>();
+  const cellsOf = (s: Seg) => {
+    const out: string[] = [];
+    const x0 = Math.floor((Math.min(s.a[0], s.b[0]) - snap) / CELL), x1 = Math.floor((Math.max(s.a[0], s.b[0]) + snap) / CELL);
+    const y0 = Math.floor((Math.min(s.a[1], s.b[1]) - snap) / CELL), y1 = Math.floor((Math.max(s.a[1], s.b[1]) + snap) / CELL);
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) out.push(`${x},${y}`);
+    return out;
+  };
+  segs.forEach((s, i) => { for (const k of cellsOf(s)) { const l = grid.get(k); if (l) l.push(i); else grid.set(k, [i]); } });
+  const near = (s: Seg) => { const set = new Set<number>(); for (const k of cellsOf(s)) for (const j of grid.get(k) ?? []) set.add(j); return [...set].sort((a, b) => a - b); };
   // 2. Where segments cross (or one ends on another), both are cut there.
   const cuts: { t: number; p: Pt }[][] = segs.map((s) => [{ t: 0, p: s.a }, { t: 1, p: s.b }]);
   segs.forEach((s, i) => {
