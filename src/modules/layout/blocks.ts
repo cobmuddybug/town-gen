@@ -14,15 +14,17 @@ import type { Face, Side } from "./graph";
 import type { Footprint, PlacedBuilding } from "./hamlet";
 import { leftToRight, type FrontKind, type Plot } from "./streets";
 
-export type BlockKind = "shop" | "ordinary" | "courtyard" | "wellOff" | "church" | "green" | "precinct" | "croft";
+export type BlockKind = "shop" | "ordinary" | "courtyard" | "wellOff" | "church" | "green" | "precinct" | "croft" | "backland";
 
 /** Lot widths, how deep the house stands on its lot, and what the middle of the block becomes. */
 export const KIND_SPEC: Record<BlockKind, { lotW: [number, number]; depth: [number, number]; yard: "sliver" | "small" | "court" | "garden" | "none"; behind: [number, number] }> = {
-  shop: { lotW: [4.5, 7], depth: [12, 20], yard: "sliver", behind: [1, 4] },
-  ordinary: { lotW: [5, 9], depth: [9, 14], yard: "small", behind: [6, 12] },
-  courtyard: { lotW: [12, 22], depth: [9, 13], yard: "court", behind: [0, 0] },
+  shop: { lotW: [4.5, 7], depth: [13, 20], yard: "sliver", behind: [1, 3] },
+  ordinary: { lotW: [5, 9], depth: [10, 15], yard: "small", behind: [4, 9] },
+  courtyard: { lotW: [12, 22], depth: [10, 14], yard: "court", behind: [0, 0] },
   wellOff: { lotW: [14, 24], depth: [10, 15], yard: "garden", behind: [10, 18] },
   croft: { lotW: [8, 12], depth: [5, 7], yard: "none", behind: [16, 26] },
+  // Cottages and workshops in a court behind the street front, reached by an alley (the burgage filling up).
+  backland: { lotW: [5, 8], depth: [6, 9], yard: "court", behind: [0, 1] },
   church: { lotW: [6, 9], depth: [9, 13], yard: "none", behind: [0, 0] },
   green: { lotW: [6, 9], depth: [9, 13], yard: "none", behind: [0, 0] },
   precinct: { lotW: [10, 16], depth: [8, 12], yard: "none", behind: [0, 0] },
@@ -172,7 +174,10 @@ export function fillBlock(r: Rng, face: Face, kind: BlockKind, front: (s: Side) 
     const runN = runOf.get(c.j), runP = runOf.get((c.j + m - 1) % m);
     const [Pp, ...rest] = c.region;
     const Pn = rest[rest.length - 2], verts = rest.slice(0, -2);
-    if (c.angle < 55 || runN === undefined || runP === undefined) { open.push({ kind: "yard", poly: qpoly(c.region) }); continue; }
+    // A corner round several short turns of a curving street, or one whose street fronts are too short
+    // to keep it clear of the next corner, is yard: an L there would cut across its neighbours.
+    const tight = (jj: number) => along(ends[jj].end.front, O[src[jj]], O[(src[jj] + 1) % n]) - along(ends[jj].start.front, O[src[jj]], O[(src[jj] + 1) % n]) < 0.05;
+    if (c.angle < 55 || runN === undefined || runP === undefined || rest.length > 3 || tight(c.j) || tight((c.j + m - 1) % m)) { open.push({ kind: "yard", poly: qpoly(c.region) }); continue; }
     const O0 = verts[0];
     const Olast = verts[verts.length - 1];
     const eP = norm(sub(O0, Pp)), eN = norm(sub(Pn, Olast));
@@ -204,15 +209,39 @@ export function fillBlock(r: Rng, face: Face, kind: BlockKind, front: (s: Side) 
     // Its own run: a house on two lots never spans round a corner.
     lots.push(newLot(ids, [Pp, ...verts, Pn, add(Pn, mul(nN, dd)), X, add(Pp, mul(nP, dd))], c.streetNext!, fN, kind, ids.run++, 0, dd, block, "L"));
   }
-  // A lot too thin to hold a house (a leftover at an awkward corner) is yard.
+  // A lot too thin to hold a house (a leftover at an awkward corner), or one skewed to a sliver of
+  // street front with a long back (mitred into a sharp corner), is yard.
   for (let k = lots.length - 1; k >= 0; k--) {
     const pl = lots[k].poly;
     let longest = 0;
     pl.forEach((v, i) => { longest = Math.max(longest, dist(v, pl[(i + 1) % pl.length])); });
-    if (area(pl) / Math.max(1e-9, longest) < 3) { open.push({ kind: "yard", poly: pl }); lots.splice(k, 1); }
+    const skewed = pl.length === 4 && !lots[k].corner && (dist(pl[0], pl[1]) < spec.lotW[0] * 0.5 || dist(pl[3], pl[2]) > dist(pl[0], pl[1]) * 2.2 + 2);
+    if (skewed || area(pl) / Math.max(1e-9, longest) < 3) { open.push({ kind: "yard", poly: pl }); lots.splice(k, 1); }
   }
-  // The middle.
+  // Last, any lot that still crosses another (a pathological corner) goes: the earlier one stays.
+  for (let k = lots.length - 1; k >= 0; k--) {
+    if (lots.some((o2, i) => i < k && lotsCross(o2.poly, lots[k].poly))) { open.push({ kind: "yard", poly: lots[k].poly }); lots.splice(k, 1); }
+  }
+  // The middle. Behind shops and ordinary houses, a big enough middle is built over too: a ring of
+  // cottages and workshops round a small court, back to back with the street's own houses.
   const mid = qpoly(I);
+  const infill = (kind === "shop" ? 0.85 : kind === "ordinary" ? 0.8 : 0);
+  if (infill && area(I) > 550 && r.chance(infill)) {
+    const inner = insetEdges(I, 1.5).poly;
+    if (inner.length >= 3) {
+      const court = `${block}:court`;
+      const face: Face = { outline: inner, sides: inner.map((a, i) => ({ street: court, width: 0, a, b: inner[(i + 1) % inner.length], edge: i })), open: false };
+      const back = fillBlock(r, face, "backland", () => "lane", ids, `${block}b`);
+      // Round a bent block the back ring can reach the street houses' backs: those lots stay yard.
+      const front = lots.slice();
+      for (const l of back.lots) {
+        if (front.some((f) => lotsCross(f.poly, l.poly))) open.push({ kind: "yard", poly: l.poly });
+        else lots.push(l);
+      }
+      open.push(...back.open);
+      if (back.lots.length) return { lots, open };
+    }
+  }
   if (spec.yard === "court") open.push({ kind: "court", poly: mid });
   else if (spec.yard === "garden") open.push({ kind: "garden", poly: mid, private: true });
   else if (spec.yard === "small" && area(I) > 900 && r.chance(0.5)) open.push({ kind: "green", poly: qpoly(insetEdges(I, 2).poly.length >= 3 ? insetEdges(I, 2).poly : I) });
@@ -271,6 +300,36 @@ export function cutRibbon(r: Rng, line: Pt[], side: 1 | -1, kind: BlockKind, str
   return out;
 }
 
+/** A lot's middle and reach, worked out once: a block's lots are each tested against all the others. */
+const discs = new WeakMap<Poly, { m: Pt; r: number }>();
+function disc(p: Poly): { m: Pt; r: number } {
+  let d = discs.get(p);
+  if (!d) {
+    let x = 0, y = 0;
+    for (const v of p) { x += v[0]; y += v[1]; }
+    const m: Pt = [x / p.length, y / p.length];
+    let r = 0;
+    for (const v of p) r = Math.max(r, dist(v, m));
+    discs.set(p, (d = { m, r }));
+  }
+  return d;
+}
+
+/** Whether two lots cross by more than a shared wall: edges crossing, or one inside the other (shrunk a little first). */
+function lotsCross(a: Poly, b: Poly): boolean {
+  const da = disc(a), db = disc(b);
+  const ma = da.m, mb = db.m;
+  const dx = ma[0] - mb[0], dy = ma[1] - mb[1], rr = da.r + db.r;
+  if (dx * dx + dy * dy > rr * rr) return false;
+  const A = a.map((v) => add(ma, mul(sub(v, ma), 0.96))), B = b.map((v) => add(mb, mul(sub(v, mb), 0.96)));
+  for (let i = 0; i < A.length; i++) for (let j = 0; j < B.length; j++) {
+    const p = A[i], p2 = A[(i + 1) % A.length], q = B[j], q2 = B[(j + 1) % B.length];
+    const d1 = cross(sub(p2, p), sub(q, p)), d2 = cross(sub(p2, p), sub(q2, p)), d3 = cross(sub(q2, q), sub(p, q)), d4 = cross(sub(q2, q), sub(p2, q));
+    if (d1 * d2 < 0 && d3 * d4 < 0) return true;
+  }
+  return pointInPoly(A[0], B) || pointInPoly(B[0], A);
+}
+
 function overlapsPrev(a: Poly, b: Poly): boolean {
   // Lots on the inside of a bend would cross at the back.
   const ca = mul(add(a[2], a[3]), 0.5), cb = mul(add(b[2], b[3]), 0.5);
@@ -325,3 +384,86 @@ export function shapeOn(r: Rng, i: number, fp: Footprint, lots: Lot[], kind: Blo
 
 /** The lots' frontage, for picking where a use goes: how long its street front is. */
 export const frontage = (l: Lot) => (l.poly.length >= 2 ? len(sub(l.poly[1], l.poly[0])) : 0);
+
+/**
+ * Split a block too big to fill by a lane across its middle, the short way, again until every part is
+ * under `maxArea`: backlands opened up by a lane, as towns did. Each part fronts the lane as well as its
+ * old streets. Only blocks that are convex are split (a bent block is left as it is).
+ */
+export function splitBlock(face: Face, laneW: number, maxArea: number, newLane: () => string): { faces: Face[]; lanes: Pt[][] } {
+  if (area(face.outline) <= maxArea || !isConvexPoly(face.outline)) return { faces: [face], lanes: [] };
+  const O = face.outline;
+  // The long way: of its own edges' headings, the one it reaches furthest along.
+  let u: Pt = [1, 0], best = -1;
+  for (let i = 0; i < O.length; i++) {
+    const e = sub(O[(i + 1) % O.length], O[i]);
+    if (len(e) < 1e-6) continue;
+    const dir = norm(e);
+    let lo = Infinity, hi = -Infinity;
+    for (const p of O) { const t = dot(p, dir); lo = Math.min(lo, t); hi = Math.max(hi, t); }
+    if (hi - lo > best) { best = hi - lo; u = dir; }
+  }
+  const c = O.reduce((t, v) => add(t, v), [0, 0] as Pt);
+  const mid = mul(c, 1 / O.length);
+  const lane = newLane();
+  // Each half: the outline beyond the lane's edge, and the lane as a new side.
+  const half = (sg: 1 | -1): Face | undefined => {
+    const n = mul(u, sg);
+    const poly = clipConvex(O, add(mid, mul(n, laneW / 2)), n);
+    if (poly.length < 3 || area(poly) < 60) return undefined;
+    const sides: Side[] = [];
+    poly.forEach((p, i) => {
+      const q = poly[(i + 1) % poly.length];
+      const m2 = mul(add(p, q), 0.5);
+      // On the lane's edge, or along one of the old sides?
+      if (Math.abs(dot(sub(m2, mid), n) - laneW / 2) < 0.05) { sides.push({ street: lane, width: laneW, a: p, b: q, edge: i }); return; }
+      const old = face.sides.find((s) => {
+        const e = sub(s.b, s.a), L = len(e);
+        if (L < 1e-9) return false;
+        return Math.abs(cross(e, sub(m2, s.a)) / L) < 0.05 && Math.abs(cross(norm(e), norm(sub(q, p)))) < 0.02;
+      });
+      if (old) sides.push({ ...old, a: p, b: q, edge: i });
+    });
+    return { outline: poly, sides, open: face.open };
+  };
+  const out: Face[] = [], lanes: Pt[][] = [];
+  // The lane itself, between the block's edges: drawn on the map as a lane.
+  const across = perp(u);
+  const t0 = -1e6, t1 = 1e6;
+  const seg = clipConvex(clipConvex(O, add(mid, mul(u, -laneW / 2)), u), add(mid, mul(u, laneW / 2)), mul(u, -1));
+  if (seg.length >= 3) {
+    let lo = t1, hi = t0;
+    for (const p of seg) { const t = dot(sub(p, mid), across); lo = Math.min(lo, t); hi = Math.max(hi, t); }
+    lanes.push([add(mid, mul(across, lo)), add(mid, mul(across, hi))]);
+  }
+  for (const sg of [1, -1] as const) {
+    const h = half(sg);
+    if (!h) continue;
+    const r2 = splitBlock(h, laneW, maxArea, newLane);
+    out.push(...r2.faces); lanes.push(...r2.lanes);
+  }
+  return out.length ? { faces: out, lanes } : { faces: [face], lanes: [] };
+}
+
+function isConvexPoly(p: Poly): boolean {
+  let sign = 0;
+  for (let i = 0; i < p.length; i++) {
+    const c = cross(sub(p[(i + 1) % p.length], p[i]), sub(p[(i + 2) % p.length], p[(i + 1) % p.length]));
+    if (Math.abs(c) < 1e-9) continue;
+    if (!sign) sign = Math.sign(c);
+    else if (Math.sign(c) !== sign) return false;
+  }
+  return true;
+}
+
+/** The part of a convex polygon where dot(x - a, n) >= 0. */
+function clipConvex(p: Poly, a: Pt, n: Pt): Poly {
+  const out: Pt[] = [];
+  for (let i = 0; i < p.length; i++) {
+    const u = p[i], v = p[(i + 1) % p.length];
+    const su = dot(sub(u, a), n), sv = dot(sub(v, a), n);
+    if (su >= 0) out.push(u);
+    if ((su >= 0) !== (sv >= 0)) out.push(add(u, mul(sub(v, u), su / (su - sv))));
+  }
+  return out;
+}

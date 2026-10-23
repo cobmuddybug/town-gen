@@ -203,6 +203,8 @@ export function blockFaces(g: StreetGraph, close?: Poly): Face[] {
       if (e.street === BOUNDARY) return;
       sides.push({ street: e.street, width: e.width, a: outline[i], b: outline[(i + 1) % outline.length], edge: i });
     });
+    // A face with no street at all is the space round the town inside the boundary: no block.
+    if (!sides.length) continue;
     faces.push({ outline, sides, open: eds.some((e) => e.street === BOUNDARY) });
   }
   return faces;

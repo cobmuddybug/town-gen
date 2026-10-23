@@ -37,7 +37,7 @@ export function organicStreets(r: Rng, o: OrganicIn): { streets: OrganicStreet[]
   const { centre, radius: R } = o;
   // The town's outline: a disc, or stretched along an axis for an oval or a long town.
   const axis = r.range(0, TAU);
-  const [sx, sy] = o.shape === "long" ? [1.45, 0.7] : o.shape === "oval" ? [1.2, 0.85] : [1, 1];
+  const [sx, sy] = o.shape === "long" ? [1.7, 0.6] : o.shape === "oval" ? [1.25, 0.8] : [1, 1];
   const u: Pt = [cos(axis), sin(axis)], v = perp(u);
   const fromLocal = (x: number, y: number): Pt => add(centre, add(mul(u, x * sx), mul(v, y * sy)));
   const clip: Poly = [];

@@ -78,15 +78,15 @@ describe("each kind fills its block as it should", () => {
     const bs = houses(kind, lots);
     return bs.reduce((t, b) => t + area(b.poly) + b.parts.reduce((u, p) => u + area(p.poly), 0), 0) / area(faceOf(MID).outline);
   };
-  test("shop streets are packed", () => {
-    for (const s of ["s1", "s2", "s3"]) { const c = cover("shop", s); expect(c, s).toBeGreaterThanOrEqual(0.55); expect(c, s).toBeLessThanOrEqual(0.8); }
+  test("shop streets are packed, their backlands built over", () => {
+    for (const s of ["s1", "s2", "s3"]) { const c = cover("shop", s); expect(c, s).toBeGreaterThanOrEqual(0.55); expect(c, s).toBeLessThanOrEqual(0.9); }
     const { lots } = fill("shop", "s1");
-    const widths = lots.filter((l) => !l.corner).map((l) => dist(l.poly[0], l.poly[1]));
+    const widths = lots.filter((l) => !l.corner && l.kindOfBlock === "shop").map((l) => dist(l.poly[0], l.poly[1]));
     expect(Math.min(...widths)).toBeGreaterThanOrEqual(KIND_SPEC.shop.lotW[0] * 0.5);
     expect(widths.filter((w) => w >= 4.5 && w <= 7).length / widths.length).toBeGreaterThan(0.8);
   });
   test("ordinary streets are less so", () => {
-    for (const s of ["o1", "o2", "o3"]) { const c = cover("ordinary", s); expect(c, s).toBeGreaterThanOrEqual(0.4); expect(c, s).toBeLessThanOrEqual(0.65); }
+    for (const s of ["o1", "o2", "o3"]) { const c = cover("ordinary", s); expect(c, s).toBeGreaterThanOrEqual(0.4); expect(c, s).toBeLessThanOrEqual(0.8); }
   });
   test("a courtyard block leaves one common court", () => {
     const { open } = fill("courtyard", "c1");
@@ -105,8 +105,9 @@ describe("corners", () => {
     let split = 0, L = 0;
     for (let i = 0; i < 200; i++) {
       const { lots } = fill("ordinary", `k${i}`);
-      split += lots.filter((l) => l.corner === "split").length / 2;
-      L += lots.filter((l) => l.corner === "L").length;
+      // The street front's corners (the backland ring behind them has corners of its own).
+      split += lots.filter((l) => l.corner === "split" && l.kindOfBlock === "ordinary").length / 2;
+      L += lots.filter((l) => l.corner === "L" && l.kindOfBlock === "ordinary").length;
     }
     const share = split / (split + L);
     expect(share).toBeGreaterThanOrEqual(0.5);
@@ -182,5 +183,26 @@ describe("blocks of every shape", () => {
       }
     });
     expect(bad).toEqual([]);
+  });
+});
+
+describe("big blocks are opened up by lanes", () => {
+  test("a block over the size is split, every part under it, and no lot crosses the lane", async () => {
+    const { splitBlock } = await import("../src/modules/layout/blocks");
+    const big = faceOf([[0, 0], [160, 0], [160, 120], [0, 120]]);
+    let n = 0;
+    const { faces, lanes } = splitBlock(big, 3, 5000, () => `lane${n++}`);
+    expect(faces.length).toBeGreaterThanOrEqual(4);
+    expect(lanes.length).toBe(faces.length - 1);
+    for (const f of faces) expect(area(f.outline)).toBeLessThanOrEqual(5000);
+    for (const f of faces) expect(f.sides.some((s) => s.street.startsWith("lane"))).toBe(true);
+    const lots = faces.flatMap((f, i) => fillBlock(new Rng(`sp${i}`), f, "ordinary", front, { next: 0, run: i * 100 }).lots);
+    for (const l of lots) for (const ln of lanes) {
+      const [a, b] = ln;
+      const side = (p: Pt) => Math.sign((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]));
+      const s = new Set(l.poly.map(side).filter((x) => x !== 0));
+      const within = l.poly.some((p) => { const t = ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2); return t > 0 && t < 1; });
+      if (within) expect(s.size, JSON.stringify(l.poly)).toBe(1);
+    }
   });
 });
