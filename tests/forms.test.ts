@@ -573,10 +573,10 @@ describe("the six other forms on blocks", () => {
       expect(trouble(t)).toEqual([]);
     }, 600000);
     test(`${form}: the DM's choices still bite`, () => {
+      // Built ground in the suburbs on this side of the river (a ridge town's far bank is a village of its own).
       const beyond = (suburbs: "few" | "many") => {
         const { t, map } = town(`bite-${form}`, 6000, form, { walls: "wall", suburbs });
-        const ring = map.wall!.closed ? map.wall!.line : map.hedge;
-        return t.children(t.root, "building").filter((b) => !pointInPoly(mid(b.get<Pt[]>("poly")), ring)).reduce((u, b) => u + shoelace(b.get<Pt[]>("poly")), 0);
+        return t.children(t.root, "building").filter((b) => { const w = map.wards![b.get<number>("ward")]; return w?.kind === "suburb" && w.bank !== "far"; }).reduce((u, b) => u + shoelace(b.get<Pt[]>("poly")), 0);
       };
       const few = beyond("few"), many = beyond("many");
       expect(many, `suburbs many ${many.toFixed(0)} vs few ${few.toFixed(0)}`).toBeGreaterThanOrEqual(few * 2);

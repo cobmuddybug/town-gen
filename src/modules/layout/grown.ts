@@ -27,7 +27,7 @@ export type Form = "river" | "ridge" | "castle" | "street" | "crossroads" | "abb
 /** Forms with a far bank over their bridge. */
 export const BANKED: Form[] = ["river", "ridge"];
 /** The forms whose land between streets is cut into blocks (dense-blocks rework); the rest still cut rows of plots. */
-export const BLOCKED: Form[] = ["organic", "river", "street", "crossroads", "castle", "abbey", "harbour"];
+export const BLOCKED: Form[] = ["organic", "river", "street", "crossroads", "castle", "abbey", "harbour", "ridge"];
 let blockedForms = new Set<Form>(BLOCKED);
 /** Tests only: try forms on blocks before they are switched over for good. */
 export function setBlockedForTest(forms: Form[]): void { blockedForms = new Set(forms.length ? forms : BLOCKED); }
@@ -98,7 +98,7 @@ export function riverSite(r: Rng, o: RiverOpts): RiverSite {
   // A harbour loses half its round of ground to the sea, a ridge town both its flanks: give them more.
   // (A street town on blocks is stretched along its street and narrow across it: less ground to a radius.
   // A castle- or abbey-gate town has none behind its castle or abbey.)
-  const R = townRadius(o, o.need, !!o.blocks) * (form === "harbour" ? 1.45 : form === "ridge" ? 1.15 : form === "street" && o.blocks ? 1.4 : (form === "castle" || form === "abbey") && o.blocks ? 1.3 : form === "organic" && o.need > 1500 ? 1.06 : 1);
+  const R = townRadius(o, o.need, !!o.blocks) * (form === "harbour" ? (o.blocks ? 1.52 : 1.45) : form === "ridge" ? 1.15 : form === "street" && o.blocks ? 1.4 : (form === "castle" || form === "abbey") && o.blocks ? 1.3 : form === "organic" && o.need > 1500 ? 1.06 : 1);
   const extent = R * 2.6 + 200;
   // Towns at a crossing stand on a river; the others have a stream passing clear of them, for the mills.
   const crossing = BANKED.includes(form) || form === "harbour";
@@ -1337,6 +1337,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
         if (keysOf(l.poly).some((k2) => (pgrid.get(k2) ?? []).some((j) => plots[j].block !== `k${fi}` && lotsCross(plots[j].poly, l.poly)))) { open.push({ kind: "yard", poly: l.poly }); continue; }
         const id = plots.length;
         const order = far ? hypot(lc[0] - site.bridge.p[0], lc[1] - site.bridge.p[1]) : hypot(lc[0] - mc[0], lc[1] - mc[1]);
+        // A lot inside the town fronting a road out where it leaves the town is a main-road lot, not suburb.
+        if (!far && l.kind === "suburb" && inside(lc)) l.kind = "main";
         plots.push(Object.assign(l, { id, far, suburb: !far && l.kind === "suburb", order }));
         blockLots.get(`k${fi}`)!.push(plots[id]);
         boxes.push(boxOf(l.poly));
@@ -1351,11 +1353,15 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       if (outside.length < 2) continue;
       for (const side of [1, -1] as const) {
         const edge = offsetLine(outside, side * (st.width / 2));
-        const ribbon = cutRibbon(r, edge, side, "croft", st.id, "suburb", (poly) => poly.every((q2) => riverClear(q2, 1) && bank(q2) === site.near) && !clearWhy(poly, st.id), ids);
+        // (Where the DM asks for many suburbs, the roads out are built up close, not crofts.)
+        const ribbon = cutRibbon(r, edge, side, o.suburbs === "many" ? "ordinary" : "croft", st.id, "suburb", (poly) => poly.every((q2) => riverClear(q2, 1) && bank(q2) === site.near) && !clearWhy(poly, st.id), ids);
         for (const l of ribbon) {
           const lc = centroid(l.poly);
           const id = plots.length;
-          plots.push(Object.assign(l, { id, far: false, suburb: true, order: hypot(lc[0] - mc[0], lc[1] - mc[1]) }));
+          // (Still within the town, the road's houses are the town's.)
+          const within2 = inside(lc);
+          if (within2) l.kind = "main";
+          plots.push(Object.assign(l, { id, far: false, suburb: !within2, order: hypot(lc[0] - mc[0], lc[1] - mc[1]) }));
           boxes.push(boxOf(l.poly));
           for (const k of keysOf(l.poly)) { const g2 = pgrid.get(k); if (g2) g2.push(id); else pgrid.set(k, [id]); }
         }
