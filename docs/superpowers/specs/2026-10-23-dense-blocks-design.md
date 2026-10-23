@@ -129,6 +129,21 @@ A new module, `layout/blocks.ts`, used by the organic plan and the grown engine 
 6. **Plan to lots:** the engine grows streets/blocks until there are enough lots of each kind for the
    plan, as `wantFront` does today. Spare lots become yards, gardens or a green, never empty plots.
 
+## Roads that aren't blocks
+
+Not every road encloses a block, and buildings still line the ones that don't **(user asked; Claude's
+answer)**:
+
+- **Ribbons.** Roads out past the gates are lined with houses as a ribbon: a row of lots each side,
+  yards and plots behind ending at a back fence one plot deep, thinning with distance from the gate.
+- **One-sided streets.** A street on the edge of the built town, with country on the other side, gets
+  one row on its town side; the open side stays open. A face open to the country is only closed into
+  a block where it is narrow enough to fill; otherwise its edge streets are ribbons.
+- **Lanes and village roads.** Dead-end lanes and a village's roads keep frontage along their length.
+
+The same lot cutter makes ribbons and block edges, so a ribbon's houses look like a block's: square to
+the road, sharing walls in the denser stretches, gaps and crofts further out.
+
 ## The grown forms
 
 Each keeps its spine: river and bridge, ridge crest, castle cone, long street, crossroads, abbey
