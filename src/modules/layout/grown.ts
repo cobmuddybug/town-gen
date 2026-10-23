@@ -27,7 +27,7 @@ export type Form = "river" | "ridge" | "castle" | "street" | "crossroads" | "abb
 /** Forms with a far bank over their bridge. */
 export const BANKED: Form[] = ["river", "ridge"];
 /** The forms whose land between streets is cut into blocks (dense-blocks rework); the rest still cut rows of plots. */
-export const BLOCKED: Form[] = ["organic", "river", "street", "crossroads"];
+export const BLOCKED: Form[] = ["organic", "river", "street", "crossroads", "castle"];
 let blockedForms = new Set<Form>(BLOCKED);
 /** Tests only: try forms on blocks before they are switched over for good. */
 export function setBlockedForTest(forms: Form[]): void { blockedForms = new Set(forms.length ? forms : BLOCKED); }
