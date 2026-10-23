@@ -19,6 +19,8 @@ interface CivicData {
   compass: Record<string, string>;
   gates: string[];
   inner: string[];
+  /** names for a town's commons; "{church}" is the nearest parish church's dedication */
+  commons: string[];
   water: Record<Era, string>;
   fire: Record<Era, string>;
   literacy: Record<Era, [number, number]>;
@@ -197,6 +199,26 @@ export const civic: Module = {
           ctx.gen(e, "heldBy", (r) => `Sir ${prov.given(r, { sex: "m" })} of ${prov.place(r)}`);
         }
       });
+
+      // The commons: named for the church that looks onto one, or from the list.
+      const commons = (map.greens ?? []).filter((g) => g.kind === "common");
+      if (commons.length) {
+        // (Kept as the settlement's "greenNames", in the order of the map's commons: the map is layout's.)
+        ctx.gen(s, "greenNames", (r) => {
+          const used = new Set<string>();
+          const pool = r.shuffle(content.commons.filter((n) => !n.includes("{church}")));
+          const churches = (map.greens ?? []).filter((g) => g.kind === "graveyard" && g.church !== undefined && dedications[g.church!] && ["fane", "temple", "grand_temple"].includes(plan[g.church!]));
+          return commons.map((c) => {
+            const cc = centroid(c.poly);
+            const near = churches.find((g) => dist(centroid(g.poly), cc) < 120);
+            const d = near ? dedications[near.church!] : undefined;
+            let n = d && r.chance(0.6) ? `${d === "All Saints" || d === "Holy Trinity" ? d : poss(d)} Green` : pool.shift() ?? "the Green";
+            if (used.has(n)) n = pool.shift() ?? `${n} ${used.size + 1}`;
+            used.add(n);
+            return n;
+          });
+        });
+      }
 
       // The town's services.
       ctx.gen(s, "water", () => content.water[ctx.era]);

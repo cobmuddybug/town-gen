@@ -8,6 +8,8 @@ import { clearLayoutCache, type MapData } from "../src/modules/layout";
 import { convexOverlap, pointInPoly, polylinePolyDist, segPointDist, type Pt } from "../src/modules/layout/geom";
 import { CHURCH_SIZE } from "../src/modules/layout/streets";
 import { generate } from "../src/town-gen";
+import { renderMap } from "../src/ui/map";
+import { placePoint } from "../src/ui/discover";
 
 const FORMS = ["ridge", "castle", "street", "crossroads", "abbey", "harbour"] as const;
 type Form = (typeof FORMS)[number];
@@ -130,7 +132,8 @@ describe.each(FORMS)("%s towns", (form: Form) => {
     for (const seed of ["h1", "h2", "h3"]) {
       const { t, map } = town(`${form}-${seed}`, 6000, form, { walls: "wall" });
       // Measured to the outlines of what was built (a precinct is one great plot with only four corners).
-      const inside = t.children(t.root, "building").filter((b) => map.wards![b.get<number>("ward")]?.kind === "intramural").map((b) => b.get<Pt[]>("plot") ?? b.get<Pt[]>("poly")).concat(map.gardens ?? []);
+      // (A common is ground in use too, as a garden is.)
+      const inside = t.children(t.root, "building").filter((b) => map.wards![b.get<number>("ward")]?.kind === "intramural").map((b) => b.get<Pt[]>("plot") ?? b.get<Pt[]>("poly")).concat(map.gardens ?? []).concat((map.greens ?? []).filter((g) => g.kind === "common").map((g) => g.poly));
       const line = map.wall!.closed ? map.wall!.line : map.wall!.line.slice(6, -6);
       const gap = line.map((p) => Math.min(...inside.map((poly) => lineDist([...poly, poly[0]], p)))).sort((a, b) => a - b);
       expect(gap[Math.floor(gap.length * 0.85)], seed).toBeLessThanOrEqual(90);
@@ -576,4 +579,54 @@ describe("the six other forms on blocks", () => {
       expect(town(`bite-w-${form}`, 4000, form, { walls: "none" }).map.wall?.gates ?? []).toEqual([]);
     }, 600000);
   }
+});
+
+describe("greens, gardens and graveyards", () => {
+  const PARISH = ["fane", "temple", "grand_temple"];
+  const touches = (a: Pt[], b: Pt[]) => a.some((p) => pointInPoly(p, b)) || b.some((p) => pointInPoly(p, a)) || a.some((p) => b.some((q, i) => segPointDist(p, q, b[(i + 1) % b.length]) < 1.5));
+  for (const [layout, pop] of [["radial", 6000], ["river", 6000], ["castle", 9000], ["harbour", 4000]] as const) {
+    test(`${layout} ${pop}: every parish church stands in a church block with its graveyard touching it`, () => {
+      const { t, map } = town(`gg-${layout}`, pop, layout, {}, layout === "harbour" ? "fishing" : "agricultural");
+      const yards = (map.greens ?? []).filter((g) => g.kind === "graveyard");
+      for (const b of t.children(t.root, "building").filter((x) => PARISH.includes(x.get<string>("use")))) {
+        const blk = (map.blocks ?? []).find((k) => k.id === String(b.get("block")).replace(/b$/, ""));
+        expect(blk?.kind, `${b.get("use")} block`).toBe("church");
+        expect(yards.some((y) => touches(y.poly, b.get<Pt[]>("poly"))), `${b.get("use")} graveyard`).toBe(true);
+      }
+    }, 600000);
+    test(`${layout} ${pop}: commons, one to about four thousand, one inside the wall`, () => {
+      const { t, map } = town(`gg-c-${layout}`, pop, layout, { walls: "wall" }, layout === "harbour" ? "fishing" : "agricultural");
+      const commons = (map.greens ?? []).filter((g) => g.kind === "common");
+      expect(commons.length).toBeGreaterThanOrEqual(Math.max(1, Math.floor(pop / 4000)));
+      const ring = map.wall!.closed ? map.wall!.line : map.hedge;
+      expect(commons.some((g) => pointInPoly(mid(g.poly), ring))).toBe(true);
+      const names = t.settlement().get<string[]>("greenNames") ?? [];
+      expect(names.length).toBe(commons.length);
+      expect(new Set(names).size).toBe(names.length);
+    }, 600000);
+  }
+  test("a town of 2,000 has no common it doesn't need; a city has several", () => {
+    expect((town("gg-small", 2000, "radial").map.greens ?? []).filter((g) => g.kind === "common").length).toBe(0);
+    expect((town("gg-big", 16000, "radial").map.greens ?? []).filter((g) => g.kind === "common").length).toBeGreaterThanOrEqual(4);
+  }, 600000);
+  test("well-off blocks have private gardens", () => {
+    const { map } = town("gg-garden", 12000, "radial");
+    const gardens = (map.greens ?? []).filter((g) => g.kind === "garden");
+    expect(gardens.length).toBeGreaterThan(0);
+    const wellOff = (map.blocks ?? []).filter((b) => b.kind === "wellOff");
+    expect(gardens.every((g) => wellOff.some((b) => pointInPoly(mid(g.poly), b.outline)))).toBe(true);
+  }, 600000);
+  test("the map draws graveyards and commons", () => {
+    const { t } = town("gg-draw", 6000, "radial");
+    const svg = renderMap(t);
+    expect(svg).toContain('class="m-graveyard"');
+    expect(svg).toContain('class="m-common"');
+  }, 600000);
+  test("someone sent to the green in a big town goes to a common, not the market", () => {
+    const { t, map } = town("gg-place", 12000, "radial");
+    const person = t.children(t.root, "building").flatMap((b) => t.children(b.address, "household")).flatMap((h) => t.children(h.address, "person"))[0].address;
+    const at = placePoint(t, "place:green", person)!;
+    const commons = (map.greens ?? []).filter((g) => g.kind === "common");
+    expect(commons.some((g) => Math.hypot(mid(g.poly)[0] - at[0], mid(g.poly)[1] - at[1]) < 1)).toBe(true);
+  }, 600000);
 });

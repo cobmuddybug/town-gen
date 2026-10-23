@@ -74,6 +74,8 @@ export const MAP_STYLE = `
 .m-small{font-size:6px;font-style:italic}
 .m-feature{fill:var(--map-ink,#4a3f30)}
 .m-townground{fill:var(--map-street,#ddd0ae)}
+.m-common{fill:var(--map-green,#b9cc8e);stroke:var(--map-green-edge,#93a86c);stroke-width:.6}
+.m-graveyard{fill:var(--map-graveyard,#c9d2a8);stroke:var(--map-fence,#a2906a);stroke-width:.4}
 .m-garden{fill:var(--map-garden,#c3cc9c);stroke:var(--map-fence,#a2906a);stroke-width:.3}
 .m-market{fill:var(--map-market,#e2d6b4);stroke:var(--map-road-edge,#b49c74);stroke-width:.6}
 .m-wall{fill:none;stroke:var(--map-wallstone,#6f6a5c);stroke-width:3.6;stroke-linejoin:round}
@@ -164,6 +166,14 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
     if (m.enclosure !== "none") out.push(`<path class="m-ditch" d="${smoothPath(m.wall!.line, m.wall!.closed)}"/>`);
     out.push(`<polygon class="m-townground" points="${pts(m.hedge)}"/>`);
     for (const g of m.gardens ?? []) out.push(`<polygon class="m-garden" points="${pts(g)}"/>`);
+    // Greens: the commons, private gardens, and the churchyards' graves.
+    const greenNames = town.settlement().get<string[] | undefined>("greenNames") ?? [];
+    let ci = 0;
+    for (const g of m.greens ?? []) {
+      const cls = g.kind === "common" ? "m-common" : g.kind === "garden" ? "m-garden m-private" : "m-graveyard";
+      const name = g.kind === "common" ? greenNames[ci++] : g.kind === "graveyard" ? "the churchyard" : "a private garden";
+      out.push(`<polygon class="${cls}" points="${pts(g.poly)}">${name ? `<title>${esc(name)}</title>` : ""}</polygon>`);
+    }
     out.push(`<polygon class="m-market" points="${pts(m.market!)}"><title>the market place</title></polygon>`);
     if (m.farGreen) out.push(`<polygon class="m-green m-far-green" points="${pts(m.farGreen)}"><title>the village green</title></polygon>`);
     if (m.castle) out.push(`<polygon class="m-bailey" points="${pts(m.castle)}"><title>the castle bailey</title></polygon>`);

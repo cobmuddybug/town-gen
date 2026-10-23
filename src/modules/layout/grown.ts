@@ -91,7 +91,7 @@ export function riverSite(r: Rng, o: RiverOpts): RiverSite {
   // A harbour loses half its round of ground to the sea, a ridge town both its flanks: give them more.
   // (A street town on blocks is stretched along its street and narrow across it: less ground to a radius.
   // A castle- or abbey-gate town has none behind its castle or abbey.)
-  const R = townRadius(o, o.need) * (form === "harbour" ? 1.52 : form === "ridge" ? 1.15 : form === "street" ? 1.4 : form === "castle" || form === "abbey" ? 1.3 : form === "organic" && o.need > 1500 ? 1.06 : 1);
+  const R = townRadius(o, o.need) * (form === "harbour" ? 1.52 : form === "ridge" ? 1.4 : form === "street" ? 1.4 : form === "castle" || form === "abbey" ? 1.3 : form === "organic" && o.need > 1500 ? 1.06 : 1);
   const extent = R * 2.6 + 200;
   // Towns at a crossing stand on a river; the others have a stream passing clear of them, for the mills.
   const crossing = BANKED.includes(form) || form === "harbour";
@@ -1396,7 +1396,7 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     const keepU = norm2(sub(castleAt, mc));
     result[castleIdx] = {
       planIndex: castleIdx, poly: qpoly(rect(add(castleAt, mul(keepU, cr * 0.25)), perp(keepU), 16, 16)), parts: [{ kind: "hall", poly: qpoly(rect(add(castleAt, mul(keepU, -cr * 0.35)), perp(keepU), 20, 8)) }],
-      plot: castle, plotKind: "bailey", front: qp(castleAt), road: "castle", ward: nearestWard(wards.filter((w) => w.bank === "near"), castleAt), block: "castle",
+      plot: castle, plotKind: "bailey", front: qp(castleAt), road: "castle", ward: nearestWard((wards.some((w) => w.bank === "near" && w.kind === "intramural") ? wards.filter((w) => w.bank === "near" && w.kind === "intramural") : wards.filter((w) => w.bank === "near")), castleAt), block: "castle",
     };
     wards[result[castleIdx]!.ward!].near.push("castle");
   }
@@ -1689,6 +1689,32 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     if (w.bank === "far" && o.farBank === "wharf") w.near.push("quay");
   }
 
+  // ---- commons: a town over three thousand keeps open ground for its people, one to about four
+  // thousand of them, the first inside the walls by a gate or the market, the rest spread about.
+  const commons: Poly[] = [];
+  // (By buildings: a city houses more to a building, so a common to six hundred is about one to four thousand.)
+  const nCommons = plan.length > 560 ? Math.ceil(plan.length / 600) : 0;
+  const gatesIn = net.gates.map((g) => g.p);
+  for (let k = 0; k < nCommons; k++) {
+    let best: (typeof blocksOut)[number] | undefined, bs = -Infinity;
+    for (const b of blocksOut) {
+      if (b.kind === "church" || b.kind === "precinct" || b.kind === "green" || b.kind === "shop") continue;
+      const lots = [...(blockLots.get(b.id) ?? []), ...(blockLots.get(`${b.id}b`) ?? [])];
+      if (!lots.length || lots.some((l) => l.used || l.far)) continue;
+      const a = area(b.outline), c = centroid(b.outline);
+      if (a < 1200 || a > 9000 || !inside(c)) continue;
+      // By a gate or the market's edge, and apart from the other commons.
+      const toGate = Math.min(hypot(c[0] - mc[0], c[1] - mc[1]) - S, ...gatesIn.map((q2) => hypot(c[0] - q2[0], c[1] - q2[1])));
+      const apart = Math.min(R, ...commons.map((q2) => hypot(centroid(q2)[0] - c[0], centroid(q2)[1] - c[1])));
+      const sc = (k === 0 ? -toGate : apart) - Math.abs(a - 3500) / 200 + r.range(0, 20);
+      if (sc > bs) { bs = sc; best = b; }
+    }
+    if (!best) break;
+    best.kind = "green";
+    for (const l of [...(blockLots.get(best.id) ?? []), ...(blockLots.get(`${best.id}b`) ?? [])]) l.used = true;
+    commons.push(best.outline);
+  }
+
   // ---- everyone else onto the plots --------------------------------------------------------
   const placedAt = new Map<string, Pt[]>();
   const familyOf = (kk: string) => FAMILY[kk] ?? kk;
@@ -1909,13 +1935,19 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     // (In a town of blocks, any lot within the first line, though the old reckoning called it suburb.)
     const firstLine = net.wallLine;
     const within = (q2: Pt) => pointInPoly(q2, firstLine);
-    // (A town of blocks has whole blocks to spare at its edges, empty: its wall goes round the blocks built in.)
+    // (A town of blocks has whole blocks to spare at its edges, empty: its wall goes round the blocks built in,
+    // and of a croft block, hectares of gardens at the town's edge, only the crofts built on.)
     const builtIn = new Set(plots.filter((p) => p.used).map((p) => p.block.replace(/b$/, "")));
-    for (const p of plots) if (!p.far && (!p.suburb || within(centroid(p.poly))) && builtIn.has(p.block.replace(/b$/, ""))) p.poly.forEach(mark);
+    for (const p of plots) if (!p.far && (!p.suburb || within(centroid(p.poly))) && builtIn.has(p.block.replace(/b$/, "")) && (p.used || (p as Lot).kindOfBlock !== "croft")) p.poly.forEach(mark);
     market.forEach(mark);
     castle?.forEach(mark);
-    // Every gate holds the wall where it is, gatehouse or none (a river town's gates all have theirs).
-    if (form !== "river") for (const g of net.gates) mark(add(g.p, mul(norm2(sub(g.p, mc)), 4)));
+    // A gate holds the wall where it is if the town is built up to it (and a bridge, quay or postern gate
+    // always); one out in the fields lets the wall come in, and moves along its road to meet it.
+    // (A river town's gates all hold.)
+    const gateHeld = net.gates.map((g) => form === "river" || !/^main\d+$/.test(g.road)
+      || result.some((b) => !!b && plan[b.planIndex].site !== "gate" && hypot(centroid(b.poly)[0] - g.p[0], centroid(b.poly)[1] - g.p[1]) < 60));
+    const holdGate = (k: number) => mark(add(net.gates[k].p, mul(norm2(sub(net.gates[k].p, mc)), 4)));
+    if (form !== "river") net.gates.forEach((_, k) => { if (gateHeld[k]) holdGate(k); });
     // The castle, whatever ward it falls in: its keep and hall, and its bailey's whole edge.
     if (castleIdx >= 0 && result[castleIdx]) {
       const cb = result[castleIdx]!;
@@ -1970,6 +2002,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       });
     };
     let line = fit();
+    const settle = () => {
+    line = fit();
     if (refit) for (let pass = 0; pass < 12; pass++) {
       // Only houses by the wall can be cut by it: look up the wall's stretches near each one.
       const wg = new SegGrid<number>(40);
@@ -2004,6 +2038,68 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
         else for (const p of sh) { const k = binOf(p); cap[k] = Math.min(cap[k], hypot(p[0] - mc[0], p[1] - mc[1]) - 3); }
       }
       line = fit();
+    }
+    };
+    settle();
+    // The free gates move in along their roads to where the wall now crosses them, gatehouse and all.
+    // One that can't (its road doesn't cross, or its gatehouse would stand on a house) holds the wall after all.
+    const moveGate = (k: number): boolean => {
+      const g = net.gates[k];
+      const road = net.streets.find((st) => st.id === g.road)?.points;
+      if (!road) return false;
+      let best: { p: Pt; t: Pt } | undefined, bd = Infinity;
+      for (let i = 0; i + 1 < road.length; i++) for (let j = 0; j + 1 < line.length; j++) {
+        const a = road[i], b = road[i + 1], c = line[j], d = line[j + 1];
+        const den = (b[0] - a[0]) * (d[1] - c[1]) - (b[1] - a[1]) * (d[0] - c[0]);
+        if (Math.abs(den) < 1e-9) continue;
+        const tt = ((c[0] - a[0]) * (d[1] - c[1]) - (c[1] - a[1]) * (d[0] - c[0])) / den, uu = ((c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0])) / den;
+        if (tt < 0 || tt > 1 || uu < 0 || uu > 1) continue;
+        const p = add(a, mul(sub(b, a), tt)), dd = hypot(p[0] - g.p[0], p[1] - g.p[1]);
+        if (dd < bd) { bd = dd; best = { p, t: norm2(sub(b, a)) }; }
+      }
+      if (!best) return false;
+      if (bd < 1) return true;
+      const gi = result.findIndex((b) => !!b && plan[b.planIndex].site === "gate" && hypot(b.front[0] - g.p[0], b.front[1] - g.p[1]) < 2);
+      // Where the road crosses, or a little along it either way if a house stands there: the wall's
+      // nearest corner then comes to the gate.
+      let at = best;
+      if (gi >= 0) {
+        // The wall bent to a gate along the road: its nearest corner to the gate, if that cuts no house.
+        const near = result.filter((b) => !!b && plan[b.planIndex].site !== "gate" && hypot(b.front[0] - best.p[0], b.front[1] - best.p[1]) < 120) as PlacedBuilding[];
+        const bent = (p: Pt): Pt[] | undefined => {
+          let jn = 0, dn = Infinity;
+          line.forEach((v, j) => { const dv = hypot(v[0] - p[0], v[1] - p[1]); if (dv < dn) { dn = dv; jn = j; } });
+          const ends = ring && (jn === 0 || jn === line.length - 1);
+          const nl = line.map((v, j) => (j === jn || (ends && (j === 0 || j === line.length - 1)) ? p : v));
+          const segs = [jn - 1, jn].filter((j) => j >= 0 && j + 1 < nl.length).map((j) => [nl[j], nl[j + 1]] as [Pt, Pt]);
+          return near.some((b) => segs.some((sg) => lineCutsPoly(b.plot && b.plotKind !== "churchyard" && b.plotKind !== "precinct" ? b.plot : b.poly, sg))) ? undefined : nl;
+        };
+        let fits: { p: Pt; t: Pt; line: Pt[] } | undefined;
+        for (const off of [0, 4, -4, 8, -8, 12, -12, 16, -16, 20, -20, 25, -25, 30, -30]) {
+          const cand = { p: add(best.p, mul(best.t, off)), t: best.t };
+          const { body, towers: [tA, tB] } = gateParts(cand);
+          if ([body, tA, tB].some((pl) => pl.some((q2) => !riverClear(q2, 1)))) continue;
+          if (result.some((b, j) => !!b && j !== gi && [body, tA, tB].some((pl) => [b.poly, ...b.parts.map((x) => x.poly)].some((q2) => convexOverlap(pl, q2, -0.2))))) continue;
+          const nl = off === 0 ? line : bent(cand.p);
+          if (nl) { fits = { ...cand, line: nl }; break; }
+        }
+        if (!fits) return false;
+        at = fits;
+        line = fits.line;
+        const { body, towers: [tA, tB] } = gateParts(at);
+        // (In place: the list of buildings already holds it.)
+        Object.assign(result[gi]!, { poly: qpoly(body), parts: [{ kind: "tower", poly: qpoly(tA) }, { kind: "tower", poly: qpoly(tB) }], front: qp(at.p) });
+      }
+      g.p = at.p; g.t = at.t;
+      return true;
+    };
+    // (A failed one holds; the wall is fitted again, and the free gates follow it again, till all sit on it.)
+    if (form !== "river") for (let round = 0; round < 4; round++) {
+      // (A held gate the wall has gone out past, to take in what was built beyond it, goes out with it.)
+      const failed = net.gates.map((_, k) => k).filter((k) => !moveGate(k) && !gateHeld[k]);
+      if (!failed.length) break;
+      for (const k of failed) { gateHeld[k] = true; holdGate(k); }
+      settle();
     }
     net.wallLine = line;
   }
@@ -2044,6 +2140,12 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     ...(high.length ? { high } : {}),
     contourLines: lowLines,
     blocks: blocksOut, opens,
+    // Greens: the commons, the well-off's gardens, and each church's graveyard.
+    greens: [
+      ...commons.map((poly) => ({ poly: qpoly(poly), kind: "common" as const })),
+      ...opens.filter((op) => op.kind === "garden").map((op) => ({ poly: op.poly, kind: "garden" as const })),
+      ...result.flatMap((b) => (b && b.plotKind === "churchyard" && b.plot ? [{ poly: b.plot, kind: "graveyard" as const, church: b.planIndex }] : [])),
+    ],
   };
 }
 

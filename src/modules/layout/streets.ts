@@ -58,6 +58,9 @@ export interface TownLayout extends HamletLayout {
   blocks?: { id: string; outline: Poly; kind: BlockKind; ward: number }[];
   /** towns of blocks: what is left open in them (yards, courts, greens, gardens, graveyards) */
   opens?: Open[];
+  /** the town's greens: commons (named in the settlement's "greenNames", in order), the well-off's
+   * private gardens, and churchyards (`church`: its plan index) */
+  greens?: { poly: Poly; kind: "common" | "garden" | "graveyard"; church?: number }[];
 }
 
 /** A plot: front-left, front-right, back-right, back-left. */

@@ -11,6 +11,8 @@ compass:
 # Gate names besides the compass ones; used when a compass name is taken or a feature is near.
 gates: [Newgate, Bargate, Ludgate, Bootham, Micklegate, Monkgate, Aldgate, Cripplegate, Westgate Postern, Kingsgate, Fishgate, Bishopgate, Walmgate, Eastbar]
 inner: ["Cheap", "Market", "Shambles", "Mercery", "Drapery", "Poultry", Fish Street, Bread Street, Wool Market, Cornmarket, Haymarket]
+# A town's open greens: where the fairs, the archery and the football are.
+commons: ["the Green", "the Butts", "Fair Green", "the Common", "Tenter Green", "Cow Green", "the Bowling Green", "Cross Green", "Maudlin Green", "the Pleasance", "Archers' Green", "Bleaching Green"]
 water:
   early_medieval: "wells in the yards, and the river; water carriers sell it by the bucket"
   high_medieval: "public wells at the street corners and in the market, and the river; water carriers sell it by the bucket"

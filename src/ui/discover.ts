@@ -491,7 +491,16 @@ export function placePoint(town: Town, where: string, person: Address): Pt | und
   const m = town.settlement().get<MapData>("map");
   const home = buildingOf(person);
   switch (where) {
-    case "place:green": case "place:market": return centroid(m.green);
+    case "place:green": {
+      // A town's common nearest home, if it has one; a village's green.
+      const commons = (m.greens ?? []).filter((g) => g.kind === "common");
+      if (commons.length) {
+        const at = home ? centroid(town.get(home).get<Poly>("poly")) : centroid(commons[0].poly);
+        return commons.map((g) => centroid(g.poly)).reduce((a, b) => (Math.hypot(b[0] - at[0], b[1] - at[1]) < Math.hypot(a[0] - at[0], a[1] - at[1]) ? b : a));
+      }
+      return centroid(m.green);
+    }
+    case "place:market": return centroid(m.green);
     case "place:gallows": return m.features.find((x) => x.kind === "gallows")?.p;
     case "place:streets": case "place:walls": return home ? centroid(town.get(home).get<Poly>("poly")) : undefined;
     case "place:fields": case "place:demesne": return m.greatFields[0]?.label;
