@@ -197,6 +197,7 @@ function townEmployment(ctx: Ctx, all: Hh[], r: Rng) {
   // A master takes on as many hands as his trade can use: a few for a craftsman,
   // a dozen for a great merchant, never the whole street.
   const hands = new Map<Hh, number>();
+  const means = new Map(hirers.map((y) => [y, Math.sqrt(y.h.get<number>("income"))]));
   const room = (y: Hh) => (y.rank >= 8 ? 12 : y.rank >= 7 ? 6 : 3) - (hands.get(y) ?? 0);
   for (const x of all) {
     if (!TOWN_WORKERS.has(x.occ) || r.chance(0.3)) continue; // some take whatever comes, day by day
@@ -205,7 +206,7 @@ function townEmployment(ctx: Ctx, all: Hh[], r: Rng) {
     if (!pool.length) pool = hirers;
     pool = pool.filter((y) => room(y) > 0);
     if (!pool.length) continue;
-    const f = r.weighted(pool, (y) => Math.sqrt(y.h.get<number>("income")) / (1 + dist(x.at, y.at) / 80));
+    const f = r.weighted(pool, (y) => means.get(y)! / (1 + dist(x.at, y.at) / 80));
     if (f === x) continue;
     hands.set(f, (hands.get(f) ?? 0) + 1);
     ctx.edge({ from: f.head.address, to: x.head.address, kind: "employer", weight: r.range(-0.3, 0.4), facts: { as: occs.find(x.occ)?.label ?? x.occ } });
@@ -236,8 +237,10 @@ function debts(ctx: Ctx, all: Hh[], r: Rng) {
   const lenders = [...all].sort((a, b) => b.h.get<number>("savings") - a.h.get<number>("savings")).slice(0, Math.max(3, Math.round(all.length / 8)));
   const loans = new Map<Hh, number>();
   const alehouses = all.filter((x) => x.use === "alehouse" || x.use === "town_alehouse" || x.use === "tavern");
+  const lending = new Set(lenders);
+  const purse = new Map(lenders.map((l) => [l, Math.sqrt(l.h.get<number>("savings"))]));
   for (const x of all) {
-    if (lenders.includes(x)) continue;
+    if (lending.has(x)) continue;
     if (!r.chance(DEBT_CHANCE[x.rank] ?? 0.05)) continue;
     const income = x.h.get<number>("income");
     const alehouse = alehouses.length ? alehouses.reduce((b, y) => (dist(y.at, x.at) < dist(b.at, x.at) ? y : b)) : undefined;
@@ -249,7 +252,7 @@ function debts(ctx: Ctx, all: Hh[], r: Rng) {
     // Debts are owed near home, to someone of standing, and no lender carries the whole town.
     const able = lenders.filter((l) => l.rank >= x.rank && l !== x && (loans.get(l) ?? 0) < (l.rank >= 8 ? 14 : 7));
     if (!able.length) continue;
-    const c = r.weighted(able, (l) => Math.sqrt(l.h.get<number>("savings")) / (1 + dist(x.at, l.at) / 200));
+    const c = r.weighted(able, (l) => purse.get(l)! / (1 + dist(x.at, l.at) / 200));
     loans.set(c, (loans.get(c) ?? 0) + 1);
     const reason = r.weighted(reasons.debts, (d) => d.weight ?? 1);
     const amount = Math.round(income * r.range(0.1, 0.9));
@@ -279,9 +282,17 @@ function friendsAndRivals(ctx: Ctx, all: Hh[], r: Rng, related: (a: Entity, b: E
     for (const it of items) { const k = cellKey(at(it)); const l = g.get(k); if (l) l.push(it); else g.set(k, [it]); }
     return g;
   };
+  // Everyone in a cell has the same neighbourhood, so each is gathered once.
+  const nearMemo = new Map<Map<string, unknown[]>, Map<string, unknown[]>>();
   const near = <T>(g: Map<string, T[]>, pt: Pt): T[] => {
+    let memo = nearMemo.get(g);
+    if (!memo) nearMemo.set(g, (memo = new Map()));
+    const k = cellKey(pt);
+    const hit = memo.get(k);
+    if (hit) return hit as T[];
     const out: T[] = [];
     for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const l = g.get(cellKey(pt, dx, dy)); if (l) out.push(...l); }
+    memo.set(k, out);
     return out;
   };
   const grid = big ? gridOf(adults, (a) => a.x.at) : undefined;
@@ -303,11 +314,18 @@ function friendsAndRivals(ctx: Ctx, all: Hh[], r: Rng, related: (a: Entity, b: E
   const hgrid = big ? gridOf(heads, (x) => x.at) : undefined;
   const byOcc = new Map<string, Hh[]>();
   if (big) for (const x of heads) { const l = byOcc.get(x.occ); if (l) l.push(x); else byOcc.set(x.occ, [x]); }
+  const pools = new Map<string, Hh[]>();
+  const rivalPool = (a: Hh) => {
+    const k = `${cellKey(a.at)}|${a.occ}`;
+    let l = pools.get(k);
+    if (!l) pools.set(k, (l = [...new Set([...near(hgrid!, a.at), ...(byOcc.get(a.occ) ?? [])])].sort((p, q) => hix.get(p)! - hix.get(q)!)));
+    return l;
+  };
   for (const a of heads) {
     const prickly = a.head.get<string[]>("traits").some((t) => PRICKLY.includes(t));
     if (!r.chance(prickly ? 0.45 : 0.08)) continue;
     // In a town: the neighbours, and anyone else in the same trade.
-    const pool = hgrid ? [...new Set([...near(hgrid, a.at), ...(byOcc.get(a.occ) ?? [])])].sort((p, q) => hix.get(p)! - hix.get(q)!) : heads;
+    const pool = hgrid ? rivalPool(a) : heads;
     const cands = pool.filter((b) => b !== a && !related(a.head, b.head) && !done.has(dk(a.head, b.head)));
     if (!cands.length) continue;
     const b = r.weighted(cands, (c) => (c.occ === a.occ ? 3 : 1) / (1 + dist(a.at, c.at) / 40));

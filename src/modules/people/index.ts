@@ -61,13 +61,13 @@ export const people: Module = {
   hooks: {
     onPersonResolved(ctx, p) {
       const age = p.get<number>("age");
-      const traits = ctx.registry<Trait>("traits").list();
+      const reg = ctx.registry<Trait>("traits"), traits = reg.list();
       ctx.gen(p, "traits", (r) => {
         if (age < 4) return [];
         const n = age < 12 ? 1 : r.chance(0.6) ? 2 : 1;
         const out: string[] = [];
         // Two traits that can't live in one person ("cheerful, melancholy") never come together.
-        const clashes = (a: Trait, b: string) => a.clash?.includes(b) || traits.find((x) => x.id === b)?.clash?.includes(a.id);
+        const clashes = (a: Trait, b: string) => a.clash?.includes(b) || reg.find(b)?.clash?.includes(a.id);
         while (out.length < n) {
           const t = r.weighted(traits, (t) => (out.includes(t.id) || (t.minAge ?? 0) > age || out.some((o) => clashes(t, o)) ? 0 : age >= 50 && t.old ? t.old * t.weight : t.weight));
           out.push(t.id);

@@ -54,11 +54,19 @@ export const hire: Module = {
       // A few in a village, a few dozen in a city.
       const want = Math.min(30, Math.max(3, Math.round(pop / 300)));
       const taken = new Set<Address>();
+      // How well each of the pool fits each kind of work, worked out once: a city's pool is thousands.
+      const scores = new Map<Kind, Map<Entity, number>>();
+      const scoreOf = (k: Kind) => {
+        let m = scores.get(k);
+        if (!m) scores.set(k, (m = new Map(pool.map((x) => [x.p, k.fits(x.p, { occ: x.occ, rank: x.rank, town: urban, base })]))));
+        return m;
+      };
       for (let n = 0; n < want * 3 && taken.size < want; n++) {
         const k = KINDS[n % KINDS.length];
-        const fit = pool.filter((x) => !taken.has(x.p.address) && (k.id === "linkboy" ? x.age <= 16 : x.age >= 16) && k.fits(x.p, { occ: x.occ, rank: x.rank, town: urban, base }) > 0);
+        const score = scoreOf(k);
+        const fit = pool.filter((x) => !taken.has(x.p.address) && (k.id === "linkboy" ? x.age <= 16 : x.age >= 16) && score.get(x.p)! > 0);
         if (!fit.length) continue;
-        const x = r.weighted(fit, (y) => k.fits(y.p, { occ: y.occ, rank: y.rank, town: urban, base }));
+        const x = r.weighted(fit, (y) => score.get(y.p)!);
         taken.add(x.p.address);
         ctx.set(x.p, "hire.as", k.id);
         ctx.set(x.p, "hire.rate", Math.round(r.range(k.rate[0], k.rate[1]) * 4) / 4);
