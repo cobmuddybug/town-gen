@@ -78,6 +78,7 @@ const DRINK = ["tavern", "town_alehouse", "alehouse", "inn"];
 
 const BLOCK_HOUR: Record<Block, number> = { morning: 6, forenoon: 10, afternoon: 14, evening: 18, night: 22, late_night: 26 };
 
+/** A date and block as an hour index (day number × 24 + the block's hour), the clock talk runs on. */
 export function hourOf(date: string, block: Block): number {
   return jdn(parseDate(date)) * 24 + BLOCK_HOUR[block];
 }
@@ -90,6 +91,7 @@ export function whenHour(h: number, now: number): string {
   return whenOf(day(h), day(now), block);
 }
 
+/** An hour index as a date and a part of the day. */
 export function describeHour(h: number): string {
   const d = formatDate(fromJdn(Math.floor(h / 24)));
   const hh = h % 24;
@@ -304,6 +306,23 @@ const gridMemo = new WeakMap<Town, Map<string, Address[]>>();
 const CELL = 120;
 const cellKey = (p: Pt, dx = 0, dy = 0) => `${Math.floor(p[0] / CELL) + dx},${Math.floor(p[1] / CELL) + dy}`;
 
+// The grown heads of each building's households, looked up for every story told in town.
+const headsMemo = new WeakMap<Town, Map<Address, { address: Address; sex: string }[]>>();
+function headsIn(town: Town, b: Address): { address: Address; sex: string }[] {
+  let m = headsMemo.get(town);
+  if (!m) headsMemo.set(town, (m = new Map()));
+  let l = m.get(b);
+  if (!l) {
+    l = [];
+    for (const h of town.children(b, "household")) {
+      const head = town.children(h.address, "person")[0];
+      if (head && head.get<number>("age") >= 16) l.push({ address: head.address, sex: head.get<string>("sex") });
+    }
+    if (town.settled) m.set(b, l);
+  }
+  return l;
+}
+
 /** Someone who lives near `a`, of the same sex, who had nothing to do with it. */
 export function neighbourOf(town: Town, a: Address, r: import("../../core/rng").Rng): Address | undefined {
   const home = buildingOf(town, a);
@@ -315,14 +334,11 @@ export function neighbourOf(town: Town, a: Address, r: import("../../core/rng").
     gridMemo.set(town, grid);
   }
   const at = positions(town).get(home)!;
-  const sex = town.get(a).get("sex");
+  const sex = town.get(a).get<string>("sex");
   const near: Address[] = [];
   for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const b of grid.get(cellKey(at, dx, dy)) ?? []) {
     if (b === home || dist(positions(town).get(b)!, at) > 120) continue;
-    for (const h of town.children(b, "household")) {
-      const head = town.children(h.address, "person")[0];
-      if (head && head.get("sex") === sex && head.get<number>("age") >= 16 && head.address !== a) near.push(head.address);
-    }
+    for (const head of headsIn(town, b)) if (head.sex === sex && head.address !== a) near.push(head.address);
   }
   near.sort();
   return near.length ? r.pick(near) : undefined;
@@ -361,12 +377,17 @@ export function spread(town: Town, r: Rumour): Map<Address, { at: number; tellin
   const mutants = varies(r) && street ? hubs.filter((h) => dist(o, h.p) > near && dist(o, h.p) < scope) : [];
   const mutant = mutants.length ? mutants[Math.abs(hash(`mutant|${r.id}`)) % mutants.length].p : undefined;
   const out = new Map<Address, { at: number; telling: 0 | 1 | 2 }>();
+  // The alehouses the story reaches at all; every building is reckoned from them.
+  const hubsIn = hubs.filter((h) => dist(o, h.p) <= scope);
   for (const [b, p] of pos) {
     const d = dist(o, p);
-    let hours = d / speed;
-    for (const h of hubs) if (dist(o, h.p) <= scope) hours = Math.min(hours, h.t + dist(h.p, p) / speed);
+    let hours = d / speed, reach = d;
+    for (const h of hubsIn) {
+      const dh = dist(h.p, p);
+      hours = Math.min(hours, h.t + dh / speed);
+      reach = Math.min(reach, dh + scope * 0.35);
+    }
     if (scope < Infinity) {
-      const reach = Math.min(d, ...hubs.filter((h) => dist(o, h.p) <= scope).map((h) => dist(h.p, p) + scope * 0.35));
       if (reach > scope) continue;
       const thin = reach / scope;
       if ((Math.abs(hash(`hear|${r.id}|${b}`)) % 1000) / 1000 > 1 - 0.55 * thin * thin) continue;
@@ -428,6 +449,7 @@ export function heardAt(town: Town, r: Rumour, person: Address): number | undefi
   return Math.max(r.start, at);
 }
 
+/** Whether the talk has reached this person by the hour `now`. */
 export function knows(town: Town, r: Rumour, person: Address, now: number): boolean {
   const h = heardAt(town, r, person);
   return h !== undefined && h <= now;
@@ -479,6 +501,7 @@ export function secretsOf(town: Town, person: Address, date: string, block: Bloc
   return out;
 }
 
+/** Who knows a secret edge at a moment: those in it, and everyone the talk has reached. "public" once it's common knowledge. */
 export function knownByAt(town: Town, edge: Edge, date: string, block: Block): Address[] | "public" {
   if (edge.knownBy === "public") return "public";
   const r = allSecrets(town).find((x) => x.edge === edge.id);
@@ -600,6 +623,7 @@ export function voiceOf(town: Town, person: Address, date: string, block: Block)
   return out.slice(0, 4);
 }
 
+/** The telling of a story heard in a building, with the people as links; a ballad on the end of an old scandal in a town's taverns. */
 export function tellingAt(town: Town, r: Rumour, b: Address | undefined, now: number, suffix = ""): (string | PanelLink)[] {
   const s = b ? spread(town, r).get(b) : undefined;
   let tail = "";

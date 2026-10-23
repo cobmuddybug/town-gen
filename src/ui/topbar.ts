@@ -1,3 +1,5 @@
+// The top bar's pieces: the clock as it reads, stepping it a block at a time,
+// and the town menu.
 import { BLOCKS, addDays, parseDate, weekday, type Block } from "../core/calendar";
 import type { Kept } from "./library";
 

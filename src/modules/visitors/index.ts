@@ -110,10 +110,19 @@ function bandFor(town: Town, year: number): { band: number; tooSoon?: number } |
   return result;
 }
 
-export function visitsIn(town: Town, year: number): Visit[] {
+const inMemo = new WeakMap<Town, Map<number, readonly Visit[]>>();
+
+/** The year's visitors, by date. Kept once the town has settled: the crime calendar asks for every day of the year. */
+export function visitsIn(town: Town, year: number): readonly Visit[] {
+  let memo = inMemo.get(town);
+  if (!memo) inMemo.set(town, (memo = new Map()));
+  const hit = memo.get(year);
+  if (hit) return hit;
   const out = coreVisits(town, year);
   for (const src of town.registry<VisitSource>("visitSources").list()) out.push(...src.visits(town, year));
-  return out.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+  out.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+  if (town.settled) memo.set(year, out);
+  return out;
 }
 
 function coreVisits(town: Town, year: number): Visit[] {
@@ -186,6 +195,7 @@ function coreVisits(town: Town, year: number): Visit[] {
 
 const onMemo = new WeakMap<Town, Map<string, Visit[]>>();
 
+/** The visitors in town on a date. */
 export function visitorsOn(town: Town, date: string): Visit[] {
   let memo = onMemo.get(town);
   if (!memo) onMemo.set(town, (memo = new Map()));
@@ -205,6 +215,7 @@ function computeVisitorsOn(town: Town, date: string): Visit[] {
   });
 }
 
+/** What to call a kind of visit: "Fair day", "Strolling players"… */
 export function visitLabel(town: Town, v: Visit): string {
   if (LABEL[v.kind]) return LABEL[v.kind];
   for (const src of town.registry<VisitSource>("visitSources").list()) if (src.label[v.kind]) return src.label[v.kind];

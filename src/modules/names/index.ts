@@ -1,3 +1,7 @@
+// Names: the Anglo-Norman provider (given names; bynames from a trade, a place,
+// a forefather or a nickname; place names), family names that stay with the
+// household, and names for buildings: the only mill is "the mill", an inn
+// hangs a sign.
 import { data } from "../../core/content";
 import type { Row } from "../../core/registry";
 import type { Rng } from "../../core/rng";
@@ -269,6 +273,7 @@ export function surnameOf(town: import("../../core/town").Town, person: string):
   return h.get<{ name: string; kind: string }>("surname");
 }
 
+/** A person's full name as the town says it: given name and family name. */
 export function personName(town: import("../../core/town").Town, person: string): string {
   const p = town.get(person);
   return `${p.get<string | null>("called") ?? p.get<string>("given")} ${surnameOf(town, person).name}`;

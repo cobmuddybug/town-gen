@@ -1,3 +1,5 @@
+// The card at the top of an entity's page: the few facts asked for most, then
+// the rows the DM has starred (stars are save events of kind "star").
 import type { Address } from "../core/address";
 import type { Block } from "../core/calendar";
 import type { Town } from "../core/town";
@@ -64,11 +66,13 @@ const matches = (r: PanelRow, key: string) => (key.includes(SEP) ? key === starK
 export function starredRows(rows: PanelRow[], stars: { label: string }[]): PanelRow[] {
   return stars.flatMap((s) => { const r = rows.find((x) => matches(x, s.label)); return r ? [r] : []; });
 }
+/** The star on a row, if the DM starred it. */
 export const starOf = (r: PanelRow, stars: { label: string; index: number }[]) => stars.find((s) => matches(r, s.label));
 
 // Deeds spread as gossip keyed by their place among the events, so stars always
 // go after every deed: starring and unstarring then never moves a deed.
 export const eventsWithStar = (events: Ev[], star: Ev): Ev[] => [...events, star];
+/** The events with a deed added, ahead of any stars. */
 export function eventsWithDeed(events: Ev[], deed: Ev): Ev[] {
   const i = events.findIndex((e) => e.kind === "star");
   return i < 0 ? [...events, deed] : [...events.slice(0, i), deed, ...events.slice(i)];

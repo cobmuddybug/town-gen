@@ -13,6 +13,7 @@ function reduce(x: number): number {
   return x;
 }
 
+/** Sine by a short series, the same on every engine (Math.sin may round differently). */
 export function sin(x: number): number {
   x = reduce(x);
   // fold into [-PI/2, PI/2]
@@ -28,10 +29,12 @@ export function sin(x: number): number {
   return s;
 }
 
+/** Cosine, from sin. */
 export function cos(x: number): number {
   return sin(x + PI / 2);
 }
 
+/** The length of (x, y): a plain square root, which every engine rounds alike. */
 export function hypot(x: number, y: number): number {
   return Math.sqrt(x * x + y * y);
 }

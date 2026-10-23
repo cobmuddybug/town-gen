@@ -49,6 +49,7 @@ export function worked(s: SaveFile): boolean {
   return Object.keys(s.overlay).length > 0 || Object.keys(s.pinned).length > 0 || s.events.length > 0;
 }
 
+/** Keep a town in the library if it has been worked on; drop it once it's back to what the seed gives. */
 export function keep(store: Storage, save: SaveFile, name: string, now = Date.now()) {
   const key = townKey(save);
   if (!worked(save)) {
@@ -59,6 +60,7 @@ export function keep(store: Storage, save: SaveFile, name: string, now = Date.no
   store.setItem(PREFIX + key, JSON.stringify(entry));
 }
 
+/** A kept town's save, by its key. */
 export function fetchKept(store: Storage, key: string): SaveFile | undefined {
   try {
     const raw = store.getItem(PREFIX + key);
@@ -68,6 +70,7 @@ export function fetchKept(store: Storage, key: string): SaveFile | undefined {
   }
 }
 
+/** Drop a town from the library. */
 export function forget(store: Storage, key: string) {
   store.removeItem(PREFIX + key);
 }

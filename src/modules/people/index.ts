@@ -1,3 +1,6 @@
+// People: their temper (traits that don't clash), their looks and a line or two
+// of history; the Person and Relationships panels. say() agrees a line of text
+// with its subject ("{they} {verb}" -> "she sings").
 import { table } from "../../core/content";
 import type { Row } from "../../core/registry";
 import type { Edge, Module, PanelLink, PanelRow } from "../../core/types";
@@ -61,13 +64,13 @@ export const people: Module = {
   hooks: {
     onPersonResolved(ctx, p) {
       const age = p.get<number>("age");
-      const traits = ctx.registry<Trait>("traits").list();
+      const reg = ctx.registry<Trait>("traits"), traits = reg.list();
       ctx.gen(p, "traits", (r) => {
         if (age < 4) return [];
         const n = age < 12 ? 1 : r.chance(0.6) ? 2 : 1;
         const out: string[] = [];
         // Two traits that can't live in one person ("cheerful, melancholy") never come together.
-        const clashes = (a: Trait, b: string) => a.clash?.includes(b) || traits.find((x) => x.id === b)?.clash?.includes(a.id);
+        const clashes = (a: Trait, b: string) => a.clash?.includes(b) || reg.find(b)?.clash?.includes(a.id);
         while (out.length < n) {
           const t = r.weighted(traits, (t) => (out.includes(t.id) || (t.minAge ?? 0) > age || out.some((o) => clashes(t, o)) ? 0 : age >= 50 && t.old ? t.old * t.weight : t.weight));
           out.push(t.id);
@@ -135,6 +138,7 @@ export const people: Module = {
   ],
 };
 
+/** An edge in words from one end: "wife of", "owes money to", "friend of". */
 export function edgeText(town: Town, e: Edge, from: string): string {
   const kind = town.registry<EdgeKind>("edgeKinds").find(e.kind);
   const outward = e.from === from;
@@ -152,6 +156,7 @@ const GROUP: Record<string, number> = {
 };
 const KIN_ORDER = ["husband", "wife", "father", "mother", "son", "daughter", "brother", "sister", "cousin"];
 
+/** The Relationships panel: family first, then everyone else they are tied to. */
 export function relationshipRows(town: Town, address: string): PanelRow[] {
   const rows: PanelRow[] = [];
   const home = town.parentOf(address);

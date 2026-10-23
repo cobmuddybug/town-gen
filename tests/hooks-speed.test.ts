@@ -3,7 +3,9 @@ import { describe, expect, test } from "vitest";
 import type { Town } from "../src/core/town";
 import { centroid, dist, type Poly } from "../src/modules/layout/geom";
 import { findHooks, jumpedUp, paidInFull } from "../src/modules/sifters";
-import { generate } from "../src/town-gen";
+import { withEdit } from "../src/core/save";
+import { dayOf } from "../src/ui/discover";
+import { defaultModules, generate } from "../src/town-gen";
 
 const childrenOf = (town: Town, person: string) =>
   town.edges({ to: person, kind: "kin" }).filter((e) => ["son", "daughter"].includes(e.facts?.rel as string)).map((e) => e.from);
@@ -59,5 +61,24 @@ describe("hooks", () => {
     const t0 = performance.now();
     findHooks(t);
     expect(performance.now() - t0).toBeLessThan(2500);
+  }, 300000);
+
+  // Every edit rebuilds the town, and the town page then works out the year's talk and visitors
+  // again. Before the speed pass that took three seconds in a city; now it is well under one.
+  test("after an edit, a city's town page and a day followed come back quickly", () => {
+    const t = generate("slow26-edit", { pop: 26000 });
+    t.society();
+    t.clock = { date: "1203-10-01", block: "afternoon" };
+    const person = t.allEntities().filter((e) => e.type === "person")[100].address;
+    const e = withEdit(t, defaultModules, person, "name", "Bob");
+    e.society();
+    e.clock = t.clock;
+    let t0 = performance.now();
+    for (const p of defaultModules.flatMap((m) => m.panels ?? []).filter((p) => p.for === "settlement")) p.rows(e, e.settlement());
+    findHooks(e);
+    expect(performance.now() - t0).toBeLessThan(1500);
+    t0 = performance.now();
+    dayOf(e, person, e.clock.date);
+    expect(performance.now() - t0).toBeLessThan(1200);
   }, 300000);
 });

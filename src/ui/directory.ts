@@ -1,3 +1,6 @@
+// The Directory: every person, household, building, trade, office and ward as a
+// sortable, filterable table, and the lists (for hire, the richest, debts…) as
+// tables too. Pure: main.ts draws what directoryHtml() returns.
 import { ancestors, typeOf, type Address } from "../core/address";
 import type { Block } from "../core/calendar";
 import type { Town } from "../core/town";
@@ -40,8 +43,35 @@ const text = (v: PanelRow["value"]): string =>
 const firstLink = (v: PanelRow["value"]): Address | undefined =>
   (Array.isArray(v) ? v : [v]).find((x): x is PanelLink => typeof x === "object")?.address;
 
+// A table is the same until the town, the tab, the hour or the sort changes, and a city's people
+// tab is 26,000 rows: kept sorted, so typing in the filter only filters.
+const tables = new WeakMap<Town, Map<string, Directory>>();
+const collate = new Intl.Collator().compare;
+// Each row's cells as the filter reads them, worked out the first time it's asked.
+const rowText = new WeakMap<DirRow, string>();
+const textOf = (r: DirRow) => {
+  let t = rowText.get(r);
+  if (t === undefined) rowText.set(r, (t = r.cells.join(" ").toLowerCase()));
+  return t;
+};
+
 /** One tab of the Directory as a table: filtered by every word, sorted by a column. */
 export function directory(town: Town, tab: DirTab, opts: DirOpts): Directory {
+  const k = JSON.stringify([tab, opts.date, opts.block, opts.sort, [...(opts.hiddenLists ?? [])], opts.trade, !!opts.player]);
+  let memo = tables.get(town);
+  if (!memo) tables.set(town, (memo = new Map()));
+  let d = memo.get(k);
+  if (!d) {
+    d = sortedTable(town, tab, opts);
+    if (memo.size >= 8) memo.delete(memo.keys().next().value!);
+    memo.set(k, d);
+  }
+  const words = (opts.filter ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return d;
+  return { columns: d.columns, rows: d.rows.filter((r) => { const t = textOf(r); return words.every((w) => t.includes(w)); }) };
+}
+
+function sortedTable(town: Town, tab: DirTab, opts: DirOpts): Directory {
   town.society();
   const all = town.allEntities();
   const occs = town.registry<Occupation>("occupations");
@@ -96,16 +126,14 @@ export function directory(town: Town, tab: DirTab, opts: DirOpts): Directory {
     rows = l ? l.rows(town, opts.date, opts.block).map((r) => row(firstLink(r.value), [r.label, text(r.value), r.hint ?? ""], undefined, r.fact)) : [];
   }
 
-  const words = (opts.filter ?? "").toLowerCase().split(/\s+/).filter(Boolean);
-  if (words.length) rows = rows.filter((r) => { const t = r.cells.join(" ").toLowerCase(); return words.every((w) => t.includes(w)); });
   // Lists keep their own order unless asked; tables start sorted by their first column.
   const s = opts.sort ?? (tab.startsWith("list:") ? undefined : { col: 0, desc: false });
   if (s) {
     const k = s.desc ? -1 : 1;
     rows = [...rows].sort((a, b) => {
       const x = a.sort[s.col], y = b.sort[s.col];
-      const c = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y));
-      return k * c || String(a.address ?? a.cells[0]).localeCompare(String(b.address ?? b.cells[0]));
+      const c = typeof x === "number" && typeof y === "number" ? x - y : collate(String(x), String(y));
+      return k * c || collate(String(a.address ?? a.cells[0]), String(b.address ?? b.cells[0]));
     });
   }
   return { columns, rows };

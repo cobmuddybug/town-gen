@@ -45,12 +45,40 @@ for (const f of Object.keys(KEY) as Field[]) for (const l of content[f] ?? []) f
   (CLASH.get(c) ?? CLASH.set(c, new Set()).get(c)!).add(me);
 }
 
-function fits(f: Field, l: Line, w: Who): boolean {
-  return w.age >= (l.minAge ?? 0) && w.age <= (l.maxAge ?? 200) && (!l.sex || l.sex === w.sex) &&
-    (!l.roles || l.roles.includes(w.role)) && (!l.occ || l.occ.includes(w.occ)) &&
-    (l.minRank === undefined || w.rank >= l.minRank) && (l.maxRank === undefined || w.rank <= l.maxRank) &&
-    (!l.setting || l.setting === w.setting) && (!l.bases || l.bases.includes(w.base)) &&
-    ![...(CLASH.get(`${KEY[f]}:${l.id}`) ?? [])].some((c) => w.has.has(c));
+// The same, per line, ready for the hot loop below: every person checks every line.
+const CLASH_OF = new Map<Line, string[] | undefined>();
+for (const f of Object.keys(KEY) as Field[]) for (const l of content[f] ?? []) {
+  const c = CLASH.get(`${KEY[f]}:${l.id}`);
+  CLASH_OF.set(l, c && [...c]);
+}
+
+// The lines that fit a kind of person (sex, role, trade, rank, setting, base), before age and
+// clashes: thousands of people share each kind, so each kind's lines are sorted out once.
+const kindMemo = new Map<string, Line[]>();
+function linesFor(f: Field, w: Who): Line[] {
+  const k = `${f}|${w.sex}|${w.role}|${w.occ}|${w.rank}|${w.setting}|${w.base}`;
+  let out = kindMemo.get(k);
+  if (!out) {
+    out = content[f].filter((l) => (!l.sex || l.sex === w.sex) &&
+      (!l.roles || l.roles.includes(w.role)) && (!l.occ || l.occ.includes(w.occ)) &&
+      (l.minRank === undefined || w.rank >= l.minRank) && (l.maxRank === undefined || w.rank <= l.maxRank) &&
+      (!l.setting || l.setting === w.setting) && (!l.bases || l.bases.includes(w.base)));
+    if (kindMemo.size > 20000) kindMemo.clear();
+    kindMemo.set(k, out);
+  }
+  return out;
+}
+
+/** The lines of a field this person could have: their kind's, then by age and what they already have. */
+function fitting(f: Field, w: Who): Line[] {
+  const out: Line[] = [];
+  for (const l of linesFor(f, w)) {
+    if (w.age < (l.minAge ?? 0) || w.age > (l.maxAge ?? 200)) continue;
+    const clash = CLASH_OF.get(l);
+    if (clash && w.has.size && clash.some((c) => w.has.has(c))) continue;
+    out.push(l);
+  }
+  return out;
 }
 
 function text(r: Rng, l: Line, w: Who): string {
@@ -58,7 +86,7 @@ function text(r: Rng, l: Line, w: Who): string {
 }
 
 function pick(r: Rng, f: Field, w: Who): string | null {
-  const ok = content[f].filter((l) => fits(f, l, w));
+  const ok = fitting(f, w);
   if (!ok.length) return null;
   const l = r.weighted(ok, (l) => l.weight);
   w.has.add(`${KEY[f]}:${l.id}`);
@@ -139,10 +167,10 @@ export const character: Module = {
       ctx.gen(p, "character.tongues", (r) => (w.age < 3 ? null : tongues(r, w)));
       ctx.gen(p, "character.purse", (r) => purse(r, w, income));
       ctx.gen(p, "character.pockets", (r) => {
-        const ok = content.pockets.filter((l) => fits("pockets", l, w));
+        const ok = fitting("pockets", w);
         const out: string[] = [];
         for (let n = w.age < 4 ? 0 : r.chance(0.5) ? 2 : 1; out.length < n && ok.length;) {
-          const t = text(r, r.weighted(ok, (l) => (out.includes(say(l.text, w.sex)) ? 0 : l.weight)), w);
+          const t = text(r, r.weighted(ok, (l) => (out.length && out.includes(say(l.text, w.sex)) ? 0 : l.weight)), w);
           if (out.includes(t)) break;
           out.push(t);
         }

@@ -16,12 +16,23 @@ export const BLOCK_HOURS: Record<Block, string> = {
 export const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-export function parseDate(s: string): Day {
+// A day's routines parse the same few dates for every soul in town, so parsed dates are kept.
+// They are frozen: a caller that wants to change one makes its own.
+const parsed = new Map<string, Readonly<Day>>();
+
+/** "1203-10-01" as numbers. Kept and frozen: copy it before changing it. */
+export function parseDate(s: string): Readonly<Day> {
+  const hit = parsed.get(s);
+  if (hit) return hit;
   const m = /^(-?\d+)-(\d{2})-(\d{2})$/.exec(s);
   if (!m) throw new Error(`bad date "${s}"`);
-  return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+  if (parsed.size > 5000) parsed.clear();
+  const d = Object.freeze({ y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) });
+  parsed.set(s, d);
+  return d;
 }
 
+/** Numbers back to "YYYY-MM-DD". */
 export function formatDate(d: Day): string {
   return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
 }
@@ -33,6 +44,7 @@ export function jdn({ y, m, d }: Day): number {
   return d + Math.floor((153 * mm + 2) / 5) + 365 * yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
 }
 
+/** A Julian day number back to a date (the inverse of jdn). */
 export function fromJdn(j: number): Day {
   const a = j + 32044;
   const b = Math.floor((4 * a + 3) / 146097);
@@ -47,6 +59,7 @@ export function fromJdn(j: number): Day {
   };
 }
 
+/** The date n days on (or back, if n is negative). */
 export function addDays(s: string, n: number): string {
   return formatDate(fromJdn(jdn(parseDate(s)) + n));
 }
@@ -126,10 +139,15 @@ const FIXED: Record<string, Feast> = {
 
 /** The feast on a date, if any. Sundays are holy days too (one in seven),
  * whatever lesser custom falls on them. */
-export function feastOn(s: string): Feast | undefined {
+export function feastOn(s: string): Readonly<Feast> | undefined {
+  if (feasts.has(s)) return feasts.get(s);
   const f = feastOf(s);
-  return f && !f.holy && weekday(s) === 0 ? { ...f, holy: true } : f;
+  const out = f && Object.freeze(!f.holy && weekday(s) === 0 ? { ...f, holy: true } : f);
+  if (feasts.size > 5000) feasts.clear();
+  feasts.set(s, out);
+  return out;
 }
+const feasts = new Map<string, Readonly<Feast> | undefined>();
 
 function feastOf(s: string): Feast | undefined {
   const day = parseDate(s);

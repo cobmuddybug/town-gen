@@ -22,6 +22,7 @@ export const COVER_TRADE = "labourer";
 /** What a crew member is doing, when what they're really doing is crime. */
 export const COVER_DOING = "about their own business";
 
+/** The panels players may see. */
 export const playerPanels = (panels: PanelSpec[]): PanelSpec[] => panels.filter((p) => !HIDDEN_PANELS(p.id));
 
 /** A row with no "who knows?" and no edit, reroll or star tools. */

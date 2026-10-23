@@ -73,6 +73,7 @@ export interface Plot {
 
 export const COMPASS = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
 
+/** The compass point a direction faces (screen y runs south). */
 export function compassOf(v: Pt): string {
   // Screen y runs south. Bin by comparing against the eight directions.
   let best = 0, bestDot = -Infinity;
@@ -83,8 +84,10 @@ export function compassOf(v: Pt): string {
   return COMPASS[best];
 }
 
+/** The unit vector at an angle. */
 export const dirOf = (a: number): Pt => [cos(a), sin(a)];
 
+/** How many plots a building takes up on a street front. */
 export function plotsFor(fp: Footprint): number {
   if (fp.plots) return fp.plots;
   switch (fp.size) {
@@ -94,10 +97,12 @@ export function plotsFor(fp: Footprint): number {
   }
 }
 
+/** Whether a building belongs outside the walls (its site says suburb, edge, or shore on a coast without one). */
 export function isSuburbFp(p: Footprint, coast: boolean): boolean {
   return p.site === "suburb" || p.site === "edge" || (p.site === "shore" && !coast);
 }
 
+/** The ward whose centre is nearest a point. */
 export function nearestWard(wards: WardGeo[], p: Pt): number {
   let best = 0, bd = Infinity;
   for (const w of wards) { const d = dist(p, w.centre); if (d < bd) { bd = d; best = w.id; } }
@@ -152,6 +157,7 @@ export function insetOutline(p: Poly, d: number): Poly {
   }));
 }
 
+/** A rough round shape: a pond, a copse, a green. */
 export function blob(r: Rng, c: Pt, rad: number): Poly {
   const n = 14;
   const out: Poly = [];
@@ -164,6 +170,7 @@ export function blob(r: Rng, c: Pt, rad: number): Poly {
   return out;
 }
 
+/** A boat's outline, centred on c, pointing along u, l long. */
 export function boatPoly(c: Pt, u: Pt, l: number): Poly {
   const v = perp(u);
   return [add(c, mul(u, l / 2)), add(add(c, mul(u, l * 0.2)), mul(v, l * 0.18)), add(add(c, mul(u, -l / 2)), mul(v, l * 0.14)),

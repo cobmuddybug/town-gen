@@ -1,3 +1,9 @@
+// Layout: the map. Picks the layout for the size (hamlet.ts up to 700 people,
+// else radial.ts or the grown forms in grown.ts), lays out the plan, and makes
+// the wards and buildings from it. Laying out is the slow part and a pure
+// function of its inputs, so the result is cached by key: an edit that rebuilds
+// the town reuses it. Also the lookups other modules use: nearest buildings of
+// a use, footprints, how many a building holds.
 import type { Module } from "../../core/types";
 import type { BuildingUse } from "../uses";
 import { layoutHamlet, type HamletLayout, type Terrain } from "./hamlet";
@@ -15,10 +21,12 @@ const cache = new Map<string, HamletLayout>();
 /** Forget every cached layout, so the next town is laid out afresh (tests of determinism need this). */
 export function clearLayoutCache(): void { cache.clear(); }
 
+/** A ward's id in its address: 0 -> "w00". */
 export function wardId(n: number): string {
   return `w${n.toString().padStart(2, "0")}`;
 }
 
+/** A building's id in its address: 17 -> "b017". */
 export function buildingId(n: number): string {
   return `b${n.toString().padStart(3, "0")}`;
 }

@@ -283,12 +283,20 @@ export const sifters: Module = {
 
 const MAX_PER_SIFTER = 2;
 
+// The town page asks on every visit; the answer only moves with the clock (or a new note).
+const hookMemo = new WeakMap<Town, { key: string; hooks: (SifterMatch & { sifter: string })[] }>();
+
+/** The plot hooks in town now: a couple from each sifter. */
 export function findHooks(town: Town): (SifterMatch & { sifter: string })[] {
   town.society();
+  const key = `${town.clock.date}|${town.clock.block}|${town.events.length}|${town.party?.name ?? ""}`;
+  const hit = hookMemo.get(town);
+  if (hit?.key === key) return hit.hooks;
   const out: (SifterMatch & { sifter: string })[] = [];
   for (const s of town.registry<Sifter>("sifters").list()) {
     // A couple of each at most: a hamlet with eight debt hooks reads like a ledger.
     for (const m of s.match(town).slice(0, MAX_PER_SIFTER)) out.push({ ...m, summary: m.summary[0].toUpperCase() + m.summary.slice(1), sifter: s.id });
   }
+  hookMemo.set(town, { key, hooks: out });
   return out;
 }

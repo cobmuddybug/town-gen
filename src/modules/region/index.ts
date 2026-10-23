@@ -8,7 +8,8 @@ import type { Town } from "../../core/town";
 import type { Module, PanelRow } from "../../core/types";
 import { isUrban } from "../core";
 import type { NameProvider } from "../names";
-import { buildingsOfUse } from "../layout";
+import { buildingsOfUse, type MapData } from "../layout";
+import { pointInPoly } from "../layout/geom";
 import { hourOf, type Rumour, type RumourSource } from "../gossip";
 import regionYaml from "./content/region.yaml";
 
@@ -33,10 +34,17 @@ export function regionOf(town: Town): Region {
   if (hit) return hit;
   const names = town.registry<NameProvider>("nameProviders").get("anglo-norman");
   const r = town.rngFor(town.root, region, "country");
-  const map = town.settlement().get<{ roads: { points: [number, number][] }[] }>("map");
-  const roads: Destination[] = (map.roads ?? []).map((rd, i) => {
+  const map = town.settlement().get<MapData>("map");
+  // A grown town's roads are all its streets; the roads out are the main roads (and the high
+  // street, where it runs on out of town) that leave the built town behind.
+  const grown = map.kind === "town" && !!map.plan && map.plan !== "radial";
+  const leadsOut = (rd: MapData["roads"][number]) => !grown ||
+    (/^(high|main\d+)$/.test(rd.id) && (!pointInPoly(rd.points[0], map.hedge) || !pointInPoly(rd.points[rd.points.length - 1], map.hedge)));
+  const roads: Destination[] = (map.roads ?? []).flatMap((rd, i) => (leadsOut(rd) ? [{ rd, i }] : [])).map(({ rd, i }) => {
     const d = r.weighted(content.destinations, (x) => x.weight);
-    const end = rd.points[rd.points.length - 1] ?? [1, 0];
+    // The end out in the country, whichever way round the road was drawn.
+    const last = rd.points[rd.points.length - 1] ?? [1, 0];
+    const end = grown && pointInPoly(last, map.hedge) ? rd.points[0] : last;
     const k = Math.round((atan2(end[1], end[0]) / TAU) * 8 + 8) % 8;
     const name = d.kind === "the coast" ? `the coast at ${names.place(r)}` : d.kind === "abbey" ? `the abbey at ${names.place(r)}` : names.place(r);
     return { road: i, name, kind: d.kind, miles: r.int(d.miles[0], d.miles[1]), dir: COMPASS[k] };

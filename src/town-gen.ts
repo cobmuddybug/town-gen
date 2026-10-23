@@ -3,6 +3,7 @@ import { Town } from "./core/town";
 import type { Module, Settings } from "./core/types";
 import { defaultModules } from "./modules";
 
+/** Make a town from a seed and settings. Most of it is made lazily, as it is looked at. */
 export function generate(seed: string, settings: Partial<Settings> = {}, modules: Module[] = defaultModules): Town {
   return new Town({
     seed,

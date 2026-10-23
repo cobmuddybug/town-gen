@@ -1,3 +1,5 @@
+// The search box's drop-down: what matches the query, grouped (people, places,
+// trades, offices, lists) and capped per group.
 import type { Address } from "../core/address";
 import type { Town } from "../core/town";
 import type { Occupation } from "../modules/uses";

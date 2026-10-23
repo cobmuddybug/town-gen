@@ -40,6 +40,7 @@ const SKIMS = {
   reeve: "lets his friends off their week-work for a consideration",
 };
 
+/** Whether the town was built as a manor (the New town dialog's lordship). */
 export const isManorial = (town: Town) => town.settings.lordship === "manorial";
 const manorOf = (town: Town) => town.find(`${town.root}/institution:${MANOR}`);
 

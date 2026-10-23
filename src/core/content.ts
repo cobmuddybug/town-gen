@@ -1,3 +1,5 @@
+// Content files: YAML turned into JSON at build time (vite.config.ts), checked
+// lightly as it is loaded.
 import type { Row } from "./registry";
 
 /** Check a content table. Every row needs an id; `source` cites where a figure came from. */

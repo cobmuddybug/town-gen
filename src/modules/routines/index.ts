@@ -104,6 +104,7 @@ function headTemplateHamlet(occ: string): string {
   return "labourer";
 }
 
+/** Which day's routine a person follows: the trade's, a child's, the old's, an apprentice's… */
 export function templateFor(town: Town, p: Entity): string {
   const age = p.get<number>("age");
   const role = p.get<string>("role");
@@ -300,10 +301,42 @@ function fill(text: string, month: number, trade = "the trade's", r?: { pick<T>(
   return one.replace(/\{(\w+)\}/g, (_, k) => (k === "trade" ? trade : m[k] ?? "at work"));
 }
 
+/** What a person's day is built from that doesn't change from day to day. */
+interface Fixed {
+  role: string; t: string; tpl: Record<Block, Slot>; traits: string[]; age: number; male: boolean; urban: boolean;
+  parish: string | null; hh: Entity; home: Address; labourDay: number | undefined; trade: string;
+  lover: boolean; baby: boolean; terrain: string; hooks: RoutineHook[];
+}
+// Kept per person once the town has settled: the map, the edges and the households stop changing then.
+const fixedMemo = new WeakMap<Entity, Fixed>();
+
+function fixedOf(town: Town, p: Entity): Fixed {
+  const hit = fixedMemo.get(p);
+  if (hit) return hit;
+  const t = templateFor(town, p);
+  const urban = isUrban(town);
+  const hh = town.get(town.parentOf(p.address)!);
+  const f: Fixed = {
+    role: p.get<string>("role"), t, tpl: (urban && content.templates[`${t}_town`]) || content.templates[t],
+    traits: p.get<string[]>("traits") ?? [], age: p.get<number>("age"), male: p.get("sex") === "m", urban,
+    parish: urban ? hh.get<string | null>("parish") : null, hh, home: buildingOfPerson(town, p.address),
+    labourDay: hh.get<number | undefined>("manor.labourDay"),
+    trade: town.registry<Occupation>("occupations").find(hh.get<string>("occupation"))?.label ?? "the trade's",
+    lover: town.edges({ touching: p.address, kind: "lover" }).length > 0,
+    baby: town.children(hh.address, "person").some((x) => x.get<number>("age") < 3),
+    terrain: town.settlement().get<string>("terrain") ?? "farmland",
+    hooks: town.registry<RoutineHook>("routineHooks").list(),
+  };
+  if (town.settled) fixedMemo.set(p, f);
+  return f;
+}
+
+/** Where a person is in a block, and what they're doing. A pure function of the person and the date: the crime and lives calendars get first say. */
 export function whereabouts(town: Town, person: Address, date: string, block: Block): Whereabouts {
   town.society();
   const p = town.get(person);
-  const role = p.get<string>("role");
+  const fx = fixedOf(town, p);
+  const role = fx.role;
   // Officers of the manor live elsewhere and only come for visits and courts.
   if (role === "official" || role === "lord") {
     const occ = p.get<string>("occupation");
@@ -315,24 +348,21 @@ export function whereabouts(town: Town, person: Address, date: string, block: Bl
   }
   // A villein who ran is a criminal; his family says they don't know where he is.
   if (p.get("manor.fled")) return { where: "place:away", label: PLACES["place:away"], doing: "gone; his family won't say where" };
-  for (const h of town.registry<RoutineHook>("routineHooks").list()) {
+  for (const h of fx.hooks) {
     const o = h.at(town, person, date, block);
-    if (o) return { where: o.where, label: o.where.startsWith("place:") ? PLACES[o.where] ?? o.where : o.where === buildingOfPerson(town, person) ? "at home" : `at ${town.label(o.where).replace(/^The /, "the ")}`, doing: o.doing };
+    if (o) return { where: o.where, label: o.where.startsWith("place:") ? PLACES[o.where] ?? o.where : o.where === fx.home ? "at home" : `at ${town.label(o.where).replace(/^The /, "the ")}`, doing: o.doing };
   }
-  const t = templateFor(town, p);
-  const urban = isUrban(town);
-  const tpl = (urban && content.templates[`${t}_town`]) || content.templates[t];
+  const { t, urban, tpl } = fx;
   const month = parseDate(date).m;
   let slot: Slot = tpl[block];
   const r = town.rngFor(person, routines, `day:${date}:${block}`);
-  const traits = p.get<string[]>("traits") ?? [];
-  const age = p.get<number>("age");
+  const { traits, age } = fx;
   const feast = feastOn(date);
   const sky = weatherOn(town, date);
   const working = SERVING.has(t) || t === "herdsman" && (block === "morning" || block === "evening");
-  const male = p.get("sex") === "m";
+  const male = fx.male;
   // Their parish keeps its patron's day: a procession and a church-ale.
-  const parish = urban ? town.get(town.parentOf(person)!).get<string | null>("parish") : null;
+  const parish = fx.parish;
   const patronal = parish && !feast?.holy && patronalOn(town, date).includes(parish) ? patronOf(town, parish) : undefined;
 
   if (feast?.holy && age >= 5 && !working) {
@@ -367,7 +397,7 @@ export function whereabouts(town: Town, person: Address, date: string, block: Bl
   // change of plan (week-work, visitors, the watch) drops it.
   let direct: { slot: Slot; where: string } | undefined;
   {
-    const home = buildingOfPerson(town, person);
+    const home = fx.home;
     const free = !working && t !== "watch" && !(slot.where === "alehouse" || slot.where === "chapel");
     let go: { where: string; doing: string } | undefined;
     if (free && !feast?.holy && (block === "forenoon" || block === "afternoon") && (SHOPPERS.has(t) || (t === "child" && age >= 8))) {
@@ -380,9 +410,8 @@ export function whereabouts(town: Town, person: Address, date: string, block: Bl
     if (go) { slot = { where: "home", doing: go.doing }; direct = { slot, where: go.where }; }
   }
   // Week-work: one day in seven on the lord's demesne; boon days at harvest (LF p.77).
-  const hh = town.get(town.parentOf(person)!);
-  const labourDay = hh.get<number | undefined>("manor.labourDay");
-  if (labourDay && !feast?.holy && (block === "forenoon" || block === "afternoon") && age >= 14 && p.get("sex") === "m" && (role === "head" || role === "child" || role === "servant")) {
+  const labourDay = fx.labourDay;
+  if (labourDay && !feast?.holy && (block === "forenoon" || block === "afternoon") && age >= 14 && male && (role === "head" || role === "child" || role === "servant")) {
     const wd = weekday(date);
     const boon = (month === 8 || month === 9) && wd === ((labourDay + 2) % 6) + 1;
     if (wd === labourDay) slot = { where: "demesne", doing: `week-work on the lord's demesne: {farm}` };
@@ -399,21 +428,21 @@ export function whereabouts(town: Town, person: Address, date: string, block: Bl
       else if (v.kind === "fair" && age >= 14 && (block === "forenoon" || block === "afternoon") && rv.chance(0.5)) slot = { where: "fair", doing: `gone to ${v.who}` };
       else if ((v.kind === "players" || v.kind === "mountebank") && (block === "afternoon" || block === "evening") && rv.chance(0.45)) slot = { where: "green", doing: `watching ${v.who}` };
       else if (v.kind === "herald" && block === "forenoon" && age >= 12 && rv.chance(0.6)) slot = { where: "green", doing: `hearing ${v.who} proclaim ${v.note.replace(/^proclaiming /, "")}` };
-      else if (v.kind === "tax" && !feast?.holy && (block === "forenoon" || block === "afternoon") && p.get("role") === "head" && rv.chance(0.35)) slot = { where: "hall", doing: `queueing before ${v.who}, to pay up or explain` };
-      else if (v.kind === "band" && block === "afternoon" && p.get("sex") === "m" && age >= 16 && rv.chance(0.2)) slot = { where: "pasture", doing: `haggling over horses with ${v.who}` };
+      else if (v.kind === "tax" && !feast?.holy && (block === "forenoon" || block === "afternoon") && role === "head" && rv.chance(0.35)) slot = { where: "hall", doing: `queueing before ${v.who}, to pay up or explain` };
+      else if (v.kind === "band" && block === "afternoon" && male && age >= 16 && rv.chance(0.2)) slot = { where: "pasture", doing: `haggling over horses with ${v.who}` };
       else if (v.kind === "friar" && block === "forenoon" && (traits.includes("pious") || rv.chance(0.3))) slot = { where: "chapel", doing: `hearing mass from ${v.who}` };
     }
   }
   // Towns: every able man takes his turn on the night watch (LF p.86).
-  if (block === "night" && t !== "watch" && isStreetPlan(town) && role === "head" && p.get("sex") === "m" && age >= 18 && age <= 55
+  if (block === "night" && t !== "watch" && isStreetPlan(town) && role === "head" && male && age >= 18 && age <= 55
     && town.rngFor(person, routines, `watch:${date}`).chance(1 / 20)) {
     slot = { where: "streets", doing: "his turn on the watch, with a borrowed bill and a lantern" };
   }
   // Secret lovers are sometimes not where they say they are.
-  if (block === "night" && town.edges({ touching: person, kind: "lover" }).length && town.rngFor(person, routines, `tryst:${date}`).chance(0.15)) {
+  if (block === "night" && fx.lover && town.rngFor(person, routines, `tryst:${date}`).chance(0.15)) {
     slot = { where: "away", doing: "out, and back before anyone wakes" };
   }
-  const terrain = town.settlement().get<string>("terrain") ?? "farmland";
+  const terrain = fx.terrain;
   // Harvest and haymaking pull wives and children into the fields, but only
   // where there are fields worth the name. On the coast they work the catch.
   const out = terrain === "farmland" ? content.months[String(month)]?.out ?? [] : [];
@@ -424,11 +453,9 @@ export function whereabouts(town: Town, person: Address, date: string, block: Bl
   const chosen = direct && direct.slot === slot ? direct.where : undefined;
   const where = chosen ?? (slot.where === "away" ? "place:away" : slot.where === "fair" ? "place:fair" : outdoors ? "place:fields" : place(town, p, slot.where));
   const label = where.startsWith("place:") ? PLACES[where] : slot.where === "home" && !chosen ? "at home" : `at ${town.label(where).replace(/^The /, "the ")}`;
-  const occs = town.registry<Occupation>("occupations");
-  const trade = occs.find(hh.get<string>("occupation"))?.label ?? "the trade's";
-  let doing = fill(slot.doing, month, trade, r);
+  let doing = fill(slot.doing, month, fx.trade, r);
   // Up in the night with a child only if there's a small one in the house.
-  if (/, or up with a child/.test(doing) && !town.children(town.parentOf(person)!, "person").some((x) => x.get<number>("age") < 3)) doing = doing.replace(", or up with a child", "");
+  if (/, or up with a child/.test(doing) && !fx.baby) doing = doing.replace(", or up with a child", "");
   return { where, label, doing };
 }
 

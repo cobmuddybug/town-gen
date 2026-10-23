@@ -132,7 +132,6 @@ export function prisoners(town: Town, date: string): { p: Address; where: string
   return out.sort((a, b) => (a.p < b.p ? -1 : 1));
 }
 
-/** The routine hook: put people where the crime calendar has them. Never calls whereabouts(). */
 /** The chalk marks on a door as of a date: what the beggars left, and after a
  *  break-in, the marks for a dog and a barred door. */
 export function marksOn(town: Town, b: Address, date: string): string[] {
@@ -154,6 +153,7 @@ export function hangingsOn(town: Town, date: string): Incident[] {
   return out;
 }
 
+/** The routine hook: put people where the crime calendar has them. Never calls whereabouts(). */
 export function crimeAt(town: Town, person: Address, date: string, block: Block): { where: string; doing: string } | undefined {
   const W = world(town);
   if (!W) return undefined;

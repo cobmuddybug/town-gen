@@ -1,3 +1,6 @@
+// The shapes everything shares: settings and the DM's design choices, entities,
+// fields and edges, the Ctx a module writes through, its hooks and panels, the
+// sifters that find plot hooks, and the save file. No code here, only types.
 import type { Address } from "./address";
 import type { Rng } from "./rng";
 import type { Registry, Row } from "./registry";

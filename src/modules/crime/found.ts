@@ -31,6 +31,7 @@ const LAWFUL = new Set(["constable", "beadle", "marshal", "deputy marshal", "off
 
 interface Office { p: Address; office: string; ward?: number; quarter?: number; gate?: number }
 
+/** The society phase for crime: found the crews, their dens and members, the fences, the boss, the payoffs and the rest. */
 export function found(ctx: Ctx, s: EntityLike): void {
   const town = ctx.town;
   const uwAddr = `${s.address}/institution:underworld`;
@@ -104,9 +105,14 @@ export function found(ctx: Ctx, s: EntityLike): void {
   });
   interface Built { g: Entity; lay: Lay; den: (typeof buildings)[number]; turf: number[]; chief: P; members: { x: P; rank: Rank }[]; name: string }
   const built: Built[] = [];
+  // Every candidate den asks for its nearest church or inn, so the answers are kept.
+  const nearMemo = new Map<string, (typeof buildings)[number] | undefined>();
   const nearest = (at: Pt, uses: string[]) => {
+    const k = `${at[0]},${at[1]}|${uses.join(",")}`;
+    if (nearMemo.has(k)) return nearMemo.get(k);
     let best: (typeof buildings)[number] | undefined, bd = Infinity;
     for (const y of buildings) if (uses.includes(y.use)) { const d = dist(at, y.at); if (d < bd) { bd = d; best = y; } }
+    nearMemo.set(k, best);
     return best;
   };
   const rich = wards.filter((w) => w.value >= 5).map((w) => w.centre);
@@ -446,6 +452,8 @@ export function found(ctx: Ctx, s: EntityLike): void {
 
   // ---- the marks by the doors -------------------------------------------
   const beggars = built.some((b) => b.lay.marks);
+  const adultsIn = new Map<Entity, P[]>();
+  for (const x of people) if (x.age >= 16) { const l = adultsIn.get(x.b); if (l) l.push(x); else adultsIn.set(x.b, [x]); }
   for (const y of buildings) {
     const head = y.heads[0];
     if (!head || dens.has(y.b.address)) continue;
@@ -453,7 +461,7 @@ export function found(ctx: Ctx, s: EntityLike): void {
     if (!rr.chance(beggars ? 0.6 : 0.3)) continue;
     const marks: string[] = [];
     const insideLaw = y.heads.some((x) => LAWFUL.has(officeOf.get(x.p.address) ?? ""));
-    const adults = people.filter((x) => x.b === y.b && x.age >= 16);
+    const adults = adultsIn.get(y.b) ?? [];
     if (insideLaw) marks.push("law");
     if (rr.chance(0.12)) marks.push("dog");
     if (head.rank >= 7) marks.push("rich");

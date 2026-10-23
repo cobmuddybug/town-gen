@@ -1,11 +1,16 @@
+// Registries: named tables of content rows (occupations, traits, tiers, sifters,
+// rumour sources…) that modules add to at load and may patch. Every override is
+// logged, and the log goes into saves, so a mod's changes are visible.
 import type { Era } from "./types";
 
+/** A content row: an id, the eras it fits (all, if none), and where its figures came from. */
 export interface Row {
   id: string;
   era?: Era[];
   source?: string;
 }
 
+/** One module's patch (or removal, `patch: null`) of another's row. */
 export interface OverrideRecord {
   registry: string;
   id: string;

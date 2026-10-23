@@ -43,6 +43,7 @@ function households(u: BuildingUse | undefined): number {
   return Array.isArray(h) ? (h[0] + h[1]) / 2 : h;
 }
 
+/** The building plan for a settlement over 1,000 people: the uses in proportion to its size, the layout it will be laid out as, and what stands over the bridge. */
 export function planUrban(
   r: Rng, pop: number, sizeClass: string, base: Base, era: Era, useReg: Registry<BuildingUse>, walled: boolean, manorial: boolean, design?: Design,
 ): UrbanPlan {

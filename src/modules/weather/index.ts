@@ -43,6 +43,7 @@ const TEXT: Record<Sky, string[]> = {
 
 const memo = new WeakMap<Town, Map<string, Weather>>();
 
+/** The day's weather. Neighbouring days share a spell of wet, cold or heat. */
 export function weatherOn(town: Town, date: string): Weather {
   let m = memo.get(town);
   if (!m) memo.set(town, (m = new Map()));

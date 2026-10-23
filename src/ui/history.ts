@@ -1,3 +1,4 @@
+// Back and forward through the inspector's pages, and the keyboard shortcuts.
 import type { Address } from "../core/address";
 
 /** Back and forward through what the inspector has shown, like a browser. */
