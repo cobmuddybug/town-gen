@@ -33,7 +33,7 @@ export function buildingId(n: number): string {
 /** L1: the map. Places one building per planned use and creates them as stubs. */
 export const layout: Module = {
   id: "layout",
-  version: "2.1.0",
+  version: "3.0.0",
   requires: ["core", "uses"],
   hooks: {
     onSettlementGenerated(ctx, s) {
@@ -71,7 +71,8 @@ export const layout: Module = {
           const form = layoutPlan === "radial" ? "organic" : layoutPlan;
           map = layoutGrown(ctx.rng(s, "river"), footprints, { ...opts, form, ...(BANKED.includes(form) ? { farBank } : {}), far: farUses, need: 0 });
           if (map.buildings.length >= footprints.length || room > 1.5 || tries >= 3) break;
-          room = Math.min(1.55, Math.max(room + 0.08, room * Math.sqrt(footprints.length / Math.max(1, map.buildings.length)) * 1.04));
+          // (A big town's retry takes a little more than it fell short by: a third try costs a second or more.)
+          room = Math.min(1.55, Math.max(room + 0.08, room * Math.sqrt(footprints.length / Math.max(1, map.buildings.length)) * (footprints.length > 2000 ? 1.1 : 1.04)));
         }
         cache.set(key, map);
         if (cache.size > 16) cache.delete(cache.keys().next().value!);

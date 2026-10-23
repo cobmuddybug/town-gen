@@ -48,7 +48,9 @@ src/core/       addresses, rng, dmath, calendar (feasts, fasts, seasons, whenOf)
 src/modules/    one folder per module: index.ts + content/*.yaml
   core          tiers, bases, sizes, materials, edge kinds, L0 settlement facts
   uses          building uses and occupations; the building plan (urban.ts above 1,000 people); L2 construction
-  layout        L1 map: hamlet.ts (up to 700 people), radial.ts (spiderweb plan), grown.ts + height.ts (the grown-town engine: river, ridge, castle-gate, street, crossroads, abbey-gate, harbour), streets.ts (shared street types), geom.ts the geometry kit; wards; nearestBuilding()
+  layout        L1 map: hamlet.ts (up to 700 people), grown.ts (the town engine: organic, river, ridge, castle-gate, street, crossroads, abbey-gate, harbour),
+                organic.ts (cell streets), graph.ts (street graph -> blocks), blocks.ts (lots in a block, houses on lots), height.ts (lie of the land, contours),
+                streets.ts (shared types), geom.ts the geometry kit; wards; nearestBuilding(); capacityOf()
   households    L3 households, members, kin and service edges, income and land
   materials     how a household lives, by tier
   names         Anglo-Norman provider: place names, bynames, given names

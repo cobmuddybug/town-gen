@@ -133,10 +133,36 @@ check each of these:
   naming rule), and twice it was the layout (rings round a castle; walls bulging between arms). The
   picture tells which.
 
+## Towns of blocks (layout 3.0.0)
+
+- **Blocks are faces of the street graph.** Lots go round each block's edge, back to back with the
+  next street's; corners split between the two streets or one L-shaped house; a big middle is built
+  over with backland cottages round a court. Anything the graph can't see (a market loop touching the
+  streets at one point, a dead end poking into a block) makes a face that wraps round it: tie the market
+  into the streets all round, and test a church's fit against the streets near it, not the block outline.
+- **Cells, not grown side streets.** Every form but the river grows its side streets as the edges of
+  Voronoi cells round its own spine (small near the market, larger out). Seed a street town's cells along
+  its market, half a block out and a block and a half apart, so the blocks front it; start the rings at
+  the market's nearest side, not its farthest.
+- **One measure per bearing can't fit every town.** The wall fitted bearing by bearing went round houses
+  at one bearing and through them at the next. What held: fit, then repair in passes (take in what was
+  within the first line, stop short of what was outside), and as a last resort put stretches back on the
+  first line, which nothing was built across.
+- **Gates follow the wall.** A gate fixed before anything is built pins the wall out in the fields. Let
+  only a gate the town is built up to hold the wall; move every gate along its road to where the wall
+  crosses it, gatehouse and all, sliding a little to clear houses and water.
+- **Lots cross by tips.** A proportional shrink lets a corner poking 0.3 m into the next lot through; use
+  separating axes with a fixed allowance for convex lots. A building on several lots must line up and
+  clear its block's other lots, or its quadrilateral reaches over them round a bend.
+- **Density and speed pull against each other.** Each retry lays the whole town out again. Size each
+  form so a big town fits first time (castle and abbey lose the ground behind their anchors, a street town
+  is long and narrow), and start small towns tighter, where a retry is cheap.
+- **Measure what the test means.** A street town of blocks has depth behind its street by design: "a
+  fifth of the town fronts the market" became "an eighth, and the market's sides lined with houses".
+
 ## Ideas carried forward
 
 - A real "narrows" needs rivers that vary in width (the river has one width now). The ridge and
   harbour towns may want that anyway.
-- Radial suburbs use the same positive overlap margin (`laid` check, gap 0.3). Their ribbon runs are
-  probably all length 1 too. Check before reusing that code.
-- Radial `downstream` is a coin flip even on the coast. On the coast it should be towards the sea.
+- A wall that dips between a town's arms is honest but not handsome; a smoothed hull of the blocks built
+  in might read better than a radius per bearing.

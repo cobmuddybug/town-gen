@@ -344,8 +344,8 @@ describe("river towns in the generator", () => {
     expect(t.children(t.root, "ward").some((w) => w.get("bank") === "near")).toBe(true);
   }, 300000);
 
-  test("the layout module is at 2.0", () => {
-    expect(defaultModules.find((m) => m.id === "layout")!.version).toBe("2.1.0");
+  test("the layout module is at 3.0 (towns of blocks)", () => {
+    expect(defaultModules.find((m) => m.id === "layout")!.version).toBe("3.0.0");
   });
 });
 

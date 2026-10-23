@@ -91,7 +91,10 @@ export function riverSite(r: Rng, o: RiverOpts): RiverSite {
   // A harbour loses half its round of ground to the sea, a ridge town both its flanks: give them more.
   // (A street town on blocks is stretched along its street and narrow across it: less ground to a radius.
   // A castle- or abbey-gate town has none behind its castle or abbey.)
-  const R = townRadius(o, o.need) * (form === "harbour" ? 1.52 : form === "ridge" ? 1.4 : form === "street" ? 1.4 : form === "castle" || form === "abbey" ? 1.3 : form === "organic" && o.need > 1500 ? 1.06 : 1);
+  const formK = form === "harbour" ? 1.52 : form === "ridge" ? 1.4 : form === "street" ? 1.4 : form === "castle" || form === "abbey" ? 1.3 : form === "organic" && o.need > 1500 ? 1.06 : 1;
+  // (A small town starts tighter: if it comes up short it is laid out again, which costs little at its
+  // size. Not a street town: its one street is its frontage, and a tighter one has less of it.)
+  const R = townRadius(o, o.need) * formK * (o.need < 1200 && form !== "street" ? 0.91 : 1);
   const extent = R * 2.6 + 200;
   // Towns at a crossing stand on a river; the others have a stream passing clear of them, for the mills.
   const crossing = BANKED.includes(form) || form === "harbour";
@@ -1816,7 +1819,14 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       if (!got && m > 1) for (const fr of fronts) { const c = peek(`${far ? 1 : 0}:${fr}:0`) ?? [...plots].find((x) => !x.used && x.far === far); if (c) { got = [c]; break; } }
     }
     // Out of room on this bank: say so (the layout is tried again roomier), unless this is the last try.
-    if (!got) { const c = plots.find((x) => !x.used && x.far === far && (overflowOk || !housing || !x.suburb)) ?? ((o.room ?? 1) > 1.45 ? plots.find((x) => !x.used) : undefined); if (c) got = [c]; }
+    // (A trade that doesn't keep together still keeps off its own kind's doorsteps, if it can.)
+    if (!got) {
+      const ok = (x: RPlot) => !x.used && x.far === far && (overflowOk || !housing || !x.suburb);
+      const prior = p.kind && !p.cluster ? (placedAt.get(familyOf(p.kind)) ?? []).slice(-40) : [];
+      const clear = (x: RPlot) => { const c2 = centroid(x.poly); return prior.every((q2) => hypot(c2[0] - q2[0], c2[1] - q2[1]) >= 14); };
+      const c = (prior.length ? plots.find((x) => ok(x) && clear(x)) : undefined) ?? plots.find(ok) ?? ((o.room ?? 1) > 1.45 ? plots.find((x) => !x.used) : undefined);
+      if (c) got = [c];
+    }
     if (!got) { spill.push(i); continue; }
     for (const x of got) x.used = true;
     if (p.kind) { const kk = familyOf(p.kind); const l = placedAt.get(kk) ?? []; l.push(centroid(got[0].poly)); placedAt.set(kk, l); }
@@ -2143,7 +2153,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     // Greens: the commons, the well-off's gardens, and each church's graveyard.
     greens: [
       ...commons.map((poly) => ({ poly: qpoly(poly), kind: "common" as const })),
-      ...opens.filter((op) => op.kind === "garden").map((op) => ({ poly: op.poly, kind: "garden" as const })),
+      // (Only where the block is still the well-off's: one taken for a church or a common has no garden.)
+      ...opens.filter((op) => op.kind === "garden" && blocksOut.some((b) => b.kind === "wellOff" && pointInPoly(centroid(op.poly), b.outline))).map((op) => ({ poly: op.poly, kind: "garden" as const })),
       ...result.flatMap((b) => (b && b.plotKind === "churchyard" && b.plot ? [{ poly: b.plot, kind: "graveyard" as const, church: b.planIndex }] : [])),
     ],
   };

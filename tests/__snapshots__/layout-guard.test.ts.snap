@@ -1,0 +1,8 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`frozen layouts > organic and river towns lay out as they did 1`] = `
+{
+  "organic": "53cf94727ef2",
+  "river": "e2fcfc26621b",
+}
+`;
