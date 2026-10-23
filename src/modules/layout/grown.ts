@@ -13,7 +13,7 @@
 import { PI, TAU, atan2, cos, hypot, q, sin } from "../../core/dmath";
 import type { Rng } from "../../core/rng";
 import type { FarBank } from "../../core/types";
-import { add, area, centroid, convexHull, convexOverlap, dot, insetEdges, mul, perp, pointInPoly, polylinePolyDist, qp, qpoly, rect, segPointDist, sub, type Poly, type Pt } from "./geom";
+import { add, area, centroid, convexHull, convexOverlap, dot, insetEdges, isConvex, mul, perp, pointInPoly, polylinePolyDist, qp, qpoly, rect, segPointDist, sub, type Poly, type Pt } from "./geom";
 import type { Feature, FieldPiece, Footprint, PlacedBuilding, Road } from "./hamlet";
 import { CHURCH_SIZE, blob, building, compassOf, insetOutline, leftToRight, marketSize, nearestWard, plotsFor, type FrontKind, type Plot, type TownLayout, type WardGeo } from "./streets";
 import { contourLines, heightField } from "./height";
@@ -27,7 +27,7 @@ export type Form = "river" | "ridge" | "castle" | "street" | "crossroads" | "abb
 /** Forms with a far bank over their bridge. */
 export const BANKED: Form[] = ["river", "ridge"];
 /** The forms whose land between streets is cut into blocks (dense-blocks rework); the rest still cut rows of plots. */
-export const BLOCKED: Form[] = ["organic", "river", "street", "crossroads", "castle", "abbey"];
+export const BLOCKED: Form[] = ["organic", "river", "street", "crossroads", "castle", "abbey", "harbour"];
 let blockedForms = new Set<Form>(BLOCKED);
 /** Tests only: try forms on blocks before they are switched over for good. */
 export function setBlockedForTest(forms: Form[]): void { blockedForms = new Set(forms.length ? forms : BLOCKED); }
@@ -96,8 +96,9 @@ export function sideOf(line: Pt[], p: Pt): 1 | -1 {
 export function riverSite(r: Rng, o: RiverOpts): RiverSite {
   const form = o.form ?? "river";
   // A harbour loses half its round of ground to the sea, a ridge town both its flanks: give them more.
-  // (A street town on blocks is stretched along its street and narrow across it: less ground to a radius.)
-  const R = townRadius(o, o.need, !!o.blocks) * (form === "harbour" ? 1.45 : form === "ridge" ? 1.15 : form === "street" && o.blocks ? 1.4 : 1);
+  // (A street town on blocks is stretched along its street and narrow across it: less ground to a radius.
+  // A castle- or abbey-gate town has none behind its castle or abbey.)
+  const R = townRadius(o, o.need, !!o.blocks) * (form === "harbour" ? 1.45 : form === "ridge" ? 1.15 : form === "street" && o.blocks ? 1.4 : (form === "castle" || form === "abbey") && o.blocks ? 1.3 : form === "organic" && o.need > 1500 ? 1.06 : 1);
   const extent = R * 2.6 + 200;
   // Towns at a crossing stand on a river; the others have a stream passing clear of them, for the mills.
   const crossing = BANKED.includes(form) || form === "harbour";
@@ -954,7 +955,8 @@ const FRONTS: Record<string, FrontKind[]> = {
   lane: ["street", "main"],
   quay: ["quay", "main", "street"],
   shore: ["quay", "street", "main"],
-  housing: ["street", "main", "quay", "market"],
+  // (And the cottages round a block's inner court: the backland, built over, as town houses were.)
+  housing: ["street", "main", "quay", "market", "lane"],
   suburb: ["suburb"],
 };
 const FAMILY: Record<string, string> = { tavern: "drink", town_alehouse: "drink", alehouse: "drink", inn: "drink", cookshop: "food", bakehouse: "food" };
@@ -1098,6 +1100,20 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       // The castle's bailey was there first: lanes (and an organic town's cell streets) that would run through it are not made.
       const bailey = castle;
       net.streets = net.streets.filter((st) => !((st.kind === "back" || st.kind === "cross" || st.kind === "water" || st.id.startsWith("ostreet") || st.id.startsWith("olane")) && polylinePolyDist(st.points, bailey, st.width + 2) < st.width / 2 + 2));
+      // A side street that runs into it stops short of it: its longest stretch clear of the bailey.
+      for (const st of net.streets) {
+        if (st.kind !== "street" || polylinePolyDist(st.points, bailey, st.width + 2) >= st.width / 2 + 2) continue;
+        // (Segment by segment: one can pass through it with both its ends outside.)
+        const runs: Pt[][] = [[]];
+        st.points.forEach((p, j) => {
+          const cur = runs[runs.length - 1];
+          const clearSeg = j > 0 && polylinePolyDist([st.points[j - 1], p], bailey, st.width + 2) >= st.width / 2 + 2;
+          if (j === 0 || clearSeg) { if (!cur.length && j > 0) cur.push(st.points[j - 1]); cur.push(p); }
+          else if (cur.length) runs.push([]);
+        });
+        st.points = runs.reduce((a, b) => (polyLen(b) > polyLen(a) ? b : a), [] as Pt[]);
+      }
+      net.streets = net.streets.filter((st) => st.points.length >= 2);
     }
   }
 
@@ -1233,7 +1249,42 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   else {
     // The land between the streets, block by block. The market's edge is a street of its own; the
     // whole is closed a lot's depth beyond the outermost streets, so edge blocks have a back.
-    const lines = [...net.streets.map((st) => ({ id: st.id, width: st.width, points: st.points })), { id: "market", width: 3, points: [...market, market[0]] }];
+    // (The market's edge a little in from where it lies along another street, the quay: two lines on
+    // top of each other would leave the market open to the blocks beside it.)
+    const quayPts = net.streets.find((st) => st.kind === "quay")?.points;
+    const onQuay = market.map((v, k) => !!quayPts && lineDist(quayPts, mul(add(v, market[(k + 1) % market.length]), 0.5)) < 3);
+    const mEdge = onQuay.some(Boolean) ? insetEdges(market, onQuay.map((x) => (x ? 2.5 : 0))).poly : market;
+    const mRing = [...mEdge, mEdge[0]];
+    // A street that ends short of the market, heading for it, runs on to meet it: a market no street
+    // reached would be an island in one great block, and the blocks round it would be lost.
+    const toMarket = (pts: Pt[]): Pt[] => {
+      const out = pts.slice();
+      for (const end of [0, out.length - 1]) {
+        const p = out[end], q = out[end === 0 ? 1 : out.length - 2];
+        if (!q) continue;
+        const at = nearestOn(mRing, p), d = hypot(at[0] - p[0], at[1] - p[1]);
+        if (d < 0.5 || d > 30 || pointInPoly(p, market)) continue;
+        // Heading towards it, more or less, and not through a castle's bailey or a precinct on the way.
+        const h = norm2(sub(p, q)), w2 = norm2(sub(at, p));
+        if (dot(h, w2) < 0.3) continue;
+        if (obstacles.slice(1).some((ob) => polylinePolyDist([p, at], ob, 8) < 4 || pointInPoly(at, ob))) continue;
+        if (end === 0) out.unshift(at); else out.push(at);
+      }
+      return out;
+    };
+    for (const st of net.streets) if (st.kind !== "main" && st.kind !== "high" && st.bank !== "far") st.points = toMarket(st.points);
+    // And a way out from each corner of the market not already on a street, to the nearest one: so
+    // the market is tied into the streets all round, and no block wraps round it.
+    mEdge.forEach((v, k) => {
+      let best: Pt | undefined, bd = 40;
+      for (const st of net.streets) {
+        if (st.bank === "far") continue;
+        const at = nearestOn(st.points, v), d = hypot(at[0] - v[0], at[1] - v[1]);
+        if (d < bd) { bd = d; best = at; }
+      }
+      if (best && bd > 1 && !obstacles.slice(1).some((ob) => polylinePolyDist([v, best!], ob, 8) < 4)) net.streets.push({ id: `mlink${k}`, kind: "street", width: urban ? 3 : 3.5, points: [v, best], bank: "near" });
+    });
+    const lines = [...net.streets.map((st) => ({ id: st.id, width: st.width, points: st.points })), { id: "market", width: 3, points: mRing }];
     // Round the town's own streets, not the roads out: those run on across it, so the edge blocks close.
     const close = insetEdges(convexHull(lines.filter((l) => !/^(main\d+|high)$/.test(l.id)).flatMap((l) => l.points)), -depth).poly;
     const graph = nodeStreets(lines, 3);
@@ -1241,9 +1292,12 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     let ln = 0;
     const faces: Face[] = [];
     const laneW2 = urban ? 3 : 3.5;
+    // The market is a face too: no lanes across it, no lots in it. (Only the market itself: a block
+    // that wraps round a market touching the streets at one point has its middle there too.)
+    const mArea = area(market);
+    const isMarket = (f: Face) => pointInPoly(centroid(f.outline), market) && area(f.outline) < mArea * 1.1;
     for (const f of blockFaces(graph, close)) {
-      // (The market is a face too: no lanes across it.)
-      if (pointInPoly(centroid(f.outline), market)) continue;
+      if (isMarket(f)) continue;
       // (An organic town's blocks are sized by their seeds: small at the heart, larger outward. Left whole.)
       const sp = form === "organic" ? { faces: [f], lanes: [] } : splitBlock(f, laneW2, urban ? 4200 : 6500, () => `blane${ln++}`);
       faces.push(...sp.faces);
@@ -1256,7 +1310,7 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     const frontAt = (sd: Side): FrontKind => (sd.street === "market" ? "market" : frontOf(byId.get(sd.street)!)(midOf(sd)) ?? "suburb");
     faces.forEach((f, fi) => {
       const c = centroid(f.outline);
-      if (pointInPoly(c, market) || obstacles.slice(1).some((ob) => pointInPoly(c, ob))) return;
+      if (isMarket(f) || obstacles.slice(1).some((ob) => pointInPoly(c, ob))) return;
       const fronts = f.sides.map(frontAt);
       const near = hypot(c[0] - mc[0], c[1] - mc[1]);
       // A face of hectares is no block: it is the town's edge looking out on the fields, lined with crofts.
@@ -1409,12 +1463,36 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const runIx = new Map<number, RPlot[]>();
   for (const p of plots) { const l = runIx.get(p.run); if (l) l.push(p); else runIx.set(p.run, [p]); }
   /** A run of `m` free plots starting at `p`, if there is one. */
+  const spanOk = new Map<string, boolean>();
   const runFrom = (p: RPlot, m: number): RPlot[] | undefined => {
     const run = runIx.get(p.run)!;
     const i = run.indexOf(p);
     const seq = run.slice(i, i + m);
     // Neighbours on the street, with no lot dropped between them (one crossing a wall, or a lane).
-    return seq.length === m && seq.every(free) && seq.every((x, k) => k === 0 || x.idx === seq[k - 1].idx + 1) ? seq : undefined;
+    if (!(seq.length === m && seq.every(free) && seq.every((x, k) => k === 0 || x.idx === seq[k - 1].idx + 1))) return undefined;
+    // And in a line: one building drawn across lots round a bend would reach into the lots behind.
+    // (Shape alone decides it, so it is worked out once for each run of lots.)
+    if (blocked && m > 1) {
+      const key = `${p.id}:${m}`;
+      let ok = spanOk.get(key);
+      if (ok === undefined) {
+        ok = !seq.some((x) => x.poly.length !== 4);
+        if (ok) {
+          const ps2 = leftToRight(seq);
+          const span = [ps2[0].poly[0], ps2[m - 1].poly[1], ps2[m - 1].poly[2], ps2[0].poly[3]] as Poly;
+          const own = seq.reduce((t, x) => t + area(x.poly), 0);
+          ok = isConvex(span) && Math.abs(area(span) - own) <= own * 0.06;
+          // Nor reaching over the lots behind or beside it.
+          if (ok) {
+            const bk = seq[0].block.replace(/b$/, "");
+            ok = ![...(blockLots.get(bk) ?? []), ...(blockLots.get(`${bk}b`) ?? [])].some((x) => !seq.includes(x) && lotsCross(x.poly, span));
+          }
+        }
+        spanOk.set(key, ok);
+      }
+      if (!ok) return undefined;
+    }
+    return seq;
   };
   // Gatehouses on the gates.
   const gateParts = (g: { p: Pt; t: Pt }) => {
@@ -1466,26 +1544,39 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     claim(result[i]);
   };
   // `of`: a lot of the block, for its street and ward, when the yard takes no lot itself.
-  const placeYardBody = (i: number, seq: RPlot[], kind: "church" | "precinct", whole?: Poly, of?: RPlot) => {
-    for (const x of seq) x.used = true;
-    const ordered = seq.length ? leftToRight(seq) : [of!];
-    const first = ordered[0], last = ordered[ordered.length - 1];
-    // In a town of blocks a church or a religious house takes a whole block for its yard.
-    const yard = insetOutline(whole ?? qpoly([first.poly[0], last.poly[1], last.poly[2], first.poly[3]]), 1.2);
+  /** Where a church or a religious house stands in its yard, and how far it must shrink to fit. */
+  const yardFit = (i: number, kind: "church" | "precinct", outline: Poly, whole: boolean) => {
+    const yard = insetOutline(outline, 1.2);
     // In a bent block the middle may be in a thin arm, or outside it: stand it where the block is widest.
     const c = whole || blocked ? widestPoint(yard) : centroid(yard);
-    const p = plan[i];
     // Square to the map, as ever; in a whole block, along its longest side.
     let u: Pt = [1, 0];
     if (whole || blocked) { let bl = -1; yard.forEach((v0, k) => { const e = sub(yard[(k + 1) % yard.length], v0); const L = hypot(e[0], e[1]); if (L > bl) { bl = L; u = [e[0] / L, e[1] / L]; } }); }
     const v = perp(u);
     const at = (x: number, y: number): Pt => add(c, add(mul(u, x), mul(v, y)));
-    const fits = (polys: Poly[]) => polys.every((pl) => pl.every((pt) => pointInPoly(pt, yard)));
+    // Inside the yard, and clear of every street near it (a dead end poking into a block leaves the
+    // block's outline running round it, so inside the outline isn't enough).
+    const nearSts = blocked ? net.streets.filter((st) => lineDist(st.points, c) < 60) : [];
+    const fits = (polys: Poly[]) => polys.every((pl) => pl.every((pt) => pointInPoly(pt, yard)) && nearSts.every((st) => polylinePolyDist(st.points, pl, st.width) >= st.width / 2 + 0.5));
     let kk = 1;
     if (kind === "church") {
-      const [cw0, cd0] = CHURCH_SIZE[p.size] ?? [16, 7.5];
+      const [cw0, cd0] = CHURCH_SIZE[plan[i].size] ?? [16, 7.5];
       // Shrink to fit the yard: a church never stands over the street.
       for (; kk > 0.12; kk -= 0.04) if (fits([rect(at(-cw0 * kk * 0.12, 0), u, cw0 * kk * 0.76, cd0 * kk), rect(at(cw0 * kk * 0.38, 0), u, cw0 * kk * 0.24, cd0 * kk * 0.72)])) break;
+    } else {
+      for (; kk > 0.12; kk -= 0.04) if (fits([rect(at(0, -9 * kk), u, 30 * kk, 9 * kk), rect(at(0, 8 * kk), u, 20 * kk, 16 * kk)])) break;
+    }
+    return { yard, c, u, at, kk };
+  };
+  const placeYardBody = (i: number, seq: RPlot[], kind: "church" | "precinct", whole?: Poly, of?: RPlot) => {
+    for (const x of seq) x.used = true;
+    const ordered = seq.length ? leftToRight(seq) : [of!];
+    const first = ordered[0], last = ordered[ordered.length - 1];
+    // In a town of blocks a church or a religious house takes a whole block for its yard.
+    const { yard, c, u, at, kk } = yardFit(i, kind, whole ?? qpoly([first.poly[0], last.poly[1], last.poly[2], first.poly[3]]), !!whole);
+    const p = plan[i];
+    if (kind === "church") {
+      const [cw0, cd0] = CHURCH_SIZE[p.size] ?? [16, 7.5];
       const cw = cw0 * kk, cd = cd0 * kk;
       const parts = [{ kind: "chancel", poly: qpoly(rect(at(cw * 0.38, 0), u, cw * 0.24, cd * 0.72)) }];
       if (p.size === "grand_temple" || p.size === "temple") {
@@ -1496,7 +1587,6 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       if (!wards[first.ward].near.includes(p.size)) wards[first.ward].near.push(p.size);
       churchAt.push(c);
     } else {
-      for (; kk > 0.12; kk -= 0.04) if (fits([rect(at(0, -9 * kk), u, 30 * kk, 9 * kk), rect(at(0, 8 * kk), u, 20 * kk, 16 * kk)])) break;
       result[i] = { planIndex: i, poly: qpoly(rect(at(0, -9 * kk), u, 30 * kk, 9 * kk)), parts: [{ kind: "cloister", poly: qpoly(rect(at(0, 8 * kk), u, 20 * kk, 16 * kk)) }], plot: yard, plotKind: "precinct", front: qp(c), road: first.street, ward: first.ward, block: first.block };
     }
   };
@@ -1504,7 +1594,7 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   const wholeBlock = (i: number, kind: "church" | "precinct", minArea: number, score: (c: Pt) => number, minWidth = 0, ring = 0): boolean => {
     if (!blocked) return false;
     const onFar = farSet.has(i);
-    let best: { b: (typeof blocksOut)[number]; lots: RPlot[] } | undefined, bs = -Infinity;
+    const cands: { b: (typeof blocksOut)[number]; lots: RPlot[]; sc: number }[] = [];
     for (const b of blocksOut) {
       const lots = blockLots.get(b.id) ?? [];
       // (A friary may stand outside the walls, as many did; a parish church stands among its people.)
@@ -1517,8 +1607,11 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       if (area(b.outline) / Math.max(1, rim / 2) < minWidth) continue;
       // Rather a smaller block than a bigger, but where it goes matters more (churches spread out).
       const sc = score(centroid(b.outline)) - (area(b.outline) / minArea - 1) * 6;
-      if (sc > bs) { bs = sc; best = { b, lots }; }
+      cands.push({ b, lots, sc });
     }
+    // The best that it will stand in, near its full size, clear of the streets (tried best first).
+    cands.sort((x, y) => y.sc - x.sc);
+    const best = cands.find((x) => yardFit(i, kind, x.b.outline, true).kk >= 0.85);
     if (!best) return false;
     best.b.kind = kind;
     if (kind === "precinct" || !ring) { placeYard(i, best.lots, kind, best.b.outline); return true; }

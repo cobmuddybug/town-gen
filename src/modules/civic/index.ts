@@ -144,6 +144,7 @@ export const civic: Module = {
           if (map.plan === "castle" && w.near.includes("market")) return urban ? ["the Bailey"] : ["Castle End"];
           if (map.plan === "ridge" && bridge) return [fromBridge(w) > midway ? (urban ? "Higher Town" : "Higher End") : urban ? "Lower Town" : "Lower End"];
           if (map.plan === "crossroads" && !w.near.includes("market")) return [urban ? `${cw} Street Ward` : `${cw} Street End`];
+          if (map.plan === "harbour" && w.near.includes("quay")) return urban ? ["Quay Ward", "Strand Ward"] : ["Quay End", "Strand End"];
           return [];
         };
         for (const w of wards) {

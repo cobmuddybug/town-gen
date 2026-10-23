@@ -206,3 +206,25 @@ describe("big blocks are opened up by lanes", () => {
     }
   });
 });
+
+describe("no sheared lots", () => {
+  // A lot whose sides run far off square to its front holds only a sliver of a house. Where a street
+  // side meets a side that is no street at a sharp angle, its strip is mitred to the inner corner and
+  // its lots lean.
+  test("lots along a street that meets open ground at a sharp angle are all within 40 degrees of square", () => {
+    const off = (a: Pt, b: Pt, c: Pt) => { const f = [b[0] - a[0], b[1] - a[1]], s = [c[0] - a[0], c[1] - a[1]]; return Math.abs(f[0] * s[0] + f[1] * s[1]) / (Math.hypot(f[0], f[1]) * Math.hypot(s[0], s[1])); };
+    let checked = 0;
+    for (const [k, outline] of [["t35", [[0, 0], [60, 0], [14, 20]]], ["t30", [[0, 0], [90, 0], [62, 16], [20, 16]]], ["t25", [[0, 0], [70, 0], [36, 16]]]] as const) {
+      const O = outline as unknown as Pt[];
+      // Only the first edge fronts a street; the rest is the open edge of the town.
+      const face: Face = { outline: O, sides: [{ street: "s0", width: 6, a: O[0], b: O[1], edge: 0 }], open: true };
+      for (const kind of ["ordinary", "shop", "croft"] as const) for (let seed = 0; seed < 4; seed++) {
+        const { lots } = fillBlock(new Rng(`shear-${k}-${seed}`), face, kind, front, { next: 0, run: 0 });
+        checked += lots.length;
+        const bad = lots.filter((l) => l.poly.length === 4 && !l.corner && (off(l.poly[0], l.poly[1], l.poly[3]) > 0.65 || off(l.poly[1], l.poly[0], l.poly[2]) > 0.65));
+        expect(bad.map((l) => JSON.stringify(l.poly)), `${k} ${kind} ${seed}`).toEqual([]);
+      }
+    }
+    expect(checked).toBeGreaterThan(10);
+  });
+});

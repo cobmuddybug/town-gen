@@ -9,7 +9,7 @@
 // takes neighbours and its outline comes out the right way round.
 
 import type { Rng } from "../../core/rng";
-import { add, area, convexOverlap, cross, dist, dot, insetEdges, len, mul, norm, perp, pointInPoly, qp, qpoly, sub, type Poly, type Pt } from "./geom";
+import { add, area, convexOverlap, cross, dist, dot, insetEdges, isConvex, len, mul, norm, perp, pointInPoly, qp, qpoly, sub, type Poly, type Pt } from "./geom";
 import type { Face, Side } from "./graph";
 import type { Footprint, PlacedBuilding } from "./hamlet";
 import { leftToRight, type FrontKind, type Plot } from "./streets";
@@ -215,7 +215,9 @@ export function fillBlock(r: Rng, face: Face, kind: BlockKind, front: (s: Side) 
     const pl = lots[k].poly;
     let longest = 0;
     pl.forEach((v, i) => { longest = Math.max(longest, dist(v, pl[(i + 1) % pl.length])); });
-    const skewed = pl.length === 4 && !lots[k].corner && (dist(pl[0], pl[1]) < spec.lotW[0] * 0.5 || dist(pl[3], pl[2]) > dist(pl[0], pl[1]) * 2.2 + 2);
+    // (Or sheared: a side more than 40 degrees off square to the front leaves a house a sliver wide.)
+    const shear = (a: Pt, b: Pt, c: Pt) => { const f = sub(b, a), sd = sub(c, a); return Math.abs(dot(f, sd)) / Math.max(1e-9, len(f) * len(sd)) > 0.64; };
+    const skewed = pl.length === 4 && !lots[k].corner && (dist(pl[0], pl[1]) < spec.lotW[0] * 0.5 || dist(pl[3], pl[2]) > dist(pl[0], pl[1]) * 2.2 + 2 || shear(pl[0], pl[1], pl[3]) || shear(pl[1], pl[0], pl[2]));
     if (skewed || area(pl) / Math.max(1e-9, longest) < 3) { open.push({ kind: "yard", poly: pl }); lots.splice(k, 1); }
   }
   // Last, any lot that still crosses another (a pathological corner) goes: the earlier one stays.
@@ -315,13 +317,20 @@ function disc(p: Poly): { m: Pt; r: number } {
   return d;
 }
 
+const convexMemo = new WeakMap<Poly, boolean>();
+const convexOf = (p: Poly) => { let c = convexMemo.get(p); if (c === undefined) convexMemo.set(p, (c = isConvex(p))); return c; };
+
 /** Whether two lots cross by more than a shared wall: edges crossing, or one inside the other (shrunk a little first). */
 export function lotsCross(a: Poly, b: Poly): boolean {
   const da = disc(a), db = disc(b);
   const ma = da.m, mb = db.m;
   const dx = ma[0] - mb[0], dy = ma[1] - mb[1], rr = da.r + db.r;
   if (dx * dx + dy * dy > rr * rr) return false;
-  const A = a.map((v) => add(ma, mul(sub(v, ma), 0.985))), B = b.map((v) => add(mb, mul(sub(v, mb), 0.985)));
+  // Two convex lots (nearly all): overlapping by more than a tenth of a metre, by separating axes.
+  if (convexOf(a) && convexOf(b)) return convexOverlap(a, b, -0.1);
+  // (A tenth of a metre in, whatever their size: a shared wall passes, a corner poking in does not.)
+  const ka = 1 - 0.1 / Math.max(0.2, da.r), kb = 1 - 0.1 / Math.max(0.2, db.r);
+  const A = a.map((v) => add(ma, mul(sub(v, ma), ka))), B = b.map((v) => add(mb, mul(sub(v, mb), kb)));
   for (let i = 0; i < A.length; i++) for (let j = 0; j < B.length; j++) {
     const p = A[i], p2 = A[(i + 1) % A.length], q = B[j], q2 = B[(j + 1) % B.length];
     const d1 = cross(sub(p2, p), sub(q, p)), d2 = cross(sub(p2, p), sub(q2, p)), d3 = cross(sub(q2, q), sub(p, q)), d4 = cross(sub(q2, q), sub(p2, q));
