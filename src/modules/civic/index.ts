@@ -133,7 +133,9 @@ export const civic: Module = {
         // Up a ridge town from its bridge: the wards beyond the middle distance are the higher town.
         const bridge = map.bridges?.[0];
         const fromBridge = (w: (typeof wards)[number]) => (bridge ? dist(bridge, w.centre) : 0);
-        const midway = [...wards].filter((w) => w.bank !== "far").map(fromBridge).sort((a, b) => a - b)[Math.floor(wards.length / 2)] ?? 0;
+        // (The middle of the wards that can take these names: the town's own, not its suburbs or the far bank.)
+        const named = wards.filter((w) => w.bank !== "far" && w.kind !== "suburb").map(fromBridge).sort((a, b) => a - b);
+        const midway = named[Math.floor((named.length - 1) / 2)] ?? 0;
         /** Names a town's form gives its wards, before the usual ones. */
         const formNames = (w: (typeof wards)[number], cw: string): string[] => {
           if (w.kind === "suburb") return [];

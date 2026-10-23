@@ -181,6 +181,16 @@ export function riverSite(r: Rng, o: RiverOpts): RiverSite {
   }
   // A ridge town's high point is the top of its ridge; a castle-gate town's is the castle mound.
   if (form === "ridge") high = add(add(mul(u, along), mul(n, off)), mul(n, -R * 1.45));
+  // A harbour's high point is up the hill behind its quay, on its own ground.
+  if (form === "harbour" && sea) {
+    let hb = -Infinity;
+    for (let i = 0; i < 64; i++) {
+      const p: Pt = [r.range(-0.8, 0.8) * R, r.range(-0.8, 0.8) * R];
+      if (dot(p, sea.n) > sea.d - R * 0.25 || sideOf(river, p) !== near) continue;
+      const h = height(p);
+      if (h > hb) { hb = h; high = p; }
+    }
+  }
   const ridge = form === "ridge" ? { foot: add(mul(u, along), mul(n, off)), dir: mul(n, -1), half: R * 0.34 } : undefined;
   if (form === "castle" && anchor) high = anchor;
   return { height, river: line, width, near, bridge, high, extent, radius: R, sea, ...(anchor ? { anchor } : {}), ...(anchorR ? { anchorR } : {}), ...(ridge ? { ridge } : {}) };
@@ -401,7 +411,8 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
       streets.push({ id: "high", kind: "high", width: mainW + 1, points: [gate, add(M, mul(d, -Wd + 1))], bank: "near" });
     } else {
       // The precinct: a great walled block, its gatehouse facing the town.
-      const A = R * r.range(0.5, 0.65), B = R * r.range(0.32, 0.42);
+      // (Big enough for the church and its cloister, not so big it swallows the town.)
+      const A = Math.max(urban ? 95 : 78, R * r.range(0.28, 0.36)), B = Math.max(urban ? 68 : 56, R * r.range(0.18, 0.24));
       anchorPoly = [add(add(C, mul(tang, -A / 2)), mul(d, -B / 2)), add(add(C, mul(tang, A / 2)), mul(d, -B / 2)), add(add(C, mul(tang, A / 2)), mul(d, B / 2)), add(add(C, mul(tang, -A / 2)), mul(d, B / 2))];
       gate = add(C, mul(d, B / 2));
       // The market: a broad funnel before the gatehouse, where pilgrims and townsfolk met.
@@ -411,7 +422,8 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
       exits = [market[0], market[1], market[2], market[3], add(mul(add(market[2], market[3]), 0.5), mul(d, 2))];
     }
     // Main roads fan out from the market, away from the castle or the abbey.
-    fan(angleOf(d), form === "castle" ? PI * 0.95 : PI * 1.3, Math.max(2, o.roads)).forEach((b, i) => growRoad(i === 0 ? "high" : `main${i}`, b, exitFor(b), 1, 0, i === 0 && form === "abbey" ? "high" : "main"));
+    // (A castle-gate town's high street is the way up to the castle gate; an abbey-gate town's is the first road out.)
+    fan(angleOf(d), form === "castle" ? PI * 0.95 : PI * 1.3, Math.max(2, o.roads)).forEach((b, i) => growRoad(i === 0 && form === "abbey" ? "high" : `main${i}`, b, exitFor(b), 1, 0, i === 0 && form === "abbey" ? "high" : "main"));
   } else if (form === "street") {
     // One long, wide, gently curving street that is the market itself (Marlborough, Thame).
     d = dirOf(r.range(0, TAU));
@@ -620,9 +632,20 @@ export function riverStreets(r: Rng, site: RiverSite, o: RiverOpts): StreetNet {
     return undefined;
   };
   // An open town has roads in, not gates.
-  if (walled && wallLine) for (const st of streets) if (st.kind === "main") { const g = crossing(st.points); if (g) gates.push({ ...g, road: st.id }); }
-  // The bridge gate stands back from the water, at the head of the bridge.
+  // (Without a bridge gate, the high street and the quay go out through gates of their own.)
   const hasBridge = BANKED.includes(form);
+  if (walled && wallLine) for (const st of streets) if (st.kind === "main" || (!hasBridge && (st.kind === "high" || st.kind === "quay"))) {
+    const g = crossing(st.points);
+    if (!g) continue;
+    gates.push({ ...g, road: st.id });
+    // A road that wanders back across the wall further out goes through a second gate (not in a river town, as before).
+    if (form === "river") continue;
+    for (let i = 0; i + 1 < st.points.length; i++) for (let j = 0; j + 1 < wallLine.length; j++) {
+      const x = segX(st.points[i], st.points[i + 1], wallLine[j], wallLine[j + 1]);
+      if (x && d2(x, g.p) > 30 * 30 && gates.every((h) => d2(h.p, x) > 30 * 30)) gates.push({ p: x, t: norm2(sub(st.points[i + 1], st.points[i])), road: st.id });
+    }
+  }
+  // The bridge gate stands back from the water, at the head of the bridge.
   if (walled && wallLine && hasBridge) gates.push({ p: add(foot, mul(into, 6)), t: into, road: "high" });
 
   // 5. Back lanes: a plot's depth behind every street front in town, both sides.
@@ -974,6 +997,7 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
       if (bank(c) !== site.near || lineDist(site.river, c) < site.width / 2 + cr * 0.6) continue;
       if (hypot(c[0] - mc[0], c[1] - mc[1]) < S + cr) continue;
       if (net.anchorPoly && (pointInPoly(c, net.anchorPoly) || lineDist([...net.anchorPoly, net.anchorPoly[0]], c) < cr + 6)) continue;
+      if (inSea(c, cr + 6)) continue;
       const clear = net.streets.every((st) => st.kind === "back" || st.kind === "cross" || st.kind === "water" || lineDist(st.points, c) > cr * (1 - relax * 0.3) + st.width / 2);
       if (!clear) continue;
       const sc = site.height(c) * 5 - hypot(c[0] - mc[0], c[1] - mc[1]) / R;
@@ -1310,7 +1334,8 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     const c = centroid(yard);
     const u = norm2(sub(net.anchorPoly[1], net.anchorPoly[0])), v = perp(u);
     // The abbey church along the precinct, its cloister beside it, the gatehouse facing the town.
-    const k2 = Math.max(1.2, hypot(net.anchorPoly[1][0] - net.anchorPoly[0][0], net.anchorPoly[1][1] - net.anchorPoly[0][1]) / 110);
+    // A great church for its town, about Tewkesbury's length on this map's scale, not the precinct's.
+    const k2 = urban ? 1.35 : 1.15;
     result[abbeyAt] = {
       planIndex: abbeyAt, poly: qpoly(rect(add(c, mul(v, -10 * k2)), u, 48 * k2, 13 * k2)),
       parts: [{ kind: "cloister", poly: qpoly(rect(add(c, mul(v, 10 * k2)), u, 26 * k2, 22 * k2)) }, { kind: "tower", poly: qpoly(rect(add(c, add(mul(v, -10 * k2), mul(u, -27 * k2))), u, 8 * k2, 8 * k2)) }],
@@ -1337,6 +1362,13 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
   // The market hall, in the market.
   plan.forEach((p, i) => {
     if (p.site !== "market_place") return;
+    if (form === "street") {
+      // A street town's hall stands in the middle of its street, end on to the traffic.
+      const along = norm2(sub(market[market.length / 2 - 1], market[0]));
+      const at = net.marketAt;
+      result[i] = { planIndex: i, poly: qpoly(rect(at, along, p.size === "hall" ? 18 : 12, p.size === "hall" ? 9 : 7)), parts: [], front: qp(at), road: "market", ward: nearestWard(wards, at), block: "market" };
+      return;
+    }
     const u = norm2(sub(market[1] ?? mc, mc));
     const at = add(mc, mul(u, S * 0.15));
     result[i] = { planIndex: i, poly: qpoly(rect(at, perp(u), p.size === "hall" ? 18 : 12, p.size === "hall" ? 9 : 7)), parts: [], front: qp(at), road: "market", ward: nearestWard(wards, at), block: "market" };
@@ -1641,6 +1673,14 @@ export function layoutGrown(r: Rng, plan: Footprint[], o: RiverOpts & { far: num
     for (const p of plots) if (!p.far && !p.suburb) p.poly.forEach(mark);
     market.forEach(mark);
     castle?.forEach(mark);
+    // Every gate holds the wall where it is, gatehouse or none (a river town's gates all have theirs).
+    if (form !== "river") for (const g of net.gates) mark(add(g.p, mul(norm2(sub(g.p, mc)), 4)));
+    // The castle, whatever ward it falls in: its keep and hall, and its bailey's whole edge.
+    if (form !== "river" && castleIdx >= 0 && result[castleIdx]) {
+      const cb = result[castleIdx]!;
+      for (const pl of [cb.poly, ...cb.parts.map((x) => x.poly)]) pl.forEach(mark);
+      if (castle) for (let j = 0; j < castle.length; j++) { const a = castle[j], b = castle[(j + 1) % castle.length]; for (let s2 = 0; s2 <= 1; s2 += 0.1) mark(add(a, mul(sub(b, a), s2))); }
+    }
     // The precinct's whole edge, not just its corners: a bearing between two corners must clear its side too.
     if (form !== "river" && net.anchorPoly) for (let j = 0; j < net.anchorPoly.length; j++) {
       const a = net.anchorPoly[j], b = net.anchorPoly[(j + 1) % net.anchorPoly.length];

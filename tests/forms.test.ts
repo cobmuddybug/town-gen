@@ -61,7 +61,25 @@ describe.each(FORMS)("%s towns", (form: Form) => {
       const bs = t.children(t.root, "building");
       expect(bs.filter((b) => b.get("use") !== "gatehouse" && crossesLine(b.get<Pt[]>("poly"), map.wall!.line)).map((b) => b.get("use")), seed).toEqual([]);
       expect(map.wall!.gates.length, seed).toBeGreaterThan(0);
-      expect(bs.filter((b) => b.get("use") === "gatehouse" && b.get("road") !== "postern").length, seed).toBe(map.wall!.gates.length);
+      // Every gatehouse stands at a gate; a road that crosses the wall twice may have a plain gate the second time.
+      const houses = bs.filter((b) => b.get("use") === "gatehouse" && b.get("road") !== "postern");
+      expect(houses.length, seed).toBeGreaterThan(0);
+      expect(houses.length, seed).toBeLessThanOrEqual(map.wall!.gates.length);
+      for (const h of houses) expect(map.wall!.gates.some((g) => Math.hypot(g.p[0] - h.get<Pt>("front")[0], g.p[1] - h.get<Pt>("front")[1]) < 2), seed).toBe(true);
+    }
+  }, 300000);
+
+  test("every road through the wall has its gate", () => {
+    for (const [seed, pop, gates] of [["g1", 8000, 4], ["g2", 15000, 6], ["g3", 3000, 2]] as const) {
+      const { map } = town(`${form}-${seed}`, pop, form, { walls: "wall", gates }, form === "harbour" ? "fishing" : "agricultural");
+      const wall = map.wall!.line.concat(map.wall!.closed ? [map.wall!.line[0]] : []);
+      for (const rd of map.roads.filter((r) => /^(high|main\d*|quay)$/.test(r.id))) {
+        for (let i = 0; i + 1 < rd.points.length; i++) for (let j = 0; j + 1 < wall.length; j++) {
+          if (!segX(rd.points[i], rd.points[i + 1], wall[j], wall[j + 1])) continue;
+          const at = rd.points[i];
+          expect(map.wall!.gates.some((g) => Math.hypot(g.p[0] - at[0], g.p[1] - at[1]) < 30), `${seed} ${rd.id}`).toBe(true);
+        }
+      }
     }
   }, 300000);
 
@@ -104,7 +122,7 @@ describe.each(FORMS)("%s towns", (form: Form) => {
       const line = map.wall!.closed ? map.wall!.line : map.wall!.line.slice(6, -6);
       const gap = line.map((p) => Math.min(...inside.map((poly) => lineDist([...poly, poly[0]], p)))).sort((a, b) => a - b);
       expect(gap[Math.floor(gap.length * 0.85)], seed).toBeLessThanOrEqual(90);
-      expect(gap[gap.length - 1], seed).toBeLessThanOrEqual(160);
+      expect(gap[gap.length - 1], seed).toBeLessThanOrEqual(115);
     }
   }, 300000);
 
@@ -114,7 +132,31 @@ describe.each(FORMS)("%s towns", (form: Form) => {
   }, 300000);
 });
 
+describe("walls across many towns", () => {
+  test("no house stands across a wall, over a sweep of seeds", () => {
+    const bad: string[] = [];
+    for (const form of ["street", "abbey", "crossroads", "castle"] as const) for (const [pop, base] of [[750, "fishing"], [2500, "agricultural"], [5000, "herding"]] as const) for (let i = 0; i < 5; i++) {
+      for (const market of ["small", undefined] as const) {
+        const { t, map } = town(`sweep-${form}-${pop}-${i}-${market ?? "any"}`, pop, form, { walls: "wall", ...(market ? { market } : {}) }, base);
+        if (!map.wall?.line.length) continue;
+        const line = map.wall.closed ? [...map.wall.line, map.wall.line[0]] : map.wall.line;
+        for (const b of t.children(t.root, "building")) if (b.get("use") !== "gatehouse" && crossesLine(b.get<Pt[]>("poly"), line)) bad.push(`${form} ${pop} ${i} ${market ?? "any"}: ${b.get("use")}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  }, 900000);
+});
+
 describe("the rest of the town follows the form", () => {
+  test("a ridge town has both a higher and a lower part", () => {
+    for (const [seed, pop] of [["hl1", 1500], ["hl2", 4000], ["hl3", 9000], ["hl4", 1500], ["hl5", 2500]] as const) {
+      const { t } = town(`ridge-${seed}`, pop, "ridge");
+      const names = t.children(t.root, "ward").map((w) => w.get<string>("name")).join(", ");
+      expect(names, seed).toMatch(/Higher/);
+      expect(names, seed).toMatch(/Lower/);
+    }
+  }, 600000);
+
   test.each([["castle", /Castle|Bailey/], ["abbey", /Abbey|Sanctuary/], ["harbour", /Quay|Strand/], ["ridge", /Higher|Lower/], ["crossroads", /Street/]] as const)("a %s town's wards are named for what it is", (form, words) => {
     for (const pop of [3000, 9000]) {
       const { t } = town(`wards-${form}-${pop}`, pop, form, {}, form === "harbour" ? "fishing" : "agricultural");
@@ -180,6 +222,13 @@ describe("each form's own shape", () => {
     }
   }, 300000);
 
+  test("a small street town's market hall stands in its street, clear of the houses", () => {
+    for (const base of ["agricultural", "herding", "fishing"]) for (const castle of [false, true]) {
+      const { t } = town(`street-hall-${base}`, 1500, "street", { market: "small", suburbs: "few", castle }, base);
+      expect(trouble(t).filter((x) => x.includes("market_hall")), `${base} ${castle}`).toEqual([]);
+    }
+  }, 300000);
+
   test("a street town's market is one long street, and much of the town fronts it", () => {
     for (const seed of ["s1", "s2", "s3"]) {
       const { t, map } = town(`street-${seed}`, 2500, "street");
@@ -199,6 +248,19 @@ describe("each form's own shape", () => {
     }
   }, 300000);
 
+  test("an abbey-gate town's abbey is great but not colossal", () => {
+    const area = (p: Pt[]) => Math.abs(p.reduce((a, q, i) => { const r = p[(i + 1) % p.length]; return a + q[0] * r[1] - r[0] * q[1]; }, 0)) / 2;
+    for (const [seed, pop] of [["big1", 4000], ["big2", 9000], ["big3", 20000]] as const) {
+      const { t, map } = town(`abbey-${seed}`, pop, "abbey");
+      const abbey = t.children(t.root, "building").find((b) => b.get("use") === "abbey")!;
+      const poly = abbey.get<Pt[]>("poly");
+      const longest = Math.max(...poly.map((p, i) => Math.hypot(poly[(i + 1) % poly.length][0] - p[0], poly[(i + 1) % poly.length][1] - p[1])));
+      expect(longest, `${seed} church`).toBeLessThanOrEqual(75);
+      const inside = t.children(t.root, "building").filter((b) => map.wards![b.get<number>("ward")]?.kind === "intramural").reduce((a, b) => a + area(b.get<Pt[]>("plot") ?? b.get<Pt[]>("poly")), 0);
+      expect(area(abbey.get<Pt[]>("plot")) / inside, `${seed} precinct`).toBeLessThan(0.14);
+    }
+  }, 300000);
+
   test("an abbey-gate town has its abbey in a great precinct, the market at its gate", () => {
     for (const seed of ["a1", "a2", "a3"]) {
       const { t, map } = town(`abbey-${seed}`, 4000, "abbey");
@@ -208,6 +270,16 @@ describe("each form's own shape", () => {
       expect(polylinePolyDist([...map.market!, map.market![0]], abbey.get<Pt[]>("plot")), seed).toBeLessThan(10);
     }
   }, 300000);
+
+  test("a harbour town's castle stands on land", () => {
+    for (let i = 0; i < 12; i++) for (const base of ["fishing", "agricultural"]) {
+      const { t, map } = town(`sea-${i}-${base}`, 9000, "harbour", { castle: true }, base);
+      const sea = (map as MapData & { sea?: Pt[] }).sea!;
+      const castle = t.children(t.root, "building").find((b) => b.get("use") === "castle");
+      if (!castle) continue;
+      expect([castle.get<Pt[]>("poly"), map.castle!].some((p) => p.some((q) => pointInPoly(q, sea))), `sea-${i}-${base}`).toBe(false);
+    }
+  }, 600000);
 
   test("a harbour town has its quay along the shore, and its river runs into the sea", () => {
     for (const seed of ["q1", "q2", "q3"]) {

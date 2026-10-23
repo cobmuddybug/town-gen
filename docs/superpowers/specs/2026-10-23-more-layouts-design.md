@@ -128,9 +128,9 @@ weighted by terrain:
 - **civic ward names:**
   - castle-gate: "Castle Ward", "Bailey";
   - abbey-gate: "Abbey Gate", "Sanctuary";
-  - harbour: "Quay Ward", "the Strand";
-  - ridge: "Over Town" / "Under Town" by height;
-  - street town: "Upper / Lower End";
+  - harbour: "Quay Ward", "Strand Ward" (from the existing quay rules);
+  - ridge: "Higher Town" / "Lower Town" by distance up from the bridge ("Higher/Lower End" in a market town);
+  - street town: the usual ward names (as built; no names of its own);
   - crossroads: wards named by arm ("North Street ward").
 - **politics:**
   - castle-gate: the garrison, castle-guard dues;
