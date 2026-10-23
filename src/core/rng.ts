@@ -76,13 +76,15 @@ export class Rng {
   }
 
   weighted<T>(items: readonly T[], weight: (t: T) => number): T {
+    // Each weight is worked out once: some are dear (a clash check, a phrase agreed with its subject).
+    const ws = new Array<number>(items.length);
     let total = 0;
-    for (const t of items) total += Math.max(0, weight(t));
+    for (let i = 0; i < items.length; i++) total += ws[i] = Math.max(0, weight(items[i]));
     if (total <= 0) return this.pick(items);
     let r = this.next() * total;
-    for (const t of items) {
-      r -= Math.max(0, weight(t));
-      if (r < 0) return t;
+    for (let i = 0; i < items.length; i++) {
+      r -= ws[i];
+      if (r < 0) return items[i];
     }
     return items[items.length - 1];
   }

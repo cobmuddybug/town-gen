@@ -45,12 +45,22 @@ for (const f of Object.keys(KEY) as Field[]) for (const l of content[f] ?? []) f
   (CLASH.get(c) ?? CLASH.set(c, new Set()).get(c)!).add(me);
 }
 
+// The same, per line, ready for the hot loop below: every person checks every line.
+const CLASH_OF = new Map<Line, string[] | undefined>();
+for (const f of Object.keys(KEY) as Field[]) for (const l of content[f] ?? []) {
+  const c = CLASH.get(`${KEY[f]}:${l.id}`);
+  CLASH_OF.set(l, c && [...c]);
+}
+
 function fits(f: Field, l: Line, w: Who): boolean {
-  return w.age >= (l.minAge ?? 0) && w.age <= (l.maxAge ?? 200) && (!l.sex || l.sex === w.sex) &&
+  if (!(w.age >= (l.minAge ?? 0) && w.age <= (l.maxAge ?? 200) && (!l.sex || l.sex === w.sex) &&
     (!l.roles || l.roles.includes(w.role)) && (!l.occ || l.occ.includes(w.occ)) &&
     (l.minRank === undefined || w.rank >= l.minRank) && (l.maxRank === undefined || w.rank <= l.maxRank) &&
-    (!l.setting || l.setting === w.setting) && (!l.bases || l.bases.includes(w.base)) &&
-    ![...(CLASH.get(`${KEY[f]}:${l.id}`) ?? [])].some((c) => w.has.has(c));
+    (!l.setting || l.setting === w.setting) && (!l.bases || l.bases.includes(w.base)))) return false;
+  const clash = CLASH_OF.has(l) ? CLASH_OF.get(l) : CLASH.get(`${KEY[f]}:${l.id}`);
+  if (!clash || !w.has.size) return true;
+  for (const c of clash) if (w.has.has(c)) return false;
+  return true;
 }
 
 function text(r: Rng, l: Line, w: Who): string {
@@ -142,7 +152,7 @@ export const character: Module = {
         const ok = content.pockets.filter((l) => fits("pockets", l, w));
         const out: string[] = [];
         for (let n = w.age < 4 ? 0 : r.chance(0.5) ? 2 : 1; out.length < n && ok.length;) {
-          const t = text(r, r.weighted(ok, (l) => (out.includes(say(l.text, w.sex)) ? 0 : l.weight)), w);
+          const t = text(r, r.weighted(ok, (l) => (out.length && out.includes(say(l.text, w.sex)) ? 0 : l.weight)), w);
           if (out.includes(t)) break;
           out.push(t);
         }

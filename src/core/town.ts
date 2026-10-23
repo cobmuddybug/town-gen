@@ -152,9 +152,9 @@ export class Town {
   /** Resolve everything reachable from the root. Sifters need the whole graph. */
   resolveAll(): void {
     const queue = [this.root];
-    while (queue.length) {
-      const e = this.get(queue.shift()!);
-      queue.push(...e.children);
+    for (let i = 0; i < queue.length; i++) {
+      const e = this.get(queue[i]);
+      for (const c of e.children) queue.push(c);
     }
   }
 
@@ -163,6 +163,11 @@ export class Town {
   }
 
   private societyState: "no" | "running" | "done" = "no";
+
+  /** True once society has run: from then on nothing but the overlay changes what anyone is. */
+  get settled(): boolean {
+    return this.societyState === "done";
+  }
 
   /** Run the settlement-wide phase (once). See Hooks.onSocietyResolved. */
   society(): void {

@@ -110,10 +110,19 @@ function bandFor(town: Town, year: number): { band: number; tooSoon?: number } |
   return result;
 }
 
-export function visitsIn(town: Town, year: number): Visit[] {
+const inMemo = new WeakMap<Town, Map<number, readonly Visit[]>>();
+
+/** The year's visitors, by date. Kept once the town has settled: the crime calendar asks for every day of the year. */
+export function visitsIn(town: Town, year: number): readonly Visit[] {
+  let memo = inMemo.get(town);
+  if (!memo) inMemo.set(town, (memo = new Map()));
+  const hit = memo.get(year);
+  if (hit) return hit;
   const out = coreVisits(town, year);
   for (const src of town.registry<VisitSource>("visitSources").list()) out.push(...src.visits(town, year));
-  return out.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+  out.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+  if (town.settled) memo.set(year, out);
+  return out;
 }
 
 function coreVisits(town: Town, year: number): Visit[] {
