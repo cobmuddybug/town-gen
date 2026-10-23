@@ -9,7 +9,7 @@
 // takes neighbours and its outline comes out the right way round.
 
 import type { Rng } from "../../core/rng";
-import { add, area, cross, dist, dot, insetEdges, len, mul, norm, perp, pointInPoly, qp, qpoly, sub, type Poly, type Pt } from "./geom";
+import { add, area, convexOverlap, cross, dist, dot, insetEdges, len, mul, norm, perp, pointInPoly, qp, qpoly, sub, type Poly, type Pt } from "./geom";
 import type { Face, Side } from "./graph";
 import type { Footprint, PlacedBuilding } from "./hamlet";
 import { leftToRight, type FrontKind, type Plot } from "./streets";
@@ -162,7 +162,7 @@ export function fillBlock(r: Rng, face: Face, kind: BlockKind, front: (s: Side) 
     });
   }
   // Corner pieces: split between the two streets, or one L-shaped house; a house deep, the rest is
-  // yard. A sharp corner is left as a yard; a very blunt one is always one house.
+  // yard. Each corner piece is a run of its own: a house on several lots never takes one. A sharp corner is left as a yard; a very blunt one is always one house.
   const turn = Math.sign(O.reduce((t, v, i) => t + cross(v, O[(i + 1) % n]), 0)) || 1;
   const meet = (p: Pt, u: Pt, q: Pt, v: Pt): Pt | undefined => {
     const den = cross(u, v);
@@ -181,22 +181,21 @@ export function fillBlock(r: Rng, face: Face, kind: BlockKind, front: (s: Side) 
     const X = meet(add(Pp, mul(nP, dd)), eP, add(Pn, mul(nN, dd)), eN);
     // The house's inner corner must fall inside the corner: nearly parallel sides meet far off.
     if (dd < 4 || !X || !pointInPoly(X, c.region) || dist(X, O0) > 3 * dd + dist(O0, Olast)) { open.push({ kind: "yard", poly: qpoly(c.region) }); continue; }
-    const lastIdxP = Math.max(0, ...lots.filter((l) => l.run === runP).map((l) => l.idx)) + 1;
     const fN = front(c.streetNext!), fP = front(c.streetPrev!);
     if (verts.length === 1 && c.angle <= 125 && r.chance(0.6)) {
       if (r.chance(0.5)) {
         // The next street's house takes the whole corner; the other street's stands beside it.
         const Y = meet(O0, eP, add(O0, mul(nN, dd)), eN);
         if (Y && dist(Pp, O0) > dist(Y, O0) + 2) {
-          lots.push(newLot(ids, [O0, Pn, add(Pn, mul(nN, dd)), Y], c.streetNext!, fN, kind, runN, 0, dd, block, "split"));
-          lots.push(newLot(ids, [Pp, Y, X, add(Pp, mul(nP, dd))], c.streetPrev!, fP, kind, runP, lastIdxP, dd, block, "split"));
+          lots.push(newLot(ids, [O0, Pn, add(Pn, mul(nN, dd)), Y], c.streetNext!, fN, kind, ids.run++, 0, dd, block, "split"));
+          lots.push(newLot(ids, [Pp, Y, X, add(Pp, mul(nP, dd))], c.streetPrev!, fP, kind, ids.run++, 0, dd, block, "split"));
           continue;
         }
       } else {
         const Y = meet(O0, eN, add(O0, mul(nP, dd)), eP);
         if (Y && dist(O0, Pn) > dist(O0, Y) + 2) {
-          lots.push(newLot(ids, [Pp, O0, Y, add(Pp, mul(nP, dd))], c.streetPrev!, fP, kind, runP, lastIdxP, dd, block, "split"));
-          lots.push(newLot(ids, [Y, Pn, add(Pn, mul(nN, dd)), X], c.streetNext!, fN, kind, runN, 0, dd, block, "split"));
+          lots.push(newLot(ids, [Pp, O0, Y, add(Pp, mul(nP, dd))], c.streetPrev!, fP, kind, ids.run++, 0, dd, block, "split"));
+          lots.push(newLot(ids, [Y, Pn, add(Pn, mul(nN, dd)), X], c.streetNext!, fN, kind, ids.run++, 0, dd, block, "split"));
           continue;
         }
       }
@@ -252,7 +251,9 @@ export function cutRibbon(r: Rng, line: Pt[], side: 1 | -1, kind: BlockKind, str
       // Facing in from the road: on the left side the earlier end is the left; on the right, the later end.
       const poly: Poly = side === 1 ? [a, b, back(b), back(a)] : [b, a, back(a), back(b)];
       const prev = out[out.length - 1];
-      if (!clear(poly) || (prev && prev.run === run && overlapsPrev(prev.poly, poly))) {
+      // Round a bend, the lots on its inside would cross at the back: check the last few, of any run.
+      const crosses = out.slice(-4).some((q) => q !== prev && convexOverlap(q.poly, poly, -0.2)) || (!!prev && prev.run !== run && convexOverlap(prev.poly, poly, -0.2));
+      if (!clear(poly) || crosses || (prev && prev.run === run && overlapsPrev(prev.poly, poly))) {
         s += w;
         if (idx) { run = ids.run++; idx = 0; }
         continue;

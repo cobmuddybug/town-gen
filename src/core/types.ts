@@ -36,8 +36,8 @@ export interface Edge {
 }
 
 export type Lordship = "free" | "manorial";
-/** How a street plan is laid out: the old radial web, or a town grown along a river. */
-/** How a street plan is laid out: the radial web, or one of the grown forms. */
+/** How a street plan is laid out: one of the grown forms. "radial" is the organic plan (blocks grown round
+ *  the market), which kept the old radial web's name so old links still open. */
 export type LayoutPlan = "radial" | "river" | "ridge" | "castle" | "street" | "crossroads" | "abbey" | "harbour";
 /** What lies over the bridge in a river town. */
 export type FarBank = "village" | "bridgend" | "abbey" | "wharf";

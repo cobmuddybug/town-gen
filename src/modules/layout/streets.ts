@@ -6,7 +6,7 @@ import { TAU, cos, sin } from "../../core/dmath";
 import type { Rng } from "../../core/rng";
 import type { FarBank, LayoutPlan } from "../../core/types";
 import { add, centroid, dist, dot, len, mul, norm, perp, qp, qpoly, sub, type Poly, type Pt } from "./geom";
-import type { Footprint, HamletLayout, PlacedBuilding } from "./hamlet";
+import type { Footprint, HamletLayout, PlacedBuilding, Terrain } from "./hamlet";
 import type { BlockKind, Open } from "./blocks";
 
 export type Scale = "thorp" | "village" | "town" | "city";
@@ -55,7 +55,7 @@ export interface TownLayout extends HamletLayout {
   /** river towns: the old village's green over the bridge */
   farGreen?: Poly;
   /** towns of blocks: each block between the streets, and what it is */
-  blocks?: { outline: Poly; kind: BlockKind; ward: number }[];
+  blocks?: { id: string; outline: Poly; kind: BlockKind; ward: number }[];
   /** towns of blocks: what is left open in them (yards, courts, greens, gardens, graveyards) */
   opens?: Open[];
 }
@@ -74,6 +74,20 @@ export interface Plot {
   used: boolean;
   /** sort key: lower is taken first */
   order: number;
+}
+
+export interface TownOpts {
+  scale: Scale;
+  enclosure: Enclosure;
+  /** main roads, and so gates */
+  roads: number;
+  terrain: Terrain;
+  /** more room than the estimate asks for: 1 unless an earlier try left buildings without plots */
+  room?: number;
+  /** the DM's choices; each is rolled when left out */
+  shape?: "round" | "oval" | "long";
+  market?: "small" | "large";
+  suburbs?: "few" | "many";
 }
 
 export const COMPASS = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];

@@ -162,3 +162,25 @@ describe("ribbons along a lone road", () => {
     expect(gaps(ribbon("shop", "r3"))).toBe(0);
   });
 });
+
+describe("blocks of every shape", () => {
+  test("no two lots overlap in any block of a town's worth of irregular blocks", async () => {
+    const { voronoiCells } = await import("../src/modules/layout/geom");
+    const r = new Rng("fuzz");
+    const seeds: Pt[] = [];
+    for (let i = 0; i < 60; i++) seeds.push([r.range(0, 600), r.range(0, 500)]);
+    const cells = voronoiCells(seeds, [[0, 0], [600, 0], [600, 500], [0, 500]]);
+    const streets: { id: string; width: number; points: Pt[] }[] = [];
+    cells.forEach((c, i) => c.forEach((p, k) => streets.push({ id: `c${i}e${k}`, width: 6, points: [p, c[(k + 1) % c.length]] })));
+    const faces = blockFaces(nodeStreets(streets, 0.5));
+    const bad: string[] = [];
+    faces.forEach((f, i) => {
+      for (const kind of ["shop", "ordinary", "courtyard", "wellOff"] as const) {
+        const { lots } = fillBlock(new Rng(`fz${i}${kind}`), f, kind, () => "street", { next: 0, run: 0 });
+        const quads = lots.filter((l) => l.poly.length === 4).map((l) => l.poly);
+        for (const [a, b] of overlaps(quads)) bad.push(`${i} ${kind} ${a}x${b}`);
+      }
+    });
+    expect(bad).toEqual([]);
+  });
+});

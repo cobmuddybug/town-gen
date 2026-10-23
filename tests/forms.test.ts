@@ -364,3 +364,61 @@ describe("each form's own shape", () => {
     }
   }, 300000);
 });
+
+describe("organic towns (the old radial plan)", () => {
+  const shoelace = (p: Pt[]) => { let a = 0; p.forEach((v, i) => { const w = p[(i + 1) % p.length]; a += v[0] * w[1] - w[0] * v[1]; }); return Math.abs(a) / 2; };
+  const organic = (seed: string, pop: number, terrain?: string) => town(`org-${seed}`, pop, "radial", {}, terrain === "hills" ? "mining" : "agricultural");
+  test.each([800, 3000, 12000])("at %i the blocks come in every shape and size, small at the heart", (pop) => {
+    const { map } = organic("shape", pop);
+    const blocks = map.blocks!;
+    expect(blocks.length).toBeGreaterThanOrEqual(pop >= 3000 ? 20 : 6);
+    expect(new Set(blocks.map((b) => b.outline.length)).size).toBeGreaterThanOrEqual(4);
+    const areas = blocks.map((b) => shoelace(b.outline));
+    const mean = areas.reduce((a, b) => a + b, 0) / areas.length;
+    const sd = Math.sqrt(areas.reduce((a, b) => a + (b - mean) ** 2, 0) / areas.length);
+    expect(sd / mean).toBeGreaterThanOrEqual(0.3);
+    const mc = mid(map.market!);
+    const byDist = blocks.map((b, i) => ({ d: Math.hypot(mid(b.outline)[0] - mc[0], mid(b.outline)[1] - mc[1]), a: areas[i] })).sort((x, y) => x.d - y.d);
+    const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[xs.length >> 1];
+    const third = Math.floor(byDist.length / 3);
+    expect(median(byDist.slice(0, third).map((x) => x.a))).toBeLessThan(median(byDist.slice(-third).map((x) => x.a)));
+  }, 600000);
+  test("roads out bend with the ground", () => {
+    const { map } = organic("roads", 3000);
+    const mains = map.roads.filter((rd) => /^(main\d+|high)$/.test(rd.id));
+    expect(mains.length).toBeGreaterThanOrEqual(3);
+    for (const rd of mains) {
+      const head = (i: number) => Math.atan2(rd.points[i + 1][1] - rd.points[i][1], rd.points[i + 1][0] - rd.points[i][0]);
+      let most = 0;
+      for (let i = 0; i + 1 < rd.points.length; i++) { let d = Math.abs(head(i) - head(0)); if (d > Math.PI) d = 2 * Math.PI - d; most = Math.max(most, d); }
+      expect(most * 180 / Math.PI, rd.id).toBeGreaterThanOrEqual(8);
+    }
+  });
+  test.each([800, 3000])("at %i the blocks inside the wall are built on", (pop) => {
+    const { t, map } = organic("filled", pop);
+    const wall = map.wall?.line;
+    const inWall = (p: Pt) => !wall || wall.length < 4 || pointInPoly(p, wall);
+    const built = new Set(t.children(t.root, "building").map((b) => b.get<string>("block")));
+    const inner = map.blocks!.filter((b) => inWall(mid(b.outline)));
+    expect(inner.filter((b) => built.has(b.id)).length / inner.length).toBeGreaterThanOrEqual(0.85);
+    expect(built.size).toBeGreaterThanOrEqual(6);
+  }, 600000);
+  test("a small town (800) is still a town of blocks, a quarter of its walled ground built on", () => {
+    const { t, map } = organic("small", 800, undefined);
+    const ring = map.wall?.line && map.wall.line.length > 4 ? map.wall.line : map.hedge;
+    const cover = t.children(t.root, "building").filter((b) => pointInPoly(mid(b.get<Pt[]>("poly")), ring))
+      .reduce((s, b) => s + shoelace(b.get<Pt[]>("poly")) + (b.get<{ poly: Pt[] }[]>("parts") ?? []).reduce((u, x) => u + shoelace(x.poly), 0), 0) / shoelace(ring);
+    expect(cover).toBeGreaterThanOrEqual(0.25);
+  }, 600000);
+  test("on hills, streets keep to the slope; the steep ways are lanes", () => {
+    const { map } = organic("hills", 3000, "hills");
+    expect(map.roads.some((rd) => rd.id.startsWith("olane"))).toBe(true);
+    expect(map.contourLines?.length ?? 0).toBeGreaterThanOrEqual(2);
+  }, 600000);
+  test("the same seed gives the same town", () => {
+    clearLayoutCache();
+    const a = JSON.stringify(organic("same", 3000).map);
+    clearLayoutCache();
+    expect(JSON.stringify(organic("same", 3000).map)).toBe(a);
+  }, 600000);
+});

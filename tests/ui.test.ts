@@ -325,7 +325,7 @@ describe("river towns in the UI", () => {
 
   test("the new town dialog offers the layout and the far bank", () => {
     const h = newTownHtml();
-    for (const s of ['name="layout"', 'name="farBank"', "river town", "radial web", "ridge, down to a river", "castle gate", "one long street", "crossroads", "abbey gate", "harbour", "old village", "bridge-end", "abbey's side", "wharf side", 'id="farbank-field"', 'id="shape-field"']) expect(h).toContain(s);
+    for (const s of ['name="layout"', 'name="farBank"', "river town", "organic, grown round its market", "ridge, down to a river", "castle gate", "one long street", "crossroads", "abbey gate", "harbour", "old village", "bridge-end", "abbey's side", "wharf side", 'id="farbank-field"', 'id="shape-field"']) expect(h).toContain(s);
   });
 
   test("the map draws a river town's bridge as a deck, and its high ground", () => {
@@ -339,9 +339,9 @@ describe("river towns in the UI", () => {
     expect(renderMap(generate("draw-ridge", { pop: 3000, design: { layout: "ridge" } }))).toContain('class="m-bridge-deck');
   }, 300000);
 
-  test("a radial town's map is drawn as before", () => {
+  test("an organic town (the old radial plan) has its ground drawn, and no bridge", () => {
     const svg = renderMap(generate("draw-r", { pop: 3000, design: { layout: "radial" } }));
     expect(svg).not.toContain('class="m-bridge-deck"');
-    expect(svg).not.toContain('class="m-high');
+    expect(svg).toContain('class="m-contour');
   }, 300000);
 });

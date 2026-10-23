@@ -1,5 +1,5 @@
 // Layout: the map. Picks the layout for the size (hamlet.ts up to 700 people,
-// else radial.ts or the grown forms in grown.ts), lays out the plan, and makes
+// else the grown engine in grown.ts, whose organic form is the "radial" plan), lays out the plan, and makes
 // the wards and buildings from it. Laying out is the slow part and a pure
 // function of its inputs, so the result is cached by key: an edit that rebuilds
 // the town reuses it. Also the lookups other modules use: nearest buildings of
@@ -7,7 +7,6 @@
 import type { Module } from "../../core/types";
 import type { BuildingUse } from "../uses";
 import { layoutHamlet, type HamletLayout, type Terrain } from "./hamlet";
-import { layoutRadial } from "./radial";
 import { BANKED, layoutGrown } from "./grown";
 import type { FarBank, LayoutPlan } from "../../core/types";
 import type { Enclosure, Scale, TownLayout } from "./streets";
@@ -65,11 +64,11 @@ export const layout: Module = {
         // The room estimate is rough. When it falls short, buildings find no plot and
         // would be lost, so lay the town out again, roomier, from the same stream.
         // A grown town grows its streets to fit, so a short one needs a bigger step to come right.
-        for (let room = 1; ; room += layoutPlan === "radial" ? 0.08 : 0.15) {
+        for (let room = 1; ; room += 0.15) {
           const opts = { scale: s.get<Scale>("sizeClass"), enclosure, roads: s.get<number>("mainRoads"), terrain, ...designed, ...(room > 1 ? { room } : {}) };
-          map = layoutPlan === "radial"
-            ? layoutRadial(ctx.rng(s, "town"), footprints, opts)
-            : layoutGrown(ctx.rng(s, "river"), footprints, { ...opts, form: layoutPlan, ...(BANKED.includes(layoutPlan) ? { farBank } : {}), far: farUses, need: 0 });
+          // The "radial" plan is the organic one now: blocks grown round the market.
+          const form = layoutPlan === "radial" ? "organic" : layoutPlan;
+          map = layoutGrown(ctx.rng(s, "river"), footprints, { ...opts, form, ...(BANKED.includes(form) ? { farBank } : {}), far: farUses, need: 0 });
           if (map.buildings.length >= footprints.length || room > 1.5) break;
         }
         cache.set(key, map);

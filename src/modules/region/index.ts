@@ -37,7 +37,8 @@ export function regionOf(town: Town): Region {
   const map = town.settlement().get<MapData>("map");
   // A grown town's roads are all its streets; the roads out are the main roads (and the high
   // street, where it runs on out of town) that leave the built town behind.
-  const grown = map.kind === "town" && !!map.plan && map.plan !== "radial";
+  // A town's roads are all its streets (the organic plan's too); the roads out are its main roads.
+  const grown = map.kind === "town" && !!map.plan;
   const leadsOut = (rd: MapData["roads"][number]) => !grown ||
     (/^(high|main\d+)$/.test(rd.id) && (!pointInPoly(rd.points[0], map.hedge) || !pointInPoly(rd.points[rd.points.length - 1], map.hedge)));
   const roads: Destination[] = (map.roads ?? []).flatMap((rd, i) => (leadsOut(rd) ? [{ rd, i }] : [])).map(({ rd, i }) => {
