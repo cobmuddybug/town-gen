@@ -147,6 +147,7 @@ export function renderMap(town: Town, opts: MapOptions = {}): string {
   const terrain = m.terrain ?? "farmland";
   out.push(`<rect class="m-bg m-bg-${terrain}" x="${f(bx)}" y="${f(by)}" width="${f(bw)}" height="${f(bh)}"/>`);
   for (const c of m.contours ?? []) out.push(`<path class="m-contour" d="${smoothPath(c, true)}"/>`);
+  for (const c of m.contourLines ?? []) out.push(`<path class="m-contour" d="${smoothPath(c, false)}"/>`);
   // A river town's high ground: soft lines of equal height.
   for (const c of m.high ?? []) out.push(`<path class="m-high" d="${smoothPath(c, false)}"><title>higher ground</title></path>`);
 
