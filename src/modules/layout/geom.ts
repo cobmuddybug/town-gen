@@ -225,33 +225,43 @@ export function isConvex(p: Poly): boolean {
 }
 
 /**
- * Shrink a polygon by `d`: every edge moves inward by d and meets its neighbours. An edge that
- * shrinks to nothing is dropped and its neighbours meet instead, so small sides vanish as they
- * would. Fine for blocks, which are convex or a little concave; empty if nothing is left.
+ * Shrink a polygon: every edge moves inward by its distance (one for all, or one per edge) and meets
+ * its neighbours. An edge that shrinks to nothing is dropped and its neighbours meet instead, so small
+ * sides vanish as they would. `edges[i]` is the original edge the output's edge i (from vertex i to
+ * i + 1) lies along. Fine for blocks, convex or a little concave; empty if nothing is left.
  */
-export function insetPoly(p: Poly, d: number): Poly {
-  let pts = p.slice();
-  for (let guard = 0; guard < p.length && pts.length >= 3; guard++) {
-    const s = Math.sign(signedArea2(pts)) || 1;
-    const n = pts.length;
-    // Each edge's inward line: a point on it and its direction.
-    const lines = pts.map((a, i) => {
-      const e = sub(pts[(i + 1) % n], a);
-      const inward = mul(norm(perp(e)), s);
-      return { a: add(a, mul(inward, d)), e };
-    });
+export function insetEdges(p: Poly, d: number | number[]): { poly: Poly; edges: number[] } {
+  const n0 = p.length;
+  if (n0 < 3) return { poly: [], edges: [] };
+  const s = Math.sign(signedArea2(p)) || 1;
+  let lines = p.map((a, i) => {
+    const e = sub(p[(i + 1) % n0], a);
+    const k = typeof d === "number" ? d : d[i];
+    return { a: add(a, mul(norm(perp(e)), s * k)), e, src: i };
+  }).filter((l) => len(l.e) > 1e-9);
+  while (lines.length >= 3) {
+    const n = lines.length;
     const out: Pt[] = [];
     for (let i = 0; i < n; i++) {
       const L0 = lines[(i + n - 1) % n], L1 = lines[i];
       const den = cross(L0.e, L1.e);
-      out.push(Math.abs(den) < 1e-9 ? L1.a : add(L0.a, mul(L0.e, cross(sub(L1.a, L0.a), L1.e) / den)));
+      out.push(Math.abs(den) < 1e-9 * len(L0.e) * len(L1.e) ? L1.a : add(L0.a, mul(L0.e, cross(sub(L1.a, L0.a), L1.e) / den)));
     }
-    // An edge whose inset runs backwards has vanished: drop its corner and try again.
-    const gone = out.findIndex((v, i) => dot(sub(out[(i + 1) % n], v), lines[i].e) <= 0);
-    if (gone < 0) return signedArea2(out) * s > 0 ? out : [];
-    pts = pts.filter((_, i) => i !== (gone + 1) % n);
+    // An edge whose inset runs backwards has vanished: drop it, and its neighbours meet.
+    let worst = -1, wv = 0;
+    for (let i = 0; i < n; i++) {
+      const v = dot(sub(out[(i + 1) % n], out[i]), lines[i].e) / len(lines[i].e);
+      if (v < wv) { wv = v; worst = i; }
+    }
+    if (worst < 0) return signedArea2(out) * s > 0 ? { poly: out, edges: lines.map((l) => l.src) } : { poly: [], edges: [] };
+    lines = lines.filter((_, i) => i !== worst);
   }
-  return [];
+  return { poly: [], edges: [] };
+}
+
+/** Shrink a polygon by `d` on every side (see insetEdges). */
+export function insetPoly(p: Poly, d: number): Poly {
+  return insetEdges(p, d).poly;
 }
 
 /** The part of a convex polygon where dot(x - a, n) >= 0. */
